@@ -1,0 +1,107 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
+import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
+import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
+import 'package:family_planner/features/tasks/presentation/cubit/task_completion_state.dart';
+
+void main() {
+  late FakeTaskRepository repository;
+  late CompleteTaskUseCase completeTask;
+  late TaskCompletionCubit cubit;
+
+  final completedAt = DateTime.utc(2026, 7, 20, 10);
+
+  final task = Task(
+    id: 'task-1',
+    householdId: 'household-1',
+    title: 'Пропылесосить гостиную',
+    estimatedDurationMinutes: 20,
+    plannedFor: DateTime.utc(2026, 7, 20),
+    allowedMemberIds: const ['member-1'],
+    status: TaskStatus.pending,
+    createdAt: DateTime.utc(2026, 7, 19, 12),
+  );
+
+  setUp(() {
+    repository = FakeTaskRepository();
+    completeTask = CompleteTaskUseCase(
+      repository: repository,
+      now: () => completedAt,
+    );
+    cubit = TaskCompletionCubit(completeTaskUseCase: completeTask);
+  });
+
+  tearDown(() async {
+    await cubit.close();
+  });
+
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'выдаёт InProgress и Success, когда задача успешно выполнена',
+    build: () => cubit,
+    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-1'),
+    expect: () => [
+      const TaskCompletionInProgress(),
+      TaskCompletionSuccess(
+        task: task.copyWith(
+          assignedMemberId: 'member-1',
+          status: TaskStatus.completed,
+          completedAt: completedAt,
+        ),
+      ),
+    ],
+    verify: (_) {
+      expect(repository.savedTasks, hasLength(1));
+    },
+  );
+
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'выдаёт InProgress и Failure, когда участник не может выполнить задачу',
+    build: () => cubit,
+    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-2'),
+    expect: () => const [
+      TaskCompletionInProgress(),
+      TaskCompletionFailure(message: 'У вас нет права выполнить эту задачу.'),
+    ],
+    verify: (_) {
+      expect(repository.savedTasks, isEmpty);
+    },
+  );
+}
+
+final class FakeTaskRepository implements TaskRepository {
+  final List<Task> savedTasks = [];
+
+  @override
+  Future<void> delete({required String taskId}) async {}
+
+  @override
+  Future<List<Task>> getScheduledAfter({
+    required String householdId,
+    required DateTime day,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<List<Task>> getForDay({
+    required String householdId,
+    required DateTime day,
+  }) async {
+    return const [];
+  }
+
+  @override
+  Future<Task> create({required CreateTaskParams params}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> save(Task task) async {
+    savedTasks.add(task);
+  }
+}
