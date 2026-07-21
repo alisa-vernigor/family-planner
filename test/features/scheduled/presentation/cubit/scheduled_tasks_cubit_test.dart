@@ -58,10 +58,7 @@ void main() {
 }
 
 final class _FakeTaskRepository implements TaskRepository {
-  _FakeTaskRepository({
- this.tasks = const [],
-  this.shouldThrow = false,
-  });
+  _FakeTaskRepository({this.tasks = const [], this.shouldThrow = false});
 
   final List<Task> tasks;
   final bool shouldThrow;

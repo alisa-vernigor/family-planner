@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../domain/entities/household.dart';
+import '../../domain/entities/household_invitation.dart';
 import '../../domain/entities/household_member.dart';
 import '../../domain/repositories/household_repository.dart';
 
@@ -61,21 +62,64 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
   }
 
   @override
-  Future<HouseholdMember> addMemberByEmail({
+  Future<void> createInvitation({
     required String householdId,
     required String email,
   }) async {
-    final row =
-        await _client.rpc(
-              'add_household_member_by_email',
-              params: {'p_household_id': householdId, 'p_email': email.trim()},
-            )
-            as Map<String, dynamic>;
+    await _client.rpc(
+      'create_household_invitation',
+      params: {
+        'p_household_id': householdId,
+        'p_email': email.trim().toLowerCase(),
+      },
+    );
+  }
 
-    return HouseholdMember(
-      profileId: row['profile_id'] as String,
-      displayName: row['display_name'] as String,
-      role: 'member',
+  @override
+  Future<List<HouseholdInvitation>> getPendingInvitations() async {
+    final rows = await _client
+        .from('household_invitations')
+        .select(
+          'id, household_id, created_at, expires_at, '
+          'households(name), '
+          'profiles!household_invitations_invited_by_profile_id_fkey('
+          'display_name'
+          ')',
+        )
+        .eq('status', 'pending')
+        .order('created_at', ascending: false);
+
+    return rows
+        .map((row) {
+          final household = row['households'] as Map<String, dynamic>;
+          final inviter = row['profiles'] as Map<String, dynamic>;
+
+          return HouseholdInvitation(
+            id: row['id'] as String,
+            householdId: row['household_id'] as String,
+            householdName: household['name'] as String,
+            invitedByDisplayName: inviter['display_name'] as String,
+            createdAt: DateTime.parse(row['created_at'] as String),
+            expiresAt: DateTime.parse(row['expires_at'] as String),
+          );
+        })
+        .toList(growable: false);
+  }
+
+  @override
+  Future<String> acceptInvitation({required String invitationId}) async {
+    return await _client.rpc(
+          'accept_household_invitation',
+          params: {'p_invitation_id': invitationId},
+        )
+        as String;
+  }
+
+  @override
+  Future<void> declineInvitation({required String invitationId}) async {
+    await _client.rpc(
+      'decline_household_invitation',
+      params: {'p_invitation_id': invitationId},
     );
   }
 }

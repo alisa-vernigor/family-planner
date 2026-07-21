@@ -5,6 +5,8 @@ import 'package:family_planner/features/households/domain/entities/household.dar
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/today/presentation/pages/today_page.dart';
+import 'package:family_planner/features/households/presentation/pages/household_invitations_page.dart';
+import 'package:family_planner/features/households/presentation/pages/household_members_page.dart';
 
 final class HouseholdGate extends StatefulWidget {
   const HouseholdGate({required this.currentMemberId, super.key});
@@ -72,7 +74,7 @@ final class _HouseholdGateState extends State<HouseholdGate> {
   }
 }
 
-final class _HouseholdSelector extends StatelessWidget {
+final class _HouseholdSelector extends StatefulWidget {
   const _HouseholdSelector({
     required this.households,
     required this.currentMemberId,
@@ -82,19 +84,120 @@ final class _HouseholdSelector extends StatelessWidget {
   final String currentMemberId;
 
   @override
-  Widget build(BuildContext context) {
-    final selectedHousehold = households.first;
+  State<_HouseholdSelector> createState() => _HouseholdSelectorState();
+}
 
-    return TodayPage(
-      householdId: selectedHousehold.id,
-      householdName: selectedHousehold.name,
-      currentMemberId: currentMemberId,
+final class _HouseholdSelectorState extends State<_HouseholdSelector> {
+  late String _selectedHouseholdId;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedHouseholdId = widget.households.first.id;
+  }
+
+  @override
+  void didUpdateWidget(covariant _HouseholdSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final exists = widget.households.any(
+      (household) => household.id == _selectedHouseholdId,
+    );
+
+    if (!exists) {
+      _selectedHouseholdId = widget.households.first.id;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedHousehold = widget.households.firstWhere(
+      (household) => household.id == _selectedHouseholdId,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selectedHousehold.id,
+            items: widget.households
+                .map(
+                  (household) => DropdownMenuItem(
+                    value: household.id,
+                    child: Text(household.name),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (householdId) {
+              if (householdId == null) {
+                return;
+              }
+
+              setState(() {
+                _selectedHouseholdId = householdId;
+              });
+            },
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Участники',
+            icon: const Icon(Icons.group_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => HouseholdMembersPage(
+                    householdId: selectedHousehold.id,
+                    householdName: selectedHousehold.name,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            tooltip: 'Приглашения',
+            icon: const Icon(Icons.mail_outline),
+            onPressed: () async {
+              await Navigator.of(context).push<String>(
+                MaterialPageRoute(
+                  builder: (_) => const HouseholdInvitationsPage(),
+                ),
+              );
+
+              if (!context.mounted) {
+                return;
+              }
+
+              context.read<HouseholdCubit>().load();
+            },
+          ),
+          IconButton(
+            tooltip: 'Создать семью',
+            icon: const Icon(Icons.add_home_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const CreateHouseholdPage(closeAfterCreate: true),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+      body: TodayPage(
+        householdId: selectedHousehold.id,
+        householdName: selectedHousehold.name,
+        currentMemberId: widget.currentMemberId,
+      ),
     );
   }
 }
 
 final class CreateHouseholdPage extends StatefulWidget {
-  const CreateHouseholdPage({super.key});
+  const CreateHouseholdPage({this.closeAfterCreate = false, super.key});
+
+  final bool closeAfterCreate;
 
   @override
   State<CreateHouseholdPage> createState() => _CreateHouseholdPageState();
@@ -120,7 +223,12 @@ final class _CreateHouseholdPageState extends State<CreateHouseholdPage> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<HouseholdCubit, HouseholdState>(
+    return BlocConsumer<HouseholdCubit, HouseholdState>(
+      listener: (context, state) {
+        if (widget.closeAfterCreate && state is HouseholdLoaded) {
+          Navigator.of(context).pop();
+        }
+      },
       builder: (context, state) {
         final isLoading = state is HouseholdLoading;
         final errorMessage = state is HouseholdFailure ? state.message : null;

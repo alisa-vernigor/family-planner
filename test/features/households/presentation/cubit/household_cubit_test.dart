@@ -8,6 +8,7 @@ import 'package:family_planner/features/households/domain/use_cases/create_house
 import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
+import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
 
 void main() {
   const household = Household(id: 'household-1', name: 'Наша семья');
@@ -109,14 +110,6 @@ final class FakeHouseholdRepository implements HouseholdRepository {
   }
 
   @override
-  Future<HouseholdMember> addMemberByEmail({
-    required String householdId,
-    required String email,
-  }) {
-    throw UnimplementedError();
-  }
-
-  @override
   Future<List<HouseholdMember>> getMembers({
     required String householdId,
   }) async {
@@ -130,5 +123,28 @@ final class FakeHouseholdRepository implements HouseholdRepository {
     }
 
     return households;
+  }
+
+  @override
+  Future<void> createInvitation({
+    required String householdId,
+    required String email,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<HouseholdInvitation>> getPendingInvitations() {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<String> acceptInvitation({required String invitationId}) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> declineInvitation({required String invitationId}) {
+    throw UnimplementedError();
   }
 }

@@ -1,20 +1,20 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
-import 'package:family_planner/features/households/domain/use_cases/add_household_member_by_email_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/households/domain/use_cases/create_household_invitation_use_case.dart';
+import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
 
 import 'household_members_state.dart';
 
 final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
   HouseholdMembersCubit({
-    required this.addHouseholdMemberByEmailUseCase,
     required this.getHouseholdMembersUseCase,
+    required this.createHouseholdInvitationUseCase,
   }) : super(const HouseholdMembersInitial());
 
-  final AddHouseholdMemberByEmailUseCase addHouseholdMemberByEmailUseCase;
   final GetHouseholdMembersUseCase getHouseholdMembersUseCase;
+  final CreateHouseholdInvitationUseCase createHouseholdInvitationUseCase;
 
   Future<void> load({required String householdId}) async {
     emit(const HouseholdMembersLoading());
@@ -34,45 +34,41 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
     }
   }
 
-  Future<void> addByEmail({
+  Future<void> inviteByEmail({
     required String householdId,
     required String email,
   }) async {
-    final List<HouseholdMember> existingMembers = switch (state) {
-      HouseholdMembersLoaded(:final members) => members,
-      HouseholdMemberAdded(:final members) => members,
-      HouseholdMemberAdding(:final members) => members,
-      _ => const <HouseholdMember>[],
-    };
+    final members = _currentMembers;
 
-    emit(HouseholdMemberAdding(members: existingMembers));
+    emit(HouseholdInvitationSending(members: members));
 
     try {
-      final member = await addHouseholdMemberByEmailUseCase(
+      await createHouseholdInvitationUseCase(
         householdId: householdId,
         email: email,
       );
 
-      final updatedMembers = [
-        ...existingMembers.where(
-          (existingMember) => existingMember.profileId != member.profileId,
-        ),
-        member,
-      ];
-
       AppLogger.info(
-        'Участник добавлен в семью: '
-        'householdId=$householdId; profileId=${member.profileId}',
+        'Приглашение в семью отправлено: householdId=$householdId',
       );
 
-      emit(HouseholdMemberAdded(members: updatedMembers, addedMember: member));
+      emit(HouseholdInvitationSent(members: members));
     } catch (exception, stackTrace) {
       _emitFailure(
         exception: exception,
         stackTrace: stackTrace,
-        message: 'Не удалось добавить участника в семью.',
+        message: 'Не удалось отправить приглашение.',
       );
     }
+  }
+
+  List<HouseholdMember> get _currentMembers {
+    return switch (state) {
+      HouseholdMembersLoaded(:final members) => members,
+      HouseholdInvitationSending(:final members) => members,
+      HouseholdInvitationSent(:final members) => members,
+      _ => const <HouseholdMember>[],
+    };
   }
 
   void _emitFailure({

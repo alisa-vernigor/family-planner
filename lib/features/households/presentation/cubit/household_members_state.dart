@@ -26,17 +26,8 @@ final class HouseholdMembersLoaded extends HouseholdMembersState {
   List<Object?> get props => [members];
 }
 
-final class HouseholdMembersFailure extends HouseholdMembersState {
-  const HouseholdMembersFailure({required this.message});
-
-  final String message;
-
-  @override
-  List<Object?> get props => [message];
-}
-
-final class HouseholdMemberAdding extends HouseholdMembersState {
-  const HouseholdMemberAdding({required this.members});
+final class HouseholdInvitationSending extends HouseholdMembersState {
+  const HouseholdInvitationSending({required this.members});
 
   final List<HouseholdMember> members;
 
@@ -44,15 +35,20 @@ final class HouseholdMemberAdding extends HouseholdMembersState {
   List<Object?> get props => [members];
 }
 
-final class HouseholdMemberAdded extends HouseholdMembersState {
-  const HouseholdMemberAdded({
-    required this.members,
-    required this.addedMember,
-  });
+final class HouseholdInvitationSent extends HouseholdMembersState {
+  const HouseholdInvitationSent({required this.members});
 
   final List<HouseholdMember> members;
-  final HouseholdMember addedMember;
 
   @override
-  List<Object?> get props => [members, addedMember];
+  List<Object?> get props => [members];
+}
+
+final class HouseholdMembersFailure extends HouseholdMembersState {
+  const HouseholdMembersFailure({required this.message});
+
+  final String message;
+
+  @override
+  List<Object?> get props => [message];
 }

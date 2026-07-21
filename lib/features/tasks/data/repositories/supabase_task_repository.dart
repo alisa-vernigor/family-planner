@@ -1,9 +1,9 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../domain/entities/create_task_params.dart';
 import '../../domain/entities/task.dart';
 import '../../domain/entities/task_status.dart';
 import '../../domain/repositories/task_repository.dart';
-import '../../domain/entities/create_task_params.dart';
 
 final class SupabaseTaskRepository implements TaskRepository {
   SupabaseTaskRepository({required this._client});
@@ -58,6 +58,10 @@ final class SupabaseTaskRepository implements TaskRepository {
 
   @override
   Future<Task> create({required CreateTaskParams params}) async {
+    if (params.isRecurring) {
+      return _createRecurring(params: params);
+    }
+
     final row =
         await _client.rpc(
               'create_task_occurrence',
@@ -72,26 +76,37 @@ final class SupabaseTaskRepository implements TaskRepository {
             )
             as Map<String, dynamic>;
 
-    final currentUserId = _client.auth.currentUser?.id;
+    return _taskFromCreatedRow(row);
+  }
 
-    if (currentUserId == null) {
-      throw const TaskUserNotAuthenticatedException();
-    }
+  Future<Task> _createRecurring({required CreateTaskParams params}) async {
+    final recurrence = params.recurrence!;
 
-    return Task(
-      id: row['id'] as String,
-      householdId: row['household_id'] as String,
-      title: row['title'] as String,
-      description: row['description'] as String?,
-      estimatedDurationMinutes: row['estimated_duration_minutes'] as int,
-      plannedFor: DateTime.parse(row['planned_for'] as String),
-      deadline: _parseNullableDateTime(row['deadline_at']),
-      allowedMemberIds: [currentUserId],
-      assignedMemberId: row['assigned_member_id'] as String?,
-      status: _toTaskStatus(row['status'] as String),
-      createdAt: DateTime.parse(row['created_at'] as String),
-      completedAt: _parseNullableDateTime(row['completed_at']),
-    );
+    final row =
+        await _client.rpc(
+              'create_recurring_task_template',
+              params: {
+                'p_household_id': params.householdId,
+                'p_title': params.title,
+                'p_description': params.description ?? '',
+                'p_estimated_duration_minutes': params.estimatedDurationMinutes,
+                'p_start_date': _dateOnly(
+                  params.recurrenceStartDate ?? params.plannedFor,
+                ),
+                'p_deadline_time': params.deadline == null
+                    ? null
+                    : _timeOnly(params.deadline!),
+                'p_recurrence_type': recurrence.type.databaseValue,
+                'p_interval_days': recurrence.intervalDays,
+                'p_weekdays': recurrence.weekdays,
+                'p_end_date': params.recurrenceEndDate == null
+                    ? null
+                    : _dateOnly(params.recurrenceEndDate!),
+              },
+            )
+            as Map<String, dynamic>;
+
+    return _taskFromCreatedRow(row);
   }
 
   @override
@@ -117,6 +132,29 @@ final class SupabaseTaskRepository implements TaskRepository {
   @override
   Future<void> delete({required String taskId}) async {
     await _client.from('task_occurrences').delete().eq('id', taskId);
+  }
+
+  Task _taskFromCreatedRow(Map<String, dynamic> row) {
+    final currentUserId = _client.auth.currentUser?.id;
+
+    if (currentUserId == null) {
+      throw const TaskUserNotAuthenticatedException();
+    }
+
+    return Task(
+      id: row['id'] as String,
+      householdId: row['household_id'] as String,
+      title: row['title'] as String,
+      description: row['description'] as String?,
+      estimatedDurationMinutes: row['estimated_duration_minutes'] as int,
+      plannedFor: DateTime.parse(row['planned_for'] as String),
+      deadline: _parseNullableDateTime(row['deadline_at']),
+      allowedMemberIds: [currentUserId],
+      assignedMemberId: row['assigned_member_id'] as String?,
+      status: _toTaskStatus(row['status'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String),
+      completedAt: _parseNullableDateTime(row['completed_at']),
+    );
   }
 
   Task _toTask(Map<String, dynamic> row) {
@@ -164,6 +202,14 @@ final class SupabaseTaskRepository implements TaskRepository {
     final day = value.day.toString().padLeft(2, '0');
 
     return '$year-$month-$day';
+  }
+
+  String _timeOnly(DateTime value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    final second = value.second.toString().padLeft(2, '0');
+
+    return '$hour:$minute:$second';
   }
 }
 
