@@ -42,11 +42,11 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
     emit(const HouseholdLoading());
 
     try {
-      final household = await createHouseholdUseCase(name: name);
+      await createHouseholdUseCase(name: name);
 
-      AppLogger.info('Создана семья: householdId=${household.id}');
+      AppLogger.info('Создана семья');
 
-      emit(HouseholdLoaded(households: [household]));
+      await load();
     } catch (exception, stackTrace) {
       _emitFailure(exception, stackTrace);
     }

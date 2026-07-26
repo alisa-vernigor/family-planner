@@ -80,7 +80,9 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
 
   @override
   Future<List<HouseholdInvitation>> getPendingInvitations() async {
-    final rows = await _client
+    final currentUserId = _client.auth.currentUser?.id;
+
+    var query = _client
         .from('household_invitations')
         .select(
           'id, household_id, created_at, expires_at, invited_by_profile_id, '
@@ -88,8 +90,13 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
           'display_name'
           ')',
         )
-        .eq('status', 'pending')
-        .order('created_at', ascending: false);
+        .eq('status', 'pending');
+
+    if (currentUserId != null) {
+      query = query.neq('invited_by_profile_id', currentUserId);
+    }
+
+    final rows = await query.order('created_at', ascending: false);
 
     if (rows.isEmpty) return [];
 

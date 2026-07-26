@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show PostgresChangeEvent, RealtimeChannel, PostgresChangeFilter, PostgresChangeFilterType;
 
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
+import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_state.dart';
+import 'package:family_planner/features/tasks/presentation/cubit/task_actions_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
@@ -48,6 +55,16 @@ final class TodayPage extends StatelessWidget {
             ),
           ),
         ),
+        BlocProvider(
+          create: (_) => TaskActionsCubit(
+            uncompleteTaskUseCase: UncompleteTaskUseCase(
+              repository: repository,
+            ),
+            deleteTaskUseCase: DeleteTaskUseCase(
+              repository: repository,
+            ),
+          ),
+        ),
       ],
       child: _TodayView(
         householdId: householdId,
@@ -77,10 +94,58 @@ final class _TodayView extends StatefulWidget {
 }
 
 final class _TodayViewState extends State<_TodayView> {
+  RealtimeChannel? _realtimeChannel;
+
   @override
   void initState() {
     super.initState();
 
+    _subscribeToRealtime(widget.householdId);
+    _loadTasks();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TodayView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.householdId != widget.householdId) {
+      _unsubscribeFromRealtime();
+      _subscribeToRealtime(widget.householdId);
+      _loadTasks();
+    }
+  }
+
+  @override
+  void dispose() {
+    _unsubscribeFromRealtime();
+    super.dispose();
+  }
+
+  void _subscribeToRealtime(String householdId) {
+    _realtimeChannel = Supabase.instance.client
+        .channel('task-occurrences-$householdId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'task_occurrences',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'household_id',
+            value: householdId,
+          ),
+          callback: (_) {
+            if (mounted) _reloadTasks();
+          },
+        )
+        .subscribe();
+  }
+
+  void _unsubscribeFromRealtime() {
+    _realtimeChannel?.unsubscribe();
+    _realtimeChannel = null;
+  }
+
+  void _loadTasks() {
     context.read<TodayTasksCubit>().load(
       householdId: widget.householdId,
       day: widget.day,
@@ -110,27 +175,81 @@ final class _TodayViewState extends State<_TodayView> {
     }
   }
 
+  Future<void> _openEditTaskSheet(Task task) async {
+    final wasEdited = await showEditTaskSheet(context: context, task: task);
+
+    if (wasEdited == true && mounted) {
+      _reloadTasks();
+    }
+  }
+
+  Future<void> _deleteTask(Task task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить задачу?'),
+        content: Text('Вы уверены, что хотите удалить задачу «${task.title}»?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final actionsCubit = context.read<TaskActionsCubit>();
+    final deleted = await actionsCubit.deleteTask(taskId: task.id);
+
+    if (deleted && mounted) {
+      _reloadTasks();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocListener<TaskCompletionCubit, TaskCompletionState>(
-      listener: (context, state) {
-        switch (state) {
-          case TaskCompletionSuccess():
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Задача выполнена. Отличная работа!'),
-              ),
-            );
-            _reloadTasks();
-          case TaskCompletionFailure(:final message):
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(message)));
-          case TaskCompletionInitial():
-          case TaskCompletionInProgress():
-            break;
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<TaskCompletionCubit, TaskCompletionState>(
+          listener: (context, state) {
+            switch (state) {
+              case TaskCompletionSuccess():
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Задача выполнена. Отличная работа!'),
+                  ),
+                );
+                _reloadTasks();
+              case TaskCompletionFailure(:final message):
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
+              case TaskCompletionInitial():
+              case TaskCompletionInProgress():
+                break;
+            }
+          },
+        ),
+        BlocListener<TaskActionsCubit, TaskCompletionState>(
+          listener: (context, state) {
+            if (state case TaskCompletionFailure(:final message)) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(message)));
+            }
+          },
+        ),
+      ],
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.householdName),
@@ -213,6 +332,18 @@ final class _TodayViewState extends State<_TodayView> {
                     return _TodayTaskCard(
                       task: todayTasks[index],
                       memberId: widget.currentMemberId,
+                      onEdit: () => _openEditTaskSheet(todayTasks[index]),
+                      onDelete: () => _deleteTask(todayTasks[index]),
+                      onUncomplete: () async {
+                        final actionsCubit =
+                            context.read<TaskActionsCubit>();
+                        final result = await actionsCubit.uncompleteTask(
+                          task: todayTasks[index],
+                        );
+                        if (result != null && mounted) {
+                          _reloadTasks();
+                        }
+                      },
                     );
                   },
                 );
@@ -225,10 +356,19 @@ final class _TodayViewState extends State<_TodayView> {
 }
 
 final class _TodayTaskCard extends StatelessWidget {
-  const _TodayTaskCard({required this.task, required this.memberId});
+  const _TodayTaskCard({
+    required this.task,
+    required this.memberId,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onUncomplete,
+  });
 
   final Task task;
   final String memberId;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onUncomplete;
 
   @override
   Widget build(BuildContext context) {
@@ -240,43 +380,100 @@ final class _TodayTaskCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(task.title, style: Theme.of(context).textTheme.titleLarge),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      decoration: isCompleted
+                          ? TextDecoration.lineThrough
+                          : null,
+                    ),
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  tooltip: 'Действия',
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'edit':
+                        onEdit();
+                      case 'delete':
+                        onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'edit',
+                      child: ListTile(
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Редактировать'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: ListTile(
+                        leading: Icon(Icons.delete_outline),
+                        title: Text('Удалить'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
             if (task.description != null) ...[
               const SizedBox(height: 8),
               Text(
                 task.description!,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  decoration: isCompleted
+                      ? TextDecoration.lineThrough
+                      : null,
+                ),
               ),
             ],
             const SizedBox(height: 16),
             Text('Примерно ${task.estimatedDurationMinutes} минут'),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: BlocBuilder<TaskCompletionCubit, TaskCompletionState>(
-                builder: (context, completionState) {
-                  final isThisTaskInProgress =
-                      completionState is TaskCompletionInProgress;
+            Row(
+              children: [
+                Expanded(
+                  child: BlocBuilder<TaskCompletionCubit, TaskCompletionState>(
+                    builder: (context, completionState) {
+                      final isThisTaskInProgress =
+                          completionState is TaskCompletionInProgress;
 
-                  return FilledButton.icon(
-                    key: Key('complete_task_button_${task.id}'),
-                    onPressed: isCompleted || isThisTaskInProgress
-                        ? null
-                        : () {
-                            context.read<TaskCompletionCubit>().completeTask(
-                              task: task,
-                              memberId: memberId,
-                            );
-                          },
-                    icon: Icon(
-                      isCompleted
-                          ? Icons.check_circle
-                          : Icons.check_circle_outline,
-                    ),
-                    label: Text(isCompleted ? 'Выполнено' : 'Выполнить'),
-                  );
-                },
-              ),
+                      if (isCompleted) {
+                        return OutlinedButton.icon(
+                          onPressed: isThisTaskInProgress ? null : onUncomplete,
+                          icon: const Icon(Icons.undo),
+                          label: const Text('Отменить'),
+                        );
+                      }
+
+                      return FilledButton.icon(
+                        key: Key('complete_task_button_${task.id}'),
+                        onPressed: task.canBeCompletedBy(memberId) &&
+                                !isThisTaskInProgress
+                            ? () {
+                                context
+                                    .read<TaskCompletionCubit>()
+                                    .completeTask(
+                                      task: task,
+                                      memberId: memberId,
+                                    );
+                              }
+                            : null,
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text('Выполнить'),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
