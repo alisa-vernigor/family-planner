@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'
+    show Supabase, RealtimeChannel, PostgresChangeEvent, PostgresChangeFilter, PostgresChangeFilterType;
 
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
@@ -39,10 +41,43 @@ final class _ScheduledView extends StatefulWidget {
 }
 
 final class _ScheduledViewState extends State<_ScheduledView> {
+  RealtimeChannel? _realtimeChannel;
+
   @override
   void initState() {
     super.initState();
+    _subscribeToRealtime(widget.householdId);
     _reloadTasks();
+  }
+
+  @override
+  void dispose() {
+    _unsubscribeFromRealtime();
+    super.dispose();
+  }
+
+  void _subscribeToRealtime(String householdId) {
+    _realtimeChannel = Supabase.instance.client
+        .channel('scheduled-tasks-$householdId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'task_occurrences',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'household_id',
+            value: householdId,
+          ),
+          callback: (_) {
+            if (mounted) _reloadTasks();
+          },
+        )
+        .subscribe();
+  }
+
+  void _unsubscribeFromRealtime() {
+    _realtimeChannel?.unsubscribe();
+    _realtimeChannel = null;
   }
 
   void _reloadTasks() {
