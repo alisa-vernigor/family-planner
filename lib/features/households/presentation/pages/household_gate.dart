@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
+import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
+import 'package:family_planner/features/households/presentation/cubit/household_invitations_state.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/today/presentation/pages/today_page.dart';
 import 'package:family_planner/features/households/presentation/pages/household_invitations_page.dart';
@@ -94,6 +96,7 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
   void initState() {
     super.initState();
     _selectedHouseholdId = widget.households.first.id;
+    context.read<HouseholdInvitationsCubit>().load();
   }
 
   @override
@@ -109,8 +112,93 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
     }
   }
 
+  Future<void> _showRenameDialog(
+    BuildContext context,
+    Household household,
+  ) async {
+    final controller = TextEditingController(text: household.name);
+
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Переименовать семью'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            labelText: 'Название семьи',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final trimmed = controller.text.trim();
+              if (trimmed.isNotEmpty) {
+                Navigator.of(ctx).pop(trimmed);
+              }
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    if (name == null || !context.mounted) return;
+
+    context.read<HouseholdCubit>().update(
+      householdId: household.id,
+      name: name,
+    );
+  }
+
+  Future<void> _deleteHousehold(
+    BuildContext context,
+    Household household,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить семью?'),
+        content: Text(
+          'Все данные семьи «${household.name}» будут удалены. '
+          'Это действие нельзя отменить.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+              foregroundColor: Theme.of(ctx).colorScheme.onError,
+            ),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    context.read<HouseholdCubit>().delete(householdId: household.id);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!widget.households.any((h) => h.id == _selectedHouseholdId)) {
+      _selectedHouseholdId = widget.households.first.id;
+    }
+
     final selectedHousehold = widget.households.firstWhere(
       (household) => household.id == _selectedHouseholdId,
     );
@@ -121,6 +209,11 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
           child: DropdownButton<String>(
             value: selectedHousehold.id,
             items: widget.households
+                .fold<Map<String, Household>>(
+                  {},
+                  (map, h) => map..putIfAbsent(h.id, () => h),
+                )
+                .values
                 .map(
                   (household) => DropdownMenuItem(
                     value: household.id,
@@ -149,14 +242,34 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
                   builder: (_) => HouseholdMembersPage(
                     householdId: selectedHousehold.id,
                     householdName: selectedHousehold.name,
+                    currentMemberId: widget.currentMemberId,
                   ),
                 ),
-              );
+              ).then((_) {
+                if (context.mounted) {
+                  context.read<HouseholdCubit>().load();
+                }
+              });
             },
           ),
           IconButton(
             tooltip: 'Приглашения',
-            icon: const Icon(Icons.mail_outline),
+            icon: BlocBuilder<HouseholdInvitationsCubit,
+                HouseholdInvitationsState>(
+              builder: (context, state) {
+                final count = switch (state) {
+                  HouseholdInvitationsLoaded(:final invitations) =>
+                    invitations.length,
+                  _ => 0,
+                };
+
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  child: const Icon(Icons.mail_outline),
+                );
+              },
+            ),
             onPressed: () async {
               await Navigator.of(context).push<String>(
                 MaterialPageRoute(
@@ -182,6 +295,37 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
                 ),
               );
             },
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Ещё',
+            onSelected: (value) async {
+              switch (value) {
+                case 'rename':
+                  await _showRenameDialog(context, selectedHousehold);
+                  break;
+                case 'delete':
+                  await _deleteHousehold(context, selectedHousehold);
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'rename',
+                child: ListTile(
+                  leading: Icon(Icons.edit_outlined),
+                  title: Text('Переименовать'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  leading: Icon(Icons.delete_outline),
+                  title: Text('Удалить семью'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ],
       ),

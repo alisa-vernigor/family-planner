@@ -14,8 +14,10 @@ import 'package:family_planner/features/households/data/repositories/supabase_ho
 import 'package:family_planner/features/households/domain/use_cases/accept_household_invitation_use_case.dart';
 import 'package:family_planner/features/households/domain/use_cases/create_household_use_case.dart';
 import 'package:family_planner/features/households/domain/use_cases/decline_household_invitation_use_case.dart';
+import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
 import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
 import 'package:family_planner/features/households/domain/use_cases/get_pending_household_invitations_use_case.dart';
+import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
 import 'package:family_planner/features/tasks/data/repositories/supabase_task_repository.dart';
@@ -56,6 +58,12 @@ final class FamilyPlannerApp extends StatelessWidget {
                 repository: householdRepository,
               ),
               getMyHouseholdsUseCase: GetMyHouseholdsUseCase(
+                repository: householdRepository,
+              ),
+              deleteHouseholdUseCase: DeleteHouseholdUseCase(
+                repository: householdRepository,
+              ),
+              updateHouseholdUseCase: UpdateHouseholdUseCase(
                 repository: householdRepository,
               ),
             ),

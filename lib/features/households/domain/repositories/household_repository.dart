@@ -19,4 +19,18 @@ abstract interface class HouseholdRepository {
   Future<String> acceptInvitation({required String invitationId});
 
   Future<void> declineInvitation({required String invitationId});
+
+  Future<void> leaveHousehold({required String householdId});
+
+  Future<void> removeMember({
+    required String householdId,
+    required String profileId,
+  });
+
+  Future<void> deleteHousehold({required String householdId});
+
+  Future<void> updateHousehold({
+    required String householdId,
+    required String name,
+  });
 }

@@ -17,6 +17,8 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
         .select('households(id, name)')
         .order('joined_at');
 
+    final seen = <String>{};
+
     return rows
         .map((row) {
           final household = row['households'] as Map<String, dynamic>;
@@ -26,6 +28,7 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
             name: household['name'] as String,
           );
         })
+        .where((h) => seen.add(h.id))
         .toList(growable: false);
   }
 
@@ -80,8 +83,7 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
     final rows = await _client
         .from('household_invitations')
         .select(
-          'id, household_id, created_at, expires_at, '
-          'households(name), '
+          'id, household_id, created_at, expires_at, invited_by_profile_id, '
           'profiles!household_invitations_invited_by_profile_id_fkey('
           'display_name'
           ')',
@@ -89,16 +91,35 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
         .eq('status', 'pending')
         .order('created_at', ascending: false);
 
+    if (rows.isEmpty) return [];
+
+    final householdIds =
+        rows.map((r) => r['household_id'] as String).toSet().toList();
+
+    final nameMap = <String, String>{};
+    for (final id in householdIds) {
+      try {
+        final name = await _client.rpc(
+          'get_household_name_for_invitation',
+          params: {'p_household_id': id},
+        ) as String?;
+        if (name != null && name.isNotEmpty) nameMap[id] = name;
+      } catch (_) {
+        // household might have been deleted
+      }
+    }
+
     return rows
         .map((row) {
-          final household = row['households'] as Map<String, dynamic>;
-          final inviter = row['profiles'] as Map<String, dynamic>;
+          final inviter = row['profiles'] as Map<String, dynamic>?;
 
           return HouseholdInvitation(
             id: row['id'] as String,
             householdId: row['household_id'] as String,
-            householdName: household['name'] as String,
-            invitedByDisplayName: inviter['display_name'] as String,
+            householdName:
+                nameMap[row['household_id'] as String] ?? 'Неизвестная семья',
+            invitedByDisplayName:
+                inviter?['display_name'] as String? ?? 'Неизвестный',
             createdAt: DateTime.parse(row['created_at'] as String),
             expiresAt: DateTime.parse(row['expires_at'] as String),
           );
@@ -120,6 +141,50 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
     await _client.rpc(
       'decline_household_invitation',
       params: {'p_invitation_id': invitationId},
+    );
+  }
+
+  @override
+  Future<void> leaveHousehold({required String householdId}) async {
+    await _client.rpc(
+      'leave_household',
+      params: {'p_household_id': householdId},
+    );
+  }
+
+  @override
+  Future<void> removeMember({
+    required String householdId,
+    required String profileId,
+  }) async {
+    await _client.rpc(
+      'remove_household_member',
+      params: {
+        'p_household_id': householdId,
+        'p_profile_id': profileId,
+      },
+    );
+  }
+
+  @override
+  Future<void> deleteHousehold({required String householdId}) async {
+    await _client.rpc(
+      'delete_household',
+      params: {'p_household_id': householdId},
+    );
+  }
+
+  @override
+  Future<void> updateHousehold({
+    required String householdId,
+    required String name,
+  }) async {
+    await _client.rpc(
+      'update_household_name',
+      params: {
+        'p_household_id': householdId,
+        'p_name': name.trim(),
+      },
     );
   }
 }
