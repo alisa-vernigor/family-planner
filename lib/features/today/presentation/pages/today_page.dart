@@ -212,10 +212,14 @@ final class _TodayViewState extends State<_TodayView> {
 
     if (confirmed != true || !mounted) return;
 
+    // Оптимистичное удаление
+    context.read<TodayTasksCubit>().removeTask(task.id);
+
     final actionsCubit = context.read<TaskActionsCubit>();
     final deleted = await actionsCubit.deleteTask(taskId: task.id);
 
-    if (deleted && mounted) {
+    if (!deleted && mounted) {
+      // Откат — перезагружаем
       _reloadTasks();
     }
   }
@@ -236,7 +240,14 @@ final class _TodayViewState extends State<_TodayView> {
 
     if (memberId == null || !mounted) return;
 
+    final tasksCubit = context.read<TodayTasksCubit>();
     final repository = context.read<TaskRepository>();
+
+    // Оптимистичное обновление
+    final updatedTask = task.copyWith(
+      assignedMemberId: memberId.isEmpty ? null : memberId,
+    );
+    tasksCubit.replaceTask(updatedTask);
 
     try {
       if (memberId.isEmpty) {
@@ -252,28 +263,34 @@ final class _TodayViewState extends State<_TodayView> {
         await repository.save(task.copyWith(assignedMemberId: memberId));
       }
     } catch (exception, stackTrace) {
+      // Откат — перезагружаем
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось назначить ответственного.')),
       );
       AppLogger.error('Ошибка назначения задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
     }
-
-    _reloadTasks();
   }
 
   Future<void> _togglePinTask(Task task) async {
+    final tasksCubit = context.read<TodayTasksCubit>();
     final repository = context.read<TaskRepository>();
+
+    // Оптимистичное обновление
+    tasksCubit.replaceTask(task.copyWith(pinnedMemberId: null));
+
     try {
       await repository.save(task.copyWith(pinnedMemberId: null));
     } catch (exception, stackTrace) {
+      // Откат
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось открепить задачу.')),
       );
       AppLogger.error('Ошибка открепления задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
     }
-    _reloadTasks();
   }
 
   @override
@@ -283,13 +300,13 @@ final class _TodayViewState extends State<_TodayView> {
         BlocListener<TaskCompletionCubit, TaskCompletionState>(
           listener: (context, state) {
             switch (state) {
-              case TaskCompletionSuccess():
+              case TaskCompletionSuccess(:final task):
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Задача выполнена. Отличная работа!'),
                   ),
                 );
-                _reloadTasks();
+                context.read<TodayTasksCubit>().replaceTask(task);
               case TaskCompletionFailure(:final message):
                 ScaffoldMessenger.of(context)
                     .showSnackBar(SnackBar(content: Text(message)));
@@ -377,7 +394,9 @@ final class _TodayViewState extends State<_TodayView> {
                         final result = await context
                             .read<TaskActionsCubit>()
                             .uncompleteTask(task: task);
-                        if (result != null && mounted) _reloadTasks();
+                        if (result != null && mounted) {
+                          context.read<TodayTasksCubit>().replaceTask(result);
+                        }
                       },
                     ),
                   );

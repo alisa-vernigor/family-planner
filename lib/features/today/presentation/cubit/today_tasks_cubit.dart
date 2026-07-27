@@ -81,4 +81,30 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
       emit(const TodayTasksFailure(message: message));
     }
   }
+
+  /// Оптимистично заменяет задачу в текущем списке без перезагрузки.
+  void replaceTask(Task updatedTask) {
+    final current = state;
+    if (current case TodayTasksLoaded(:final tasks, :final members)) {
+      emit(
+        TodayTasksLoaded(
+          tasks: tasks.map((t) => t.id == updatedTask.id ? updatedTask : t).toList(),
+          members: members,
+        ),
+      );
+    }
+  }
+
+  /// Оптимистично удаляет задачу из текущего списка.
+  void removeTask(String taskId) {
+    final current = state;
+    if (current case TodayTasksLoaded(:final tasks, :final members)) {
+      emit(
+        TodayTasksLoaded(
+          tasks: tasks.where((t) => t.id != taskId).toList(),
+          members: members,
+        ),
+      );
+    }
+  }
 }

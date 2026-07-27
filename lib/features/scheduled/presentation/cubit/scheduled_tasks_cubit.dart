@@ -54,4 +54,30 @@ final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
       emit(const ScheduledTasksFailure(message: message));
     }
   }
+
+  /// Оптимистично заменяет задачу в текущем списке без перезагрузки.
+  void replaceTask(Task updatedTask) {
+    final current = state;
+    if (current case ScheduledTasksLoaded(:final tasks, :final members)) {
+      emit(
+        ScheduledTasksLoaded(
+          tasks: tasks.map((t) => t.id == updatedTask.id ? updatedTask : t).toList(),
+          members: members,
+        ),
+      );
+    }
+  }
+
+  /// Оптимистично удаляет задачу из текущего списка.
+  void removeTask(String taskId) {
+    final current = state;
+    if (current case ScheduledTasksLoaded(:final tasks, :final members)) {
+      emit(
+        ScheduledTasksLoaded(
+          tasks: tasks.where((t) => t.id != taskId).toList(),
+          members: members,
+        ),
+      );
+    }
+  }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
@@ -247,7 +248,7 @@ final class _AppShellState extends State<_AppShell> {
                 ),
               ).then((_) {
                 if (context.mounted) {
-                  context.read<HouseholdCubit>().load();
+                  context.read<HouseholdCubit>().refresh();
                 }
               });
             },
@@ -278,7 +279,7 @@ final class _AppShellState extends State<_AppShell> {
               );
 
               if (!context.mounted) return;
-              context.read<HouseholdCubit>().load();
+              context.read<HouseholdCubit>().refresh();
             },
           ),
           PopupMenuButton<String>(

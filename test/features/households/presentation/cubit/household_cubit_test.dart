@@ -85,7 +85,7 @@ void main() {
       act: (cubit) => cubit.create(name: 'Наша семья'),
       expect: () => const [
         HouseholdLoading(),
-        HouseholdFailure(message: 'Не удалось загрузить или создать семью.'),
+        HouseholdFailure(message: 'Не удалось создать семью.'),
       ],
     );
 
@@ -113,12 +113,11 @@ void main() {
     );
 
     blocTest<HouseholdCubit, HouseholdState>(
-      'выдаёт Loading и Loaded после переименования семьи',
+      'выдаёт Loaded после переименования семьи',
       build: () => createCubit(households: const [household]),
       act: (cubit) =>
           cubit.update(householdId: 'household-1', name: 'Новое имя'),
       expect: () => const [
-        HouseholdLoading(),
         HouseholdLoaded(households: [household]),
       ],
     );

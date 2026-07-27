@@ -143,7 +143,14 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
     if (memberId == null || !mounted) return;
 
+    final tasksCubit = context.read<ScheduledTasksCubit>();
     final repository = context.read<TaskRepository>();
+
+    // Оптимистичное обновление
+    final updatedTask = task.copyWith(
+      assignedMemberId: memberId.isEmpty ? null : memberId,
+    );
+    tasksCubit.replaceTask(updatedTask);
 
     try {
       if (memberId.isEmpty) {
@@ -158,28 +165,34 @@ final class _ScheduledViewState extends State<_ScheduledView> {
         await repository.save(task.copyWith(assignedMemberId: memberId));
       }
     } catch (exception, stackTrace) {
+      // Откат — перезагружаем
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось назначить ответственного.')),
       );
       AppLogger.error('Ошибка назначения задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
     }
-
-    _reloadTasks();
   }
 
   Future<void> _togglePinTask(Task task) async {
+    final tasksCubit = context.read<ScheduledTasksCubit>();
     final repository = context.read<TaskRepository>();
+
+    // Оптимистичное обновление
+    tasksCubit.replaceTask(task.copyWith(pinnedMemberId: null));
+
     try {
       await repository.save(task.copyWith(pinnedMemberId: null));
     } catch (exception, stackTrace) {
+      // Откат
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось открепить задачу.')),
       );
       AppLogger.error('Ошибка открепления задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
     }
-    _reloadTasks();
   }
 
   Future<void> _deleteTask(Task task) async {
@@ -207,10 +220,21 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
     if (confirmed != true || !mounted) return;
 
-    final deleteUseCase = DeleteTaskUseCase(repository: context.read<TaskRepository>());
-    await deleteUseCase(taskId: task.id);
+    // Оптимистичное удаление
+    context.read<ScheduledTasksCubit>().removeTask(task.id);
 
-    if (mounted) _reloadTasks();
+    final deleteUseCase = DeleteTaskUseCase(repository: context.read<TaskRepository>());
+    try {
+      await deleteUseCase(taskId: task.id);
+    } catch (exception, stackTrace) {
+      // Откат — перезагружаем
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось удалить задачу.')),
+      );
+      AppLogger.error('Ошибка удаления задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
   }
 
   String _formatDate(DateTime value) {
