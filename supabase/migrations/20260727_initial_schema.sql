@@ -338,10 +338,10 @@ begin
 end;
 $$;
 
--- Auto-create profile on signup (trigger on auth.users, set up separately)
--- CREATE OR REPLACE TRIGGER on_auth_user_created
---   AFTER INSERT ON auth.users
---   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+-- Auto-create profile on signup (trigger on auth.users)
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 CREATE FUNCTION create_household(household_name TEXT)
 RETURNS households
@@ -821,9 +821,3 @@ begin
   return generated_count;
 end;
 $$;
-
--- Note: the trigger on auth.users for automatic profile creation
--- needs to be set up separately via Supabase dashboard or CLI:
--- CREATE OR REPLACE TRIGGER on_auth_user_created
---   AFTER INSERT ON auth.users
---   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
