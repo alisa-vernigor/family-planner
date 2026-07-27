@@ -495,11 +495,52 @@ final class _TodayViewState extends State<_TodayView> {
               }
             },
           ),
+          // ── Selection mode bar ───────────────────────────
+          if (_isSelectionMode)
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() {
+                          _isSelectionMode = false;
+                          _selectedTaskIds.clear();
+                        }),
+                        icon: const Icon(Icons.close),
+                        label: const Text('Отменить'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          final state = context.read<TodayTasksCubit>().state;
+                          if (state case TodayTasksLoaded(:final tasks)) {
+                            _batchComplete(tasks);
+                          }
+                        },
+                        icon: const Icon(Icons.checklist),
+                        label: Text(
+                          'Выполнить (${_selectedTaskIds.length})',
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // ── Distribute FAB ──────────────────────────────
-          Positioned(
-            right: 16,
-            bottom: 16,
-            child: BlocBuilder<TodayTasksCubit, TodayTasksState>(
+          if (!_isSelectionMode)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: BlocBuilder<TodayTasksCubit, TodayTasksState>(
               builder: (context, state) {
                 final isLoading = state is TodayTasksLoading;
                 return FloatingActionButton.small(
