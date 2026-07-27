@@ -55,7 +55,9 @@ final class _AuthPageState extends State<AuthPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -261,6 +263,7 @@ final class _AuthPageState extends State<AuthPage> {
             ),
           ),
         ),
+      ),
       ),
     );
   }

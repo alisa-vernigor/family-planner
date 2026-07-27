@@ -44,87 +44,90 @@ final class _CreateHouseholdPageState extends State<CreateHouseholdPage> {
         return Scaffold(
           appBar: AppBar(title: const Text('Создайте семью')),
           body: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Icon(
-                          Icons.home_outlined,
-                          size: 72,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Как назвать вашу семью?',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Например: «Семья Ивановых» или «Наша квартира».',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 28),
-                        if (errorMessage != null) ...[
+            child: GestureDetector(
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Icon(
+                            Icons.home_outlined,
+                            size: 72,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(height: 24),
                           Text(
-                            errorMessage,
+                            'Как назвать вашу семью?',
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Например: «Семья Ивановых» или «Наша квартира».',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 28),
+                          if (errorMessage != null) ...[
+                            Text(
+                              errorMessage,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          TextFormField(
+                            controller: _nameController,
+                            enabled: !isLoading,
+                            autofocus: true,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              labelText: 'Название семьи',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.groups_outlined),
+                            ),
+                            validator: (value) {
+                              final name = value?.trim() ?? '';
+
+                              if (name.isEmpty) {
+                                return 'Введите название семьи.';
+                              }
+
+                              if (name.length > 100) {
+                                return 'Название должно быть не длиннее 100 символов.';
+                              }
+
+                              return null;
+                            },
+                            onFieldSubmitted: (_) {
+                              if (!isLoading) _create();
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                          FilledButton(
+                            onPressed: isLoading ? null : _create,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Text('Создать семью'),
                             ),
                           ),
-                          const SizedBox(height: 16),
                         ],
-                        TextFormField(
-                          controller: _nameController,
-                          enabled: !isLoading,
-                          autofocus: true,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            labelText: 'Название семьи',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.groups_outlined),
-                          ),
-                          validator: (value) {
-                            final name = value?.trim() ?? '';
-
-                            if (name.isEmpty) {
-                              return 'Введите название семьи.';
-                            }
-
-                            if (name.length > 100) {
-                              return 'Название должно быть не длиннее 100 символов.';
-                            }
-
-                            return null;
-                          },
-                          onFieldSubmitted: (_) {
-                            if (!isLoading) _create();
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton(
-                          onPressed: isLoading ? null : _create,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Создать семью'),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),

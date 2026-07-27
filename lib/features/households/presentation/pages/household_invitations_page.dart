@@ -91,7 +91,7 @@ final class _InvitationsList extends StatelessWidget {
             SizedBox(height: 160),
             Icon(Icons.mark_email_read_outlined, size: 64),
             SizedBox(height: 16),
-            Center(child: Text('Новых приглашений нет')),
+            Center(child: Text('Новых приглашений нет.')),
           ],
         ),
       );

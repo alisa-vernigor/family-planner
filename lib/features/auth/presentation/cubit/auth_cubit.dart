@@ -114,7 +114,13 @@ final class AuthCubit extends Cubit<AuthState> {
       AppLogger.info('Пользователь вышел из аккаунта');
       emit(const AuthUnauthenticated());
     } catch (exception, stackTrace) {
-      _emitUnexpectedFailure(exception, stackTrace);
+      AppLogger.error(
+        'Не удалось выйти из аккаунта.',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+
+      emit(const AuthUnauthenticated());
     }
   }
 

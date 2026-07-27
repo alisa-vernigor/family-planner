@@ -138,12 +138,12 @@ void main() {
     );
 
     blocTest<AuthCubit, AuthState>(
-      'выдаёт Loading и Failure при ошибке выхода',
+      'выдаёт Loading и Unauthenticated при ошибке выхода',
       build: () => createCubit(signOutThrows: true),
       act: (cubit) => cubit.signOut(),
       expect: () => const [
         AuthLoading(),
-        AuthFailure(message: 'Произошла непредвиденная ошибка авторизации.'),
+        AuthUnauthenticated(),
       ],
     );
   });

@@ -102,6 +102,28 @@ final class FamilyPlannerApp extends StatelessWidget {
           darkTheme: AppTheme.dark(),
           themeMode: ThemeMode.system,
           home: const AuthGate(),
+          builder: (context, child) {
+            ErrorWidget.builder = (details) {
+              return Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, size: 48,
+                          color: Theme.of(context).colorScheme.error),
+                        const SizedBox(height: 16),
+                        const Text('Произошла ошибка. Попробуйте перезапустить приложение.'),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            };
+            return child!;
+          },
         ),
       ),
     );
