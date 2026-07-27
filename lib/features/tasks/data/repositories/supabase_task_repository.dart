@@ -28,7 +28,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, pinned_member_id, status, created_at, completed_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -59,7 +59,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, pinned_member_id, status, created_at, completed_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -88,7 +88,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, pinned_member_id, status, created_at, completed_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -175,6 +175,9 @@ final class SupabaseTaskRepository implements TaskRepository {
                 'p_recurrence_type': recurrence.type.databaseValue,
                 'p_interval_days': recurrence.intervalDays,
                 'p_weekdays': recurrence.weekdays,
+                'p_deadline_time': params.deadline == null
+                    ? null
+                    : '${params.deadline!.hour.toString().padLeft(2, '0')}:${params.deadline!.minute.toString().padLeft(2, '0')}:00',
                 'p_end_date': params.recurrenceEndDate == null
                     ? null
                     : _dateOnly(params.recurrenceEndDate!),
@@ -272,6 +275,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       status: _toTaskStatus(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),
       completedAt: _parseNullableDateTime(row['completed_at']),
+      updatedAt: _parseNullableDateTime(row['updated_at']),
     );
   }
 
@@ -295,6 +299,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       status: _toTaskStatus(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),
       completedAt: _parseNullableDateTime(row['completed_at']),
+      updatedAt: _parseNullableDateTime(row['updated_at']),
     );
   }
 

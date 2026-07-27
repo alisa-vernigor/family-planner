@@ -17,6 +17,7 @@ final class Task extends Equatable {
     this.pinnedMemberId,
     this.deadline,
     this.completedAt,
+    this.updatedAt,
   });
 
   final String id;
@@ -32,6 +33,7 @@ final class Task extends Equatable {
   final TaskStatus status;
   final DateTime createdAt;
   final DateTime? completedAt;
+  final DateTime? updatedAt;
 
   bool get isCompleted => status == TaskStatus.completed;
 
@@ -75,6 +77,7 @@ final class Task extends Equatable {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       completedAt: identical(completedAt, _sentinel) ? this.completedAt : completedAt as DateTime?,
+      updatedAt: this.updatedAt,
     );
   }
 
@@ -98,6 +101,7 @@ final class Task extends Equatable {
       status,
       createdAt,
       completedAt,
+      updatedAt,
     ];
   }
 }
