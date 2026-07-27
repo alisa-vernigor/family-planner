@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/logging/app_logger.dart';
 import '../../domain/entities/create_task_params.dart';
 import '../../domain/entities/task.dart';
 import '../../domain/entities/task_status.dart';
@@ -17,17 +18,26 @@ final class SupabaseTaskRepository implements TaskRepository {
   }) async {
     final plannedFor = _dateOnly(day);
 
+    AppLogger.debug(
+      'SupabaseTaskRepository.getForDay: '
+      'householdId=$householdId; day=$plannedFor',
+    );
+
     final rows = await _client
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, status, created_at, completed_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
         .eq('planned_for', plannedFor)
         .order('deadline_at');
+
+    AppLogger.debug(
+      'SupabaseTaskRepository.getForDay: получил ${rows.length} записей',
+    );
 
     return rows.map((row) => _toTask(row)).toList(growable: false);
   }
@@ -39,12 +49,17 @@ final class SupabaseTaskRepository implements TaskRepository {
   }) async {
     final startOfTomorrow = DateTime(day.year, day.month, day.day + 1);
 
+    AppLogger.debug(
+      'SupabaseTaskRepository.getScheduledAfter: '
+      'householdId=$householdId; after=${_dateOnly(startOfTomorrow)}',
+    );
+
     final rows = await _client
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, status, created_at, completed_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -53,30 +68,93 @@ final class SupabaseTaskRepository implements TaskRepository {
         .order('planned_for')
         .order('deadline_at');
 
+    AppLogger.debug(
+      'SupabaseTaskRepository.getScheduledAfter: получил ${rows.length} записей',
+    );
+
+    return rows.map((row) => _toTask(row)).toList(growable: false);
+  }
+
+  @override
+  Future<List<Task>> getAllPending({
+    required String householdId,
+  }) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.getAllPending: householdId=$householdId',
+    );
+
+    final rows = await _client
+        .from('task_occurrences')
+        .select(
+          'id, household_id, title, description, '
+          'estimated_duration_minutes, planned_for, deadline_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, '
+          'task_occurrence_allowed_members(profile_id)',
+        )
+        .eq('household_id', householdId)
+        .neq('status', TaskStatus.completed.name)
+        .order('planned_for')
+        .order('deadline_at');
+
+    AppLogger.debug(
+      'SupabaseTaskRepository.getAllPending: получил ${rows.length} записей',
+    );
+
     return rows.map((row) => _toTask(row)).toList(growable: false);
   }
 
   @override
   Future<Task> create({required CreateTaskParams params}) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.create: '
+      'title="${params.title}"; isRecurring=${params.isRecurring}',
+    );
+
+    Task task;
+
     if (params.isRecurring) {
-      return _createRecurring(params: params);
+      task = await _createRecurring(params: params);
+    } else {
+      final row =
+          await _client.rpc(
+                'create_task_occurrence',
+                params: {
+                  'p_household_id': params.householdId,
+                  'p_title': params.title,
+                  'p_description': params.description ?? '',
+                  'p_estimated_duration_minutes': params.estimatedDurationMinutes,
+                  'p_planned_for': _dateOnly(params.plannedFor),
+                  'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
+                },
+              )
+              as Map<String, dynamic>;
+
+      task = _taskFromCreatedRow(row);
     }
 
-    final row =
-        await _client.rpc(
-              'create_task_occurrence',
-              params: {
-                'p_household_id': params.householdId,
-                'p_title': params.title,
-                'p_description': params.description ?? '',
-                'p_estimated_duration_minutes': params.estimatedDurationMinutes,
-                'p_planned_for': _dateOnly(params.plannedFor),
-                'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
-              },
-            )
-            as Map<String, dynamic>;
+    AppLogger.info(
+      'Задача создана: taskId=${task.id}; householdId=${task.householdId}',
+    );
 
-    return _taskFromCreatedRow(row);
+    // Apply post-creation updates for assignment fields
+    final memberToAdd = params.assignedMemberId;
+    final isPinned = params.pinnedMemberId;
+
+    if (memberToAdd != null || isPinned != null) {
+      task = task.copyWith(
+        assignedMemberId: memberToAdd ?? task.assignedMemberId,
+        pinnedMemberId: isPinned ?? task.pinnedMemberId,
+      );
+
+      await save(task);
+    }
+
+    // Add the assigned member to allowed members list
+    if (memberToAdd != null && !task.allowedMemberIds.contains(memberToAdd)) {
+      await addAllowedMember(taskId: task.id, memberId: memberToAdd);
+    }
+
+    return task;
   }
 
   Future<Task> _createRecurring({required CreateTaskParams params}) async {
@@ -93,9 +171,7 @@ final class SupabaseTaskRepository implements TaskRepository {
                 'p_start_date': _dateOnly(
                   params.recurrenceStartDate ?? params.plannedFor,
                 ),
-                'p_deadline_time': params.deadline == null
-                    ? null
-                    : _timeOnly(params.deadline!),
+                'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
                 'p_recurrence_type': recurrence.type.databaseValue,
                 'p_interval_days': recurrence.intervalDays,
                 'p_weekdays': recurrence.weekdays,
@@ -111,6 +187,11 @@ final class SupabaseTaskRepository implements TaskRepository {
 
   @override
   Future<void> save(Task task) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.save: taskId=${task.id}; '
+      'status=${task.status.name}; assignedMemberId=${task.assignedMemberId}',
+    );
+
     await _client
         .from('task_occurrences')
         .update({
@@ -120,6 +201,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           'planned_for': _dateOnly(task.plannedFor),
           'deadline_at': task.deadline?.toUtc().toIso8601String(),
           'assigned_member_id': task.assignedMemberId,
+          'pinned_member_id': task.pinnedMemberId,
           'status': task.status.name,
           'completed_by_member_id': task.isCompleted
               ? task.assignedMemberId
@@ -131,7 +213,42 @@ final class SupabaseTaskRepository implements TaskRepository {
 
   @override
   Future<void> delete({required String taskId}) async {
+    AppLogger.info('SupabaseTaskRepository.delete: taskId=$taskId');
+
     await _client.from('task_occurrences').delete().eq('id', taskId);
+  }
+
+  @override
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.addAllowedMember: '
+      'taskId=$taskId; memberId=$memberId',
+    );
+
+    await _client.from('task_occurrence_allowed_members').insert({
+      'task_occurrence_id': taskId,
+      'profile_id': memberId,
+    });
+  }
+
+  @override
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.removeAllowedMember: '
+      'taskId=$taskId; memberId=$memberId',
+    );
+
+    await _client
+        .from('task_occurrence_allowed_members')
+        .delete()
+        .eq('task_occurrence_id', taskId)
+        .eq('profile_id', memberId);
   }
 
   Task _taskFromCreatedRow(Map<String, dynamic> row) {
@@ -151,6 +268,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       deadline: _parseNullableDateTime(row['deadline_at']),
       allowedMemberIds: [currentUserId],
       assignedMemberId: row['assigned_member_id'] as String?,
+      pinnedMemberId: row['pinned_member_id'] as String?,
       status: _toTaskStatus(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),
       completedAt: _parseNullableDateTime(row['completed_at']),
@@ -173,6 +291,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           .map((item) => (item as Map<String, dynamic>)['profile_id'] as String)
           .toList(growable: false),
       assignedMemberId: row['assigned_member_id'] as String?,
+      pinnedMemberId: row['pinned_member_id'] as String?,
       status: _toTaskStatus(row['status'] as String),
       createdAt: DateTime.parse(row['created_at'] as String),
       completedAt: _parseNullableDateTime(row['completed_at']),
@@ -202,14 +321,6 @@ final class SupabaseTaskRepository implements TaskRepository {
     final day = value.day.toString().padLeft(2, '0');
 
     return '$year-$month-$day';
-  }
-
-  String _timeOnly(DateTime value) {
-    final hour = value.hour.toString().padLeft(2, '0');
-    final minute = value.minute.toString().padLeft(2, '0');
-    final second = value.second.toString().padLeft(2, '0');
-
-    return '$hour:$minute:$second';
   }
 }
 

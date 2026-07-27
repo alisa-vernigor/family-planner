@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../households/domain/entities/household_member.dart';
 import '../../../tasks/domain/entities/task.dart';
 
 sealed class ScheduledTasksState extends Equatable {
@@ -18,12 +19,16 @@ final class ScheduledTasksLoading extends ScheduledTasksState {
 }
 
 final class ScheduledTasksLoaded extends ScheduledTasksState {
-  const ScheduledTasksLoaded({required this.tasks});
+  const ScheduledTasksLoaded({
+    required this.tasks,
+    this.members = const [],
+  });
 
   final List<Task> tasks;
+  final List<HouseholdMember> members;
 
   @override
-  List<Object?> get props => [tasks];
+  List<Object?> get props => [tasks, members];
 }
 
 final class ScheduledTasksFailure extends ScheduledTasksState {

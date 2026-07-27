@@ -100,4 +100,23 @@ final class _FakeTaskRepository implements TaskRepository {
 
     savedTask = task;
   }
+
+  @override
+  Future<List<Task>> getAllPending({
+    required String householdId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+
+  @override
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
 }

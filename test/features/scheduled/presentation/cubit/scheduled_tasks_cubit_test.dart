@@ -1,12 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_planner/features/households/domain/entities/household.dart';
+import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
+import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_scheduled_tasks_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 
 void main() {
   final task = Task(
@@ -21,32 +25,40 @@ void main() {
     createdAt: DateTime(2026, 7, 19),
   );
 
-  test('загружает будущие задачи', () async {
+  final member = HouseholdMember(
+    profileId: 'member-1',
+    displayName: 'Alice',
+    role: 'owner',
+  );
+
+  test('загружает все невыполненные задачи', () async {
     final repository = _FakeTaskRepository(tasks: [task]);
+    final householdRepository = _FakeHouseholdRepository(members: [member]);
 
     final cubit = ScheduledTasksCubit(
-      getScheduledTasksUseCase: GetScheduledTasksUseCase(
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(
         repository: repository,
       ),
+      householdRepository: householdRepository,
     );
     addTearDown(cubit.close);
 
-    await cubit.load(householdId: 'household-1', day: DateTime(2026, 7, 19));
+    await cubit.load(householdId: 'household-1');
 
-    expect(cubit.state, ScheduledTasksLoaded(tasks: [task]));
+    expect(cubit.state, ScheduledTasksLoaded(tasks: [task], members: [member]));
     expect(repository.receivedHouseholdId, 'household-1');
-    expect(repository.receivedDay, DateTime(2026, 7, 19));
   });
 
   test('показывает ошибку, если загрузка завершилась неудачно', () async {
     final cubit = ScheduledTasksCubit(
-      getScheduledTasksUseCase: GetScheduledTasksUseCase(
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(
         repository: _FakeTaskRepository(shouldThrow: true),
       ),
+      householdRepository: _FakeHouseholdRepository(),
     );
     addTearDown(cubit.close);
 
-    await cubit.load(householdId: 'household-1', day: DateTime(2026, 7, 19));
+    await cubit.load(householdId: 'household-1');
 
     expect(
       cubit.state,
@@ -64,7 +76,6 @@ final class _FakeTaskRepository implements TaskRepository {
   final bool shouldThrow;
 
   String? receivedHouseholdId;
-  DateTime? receivedDay;
 
   @override
   Future<Task> create({required CreateTaskParams params}) {
@@ -86,17 +97,86 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<List<Task>> getScheduledAfter({
     required String householdId,
     required DateTime day,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<Task>> getAllPending({
+    required String householdId,
   }) async {
     if (shouldThrow) {
       throw Exception('Ошибка сети');
     }
 
     receivedHouseholdId = householdId;
-    receivedDay = day;
-
     return tasks;
   }
 
   @override
   Future<void> save(Task task) async {}
+
+  @override
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+
+  @override
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+}
+
+final class _FakeHouseholdRepository implements HouseholdRepository {
+  _FakeHouseholdRepository({this.members = const []});
+
+  final List<HouseholdMember> members;
+
+  @override
+  Future<List<HouseholdMember>> getMembers({required String householdId}) async {
+    return members;
+  }
+
+  @override
+  Future<List<Household>> getMyHouseholds() => throw UnimplementedError();
+
+  @override
+  Future<Household> create({required String name}) => throw UnimplementedError();
+
+  @override
+  Future<void> createInvitation({
+    required String householdId,
+    required String email,
+  }) async {}
+
+  @override
+  Future<List<HouseholdInvitation>> getPendingInvitations() =>
+      throw UnimplementedError();
+
+  @override
+  Future<String> acceptInvitation({required String invitationId}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> declineInvitation({required String invitationId}) async {}
+
+  @override
+  Future<void> leaveHousehold({required String householdId}) async {}
+
+  @override
+  Future<void> removeMember({
+    required String householdId,
+    required String profileId,
+  }) async {}
+
+  @override
+  Future<void> deleteHousehold({required String householdId}) async {}
+
+  @override
+  Future<void> updateHousehold({
+    required String householdId,
+    required String name,
+  }) async {}
 }

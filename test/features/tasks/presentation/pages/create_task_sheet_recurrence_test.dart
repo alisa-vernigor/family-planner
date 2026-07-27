@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:family_planner/features/households/domain/entities/household.dart';
+import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
+import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
@@ -22,6 +26,7 @@ void main() {
           child: CreateTaskSheet(
             householdId: 'household-1',
             plannedFor: DateTime(2026, 7, 19),
+            householdRepository: _FakeHouseholdRepository(),
           ),
         ),
       ),
@@ -122,4 +127,71 @@ final class _FakeTaskRepository implements TaskRepository {
 
   @override
   Future<void> save(Task task) async {}
+
+  @override
+  Future<List<Task>> getAllPending({
+    required String householdId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+
+  @override
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+}
+
+final class _FakeHouseholdRepository implements HouseholdRepository {
+  @override
+  Future<List<HouseholdMember>> getMembers({required String householdId}) async {
+    return const [];
+  }
+
+  @override
+  Future<List<Household>> getMyHouseholds() async => [];
+
+  @override
+  Future<Household> create({required String name}) async =>
+      Household(id: '1', name: name);
+
+  @override
+  Future<void> createInvitation({
+    required String householdId,
+    required String email,
+  }) async {}
+
+  @override
+  Future<List<HouseholdInvitation>> getPendingInvitations() async => [];
+
+  @override
+  Future<String> acceptInvitation({required String invitationId}) async =>
+      'household-1';
+
+  @override
+  Future<void> declineInvitation({required String invitationId}) async {}
+
+  @override
+  Future<void> leaveHousehold({required String householdId}) async {}
+
+  @override
+  Future<void> removeMember({
+    required String householdId,
+    required String profileId,
+  }) async {}
+
+  @override
+  Future<void> deleteHousehold({required String householdId}) async {}
+
+  @override
+  Future<void> updateHousehold({
+    required String householdId,
+    required String name,
+  }) async {}
 }

@@ -29,9 +29,7 @@ final class _AuthPageState extends State<AuthPage> {
   }
 
   void _submit() {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final cubit = context.read<AuthCubit>();
 
@@ -51,15 +49,12 @@ final class _AuthPageState extends State<AuthPage> {
   }
 
   void _toggleMode() {
-    setState(() {
-      _isRegistration = !_isRegistration;
-    });
+    setState(() => _isRegistration = !_isRegistration);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_isRegistration ? 'Создать аккаунт' : 'Вход')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -71,39 +66,72 @@ final class _AuthPageState extends State<AuthPage> {
                 child: BlocBuilder<AuthCubit, AuthState>(
                   builder: (context, state) {
                     final isLoading = state is AuthLoading;
-                    final failureMessage = state is AuthFailure
-                        ? state.message
-                        : null;
+                    final failureMessage =
+                        state is AuthFailure ? state.message : null;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const SizedBox(height: 40),
                         Icon(
-                          Icons.family_restroom_outlined,
-                          size: 72,
+                          Icons.family_restroom_rounded,
+                          size: 80,
                           color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(height: 20),
                         Text(
                           'Family Planner',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineMedium,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           _isRegistration
-                              ? 'Создайте аккаунт, чтобы планировать дела семьи.'
-                              : 'Войдите, чтобы увидеть семейные задачи.',
+                              ? 'Создайте аккаунт для планирования дел семьи'
+                              : 'Войдите, чтобы увидеть задачи семьи',
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyLarge,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyLarge
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 40),
                         if (failureMessage != null) ...[
-                          Text(
-                            failureMessage,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .errorContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onErrorContainer,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    failureMessage,
+                                    style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onErrorContainer,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -115,7 +143,6 @@ final class _AuthPageState extends State<AuthPage> {
                             textCapitalization: TextCapitalization.words,
                             decoration: const InputDecoration(
                               labelText: 'Ваше имя',
-                              border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.person_outline),
                             ),
                             validator: (value) {
@@ -139,7 +166,6 @@ final class _AuthPageState extends State<AuthPage> {
                           autofillHints: const [AutofillHints.email],
                           decoration: const InputDecoration(
                             labelText: 'Email',
-                            border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.email_outlined),
                           ),
                           validator: (value) {
@@ -168,7 +194,6 @@ final class _AuthPageState extends State<AuthPage> {
                           ],
                           decoration: InputDecoration(
                             labelText: 'Пароль',
-                            border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               tooltip: _obscurePassword
@@ -196,12 +221,10 @@ final class _AuthPageState extends State<AuthPage> {
                             return null;
                           },
                           onFieldSubmitted: (_) {
-                            if (!isLoading) {
-                              _submit();
-                            }
+                            if (!isLoading) _submit();
                           },
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 28),
                         FilledButton(
                           onPressed: isLoading ? null : _submit,
                           child: Padding(

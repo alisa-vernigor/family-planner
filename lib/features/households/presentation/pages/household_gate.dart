@@ -7,8 +7,10 @@ import 'package:family_planner/features/households/presentation/cubit/household_
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_state.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/today/presentation/pages/today_page.dart';
+import 'package:family_planner/features/scheduled/presentation/pages/scheduled_page.dart';
 import 'package:family_planner/features/households/presentation/pages/household_invitations_page.dart';
 import 'package:family_planner/features/households/presentation/pages/household_members_page.dart';
+import 'package:family_planner/features/households/presentation/pages/create_household_page.dart';
 
 final class HouseholdGate extends StatefulWidget {
   const HouseholdGate({required this.currentMemberId, super.key});
@@ -20,6 +22,8 @@ final class HouseholdGate extends StatefulWidget {
 }
 
 final class _HouseholdGateState extends State<HouseholdGate> {
+  int _currentTab = 0;
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +53,11 @@ final class _HouseholdGateState extends State<HouseholdGate> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.cloud_off_outlined, size: 48),
+                      Icon(
+                        Icons.cloud_off_outlined,
+                        size: 48,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       const SizedBox(height: 16),
                       Text(message, textAlign: TextAlign.center),
                       const SizedBox(height: 16),
@@ -66,9 +74,13 @@ final class _HouseholdGateState extends State<HouseholdGate> {
             );
 
           case HouseholdLoaded(:final households):
-            return _HouseholdSelector(
+            return _AppShell(
               households: households,
               currentMemberId: widget.currentMemberId,
+              currentTab: _currentTab,
+              onTabChanged: (index) {
+                setState(() => _currentTab = index);
+              },
             );
         }
       },
@@ -76,20 +88,24 @@ final class _HouseholdGateState extends State<HouseholdGate> {
   }
 }
 
-final class _HouseholdSelector extends StatefulWidget {
-  const _HouseholdSelector({
+final class _AppShell extends StatefulWidget {
+  const _AppShell({
     required this.households,
     required this.currentMemberId,
+    required this.currentTab,
+    required this.onTabChanged,
   });
 
   final List<Household> households;
   final String currentMemberId;
+  final int currentTab;
+  final ValueChanged<int> onTabChanged;
 
   @override
-  State<_HouseholdSelector> createState() => _HouseholdSelectorState();
+  State<_AppShell> createState() => _AppShellState();
 }
 
-final class _HouseholdSelectorState extends State<_HouseholdSelector> {
+final class _AppShellState extends State<_AppShell> {
   late String _selectedHouseholdId;
 
   @override
@@ -100,23 +116,26 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
   }
 
   @override
-  void didUpdateWidget(covariant _HouseholdSelector oldWidget) {
+  void didUpdateWidget(covariant _AppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    final exists = widget.households.any(
-      (household) => household.id == _selectedHouseholdId,
-    );
+    final exists =
+        widget.households.any((h) => h.id == _selectedHouseholdId);
 
     if (!exists) {
       _selectedHouseholdId = widget.households.first.id;
     }
   }
 
-  Future<void> _showRenameDialog(
-    BuildContext context,
-    Household household,
-  ) async {
+  Household get _selectedHousehold {
+    return widget.households.firstWhere(
+      (h) => h.id == _selectedHouseholdId,
+    );
+  }
+
+  Future<void> _showRenameDialog(Household household) async {
     final controller = TextEditingController(text: household.name);
+    final cubit = context.read<HouseholdCubit>();
 
     final name = await showDialog<String>(
       context: context,
@@ -153,16 +172,14 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
 
     if (name == null || !context.mounted) return;
 
-    context.read<HouseholdCubit>().update(
+    cubit.update(
       householdId: household.id,
       name: name,
     );
   }
 
-  Future<void> _deleteHousehold(
-    BuildContext context,
-    Household household,
-  ) async {
+  Future<void> _deleteHousehold(Household household) async {
+    final cubit = context.read<HouseholdCubit>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -190,45 +207,28 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
 
     if (confirmed != true || !context.mounted) return;
 
-    context.read<HouseholdCubit>().delete(householdId: household.id);
+    cubit.delete(householdId: household.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.households.any((h) => h.id == _selectedHouseholdId)) {
-      _selectedHouseholdId = widget.households.first.id;
-    }
-
-    final selectedHousehold = widget.households.firstWhere(
-      (household) => household.id == _selectedHouseholdId,
-    );
-
     return Scaffold(
       appBar: AppBar(
         title: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            value: selectedHousehold.id,
+            value: _selectedHouseholdId,
+            isDense: true,
             items: widget.households
-                .fold<Map<String, Household>>(
-                  {},
-                  (map, h) => map..putIfAbsent(h.id, () => h),
-                )
-                .values
                 .map(
-                  (household) => DropdownMenuItem(
-                    value: household.id,
-                    child: Text(household.name),
+                  (h) => DropdownMenuItem(
+                    value: h.id,
+                    child: Text(h.name, overflow: TextOverflow.ellipsis),
                   ),
                 )
                 .toList(growable: false),
             onChanged: (householdId) {
-              if (householdId == null) {
-                return;
-              }
-
-              setState(() {
-                _selectedHouseholdId = householdId;
-              });
+              if (householdId == null) return;
+              setState(() => _selectedHouseholdId = householdId);
             },
           ),
         ),
@@ -240,8 +240,8 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => HouseholdMembersPage(
-                    householdId: selectedHousehold.id,
-                    householdName: selectedHousehold.name,
+                    householdId: _selectedHousehold.id,
+                    householdName: _selectedHousehold.name,
                     currentMemberId: widget.currentMemberId,
                   ),
                 ),
@@ -277,23 +277,8 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
                 ),
               );
 
-              if (!context.mounted) {
-                return;
-              }
-
+              if (!context.mounted) return;
               context.read<HouseholdCubit>().load();
-            },
-          ),
-          IconButton(
-            tooltip: 'Создать семью',
-            icon: const Icon(Icons.add_home_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) =>
-                      const CreateHouseholdPage(closeAfterCreate: true),
-                ),
-              );
             },
           ),
           PopupMenuButton<String>(
@@ -301,11 +286,19 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
             onSelected: (value) async {
               switch (value) {
                 case 'rename':
-                  await _showRenameDialog(context, selectedHousehold);
-                  break;
+                  await _showRenameDialog(_selectedHousehold);
+                case 'create':
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          const CreateHouseholdPage(closeAfterCreate: true),
+                    ),
+                  );
+                  if (context.mounted) {
+                    context.read<HouseholdCubit>().load();
+                  }
                 case 'delete':
-                  await _deleteHousehold(context, selectedHousehold);
-                  break;
+                  await _deleteHousehold(_selectedHousehold);
               }
             },
             itemBuilder: (context) => [
@@ -314,6 +307,14 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
                 child: ListTile(
                   leading: Icon(Icons.edit_outlined),
                   title: Text('Переименовать'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'create',
+                child: ListTile(
+                  leading: Icon(Icons.add_home_outlined),
+                  title: Text('Создать семью'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -329,148 +330,36 @@ final class _HouseholdSelectorState extends State<_HouseholdSelector> {
           ),
         ],
       ),
-      body: TodayPage(
-        householdId: selectedHousehold.id,
-        householdName: selectedHousehold.name,
-        currentMemberId: widget.currentMemberId,
-      ),
-    );
-  }
-}
-
-final class CreateHouseholdPage extends StatefulWidget {
-  const CreateHouseholdPage({this.closeAfterCreate = false, super.key});
-
-  final bool closeAfterCreate;
-
-  @override
-  State<CreateHouseholdPage> createState() => _CreateHouseholdPageState();
-}
-
-final class _CreateHouseholdPageState extends State<CreateHouseholdPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  void _create() {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-
-    context.read<HouseholdCubit>().create(name: _nameController.text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocConsumer<HouseholdCubit, HouseholdState>(
-      listener: (context, state) {
-        if (widget.closeAfterCreate && state is HouseholdLoaded) {
-          Navigator.of(context).pop();
-        }
-      },
-      builder: (context, state) {
-        final isLoading = state is HouseholdLoading;
-        final errorMessage = state is HouseholdFailure ? state.message : null;
-
-        return Scaffold(
-          appBar: AppBar(title: const Text('Создайте семью')),
-          body: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Icon(
-                          Icons.home_outlined,
-                          size: 72,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Как назвать вашу семью?',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'Например: «Семья Ивановых» или «Наша квартира».',
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 28),
-                        if (errorMessage != null) ...[
-                          Text(
-                            errorMessage,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        TextFormField(
-                          controller: _nameController,
-                          enabled: !isLoading,
-                          autofocus: true,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            labelText: 'Название семьи',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.groups_outlined),
-                          ),
-                          validator: (value) {
-                            final name = value?.trim() ?? '';
-
-                            if (name.isEmpty) {
-                              return 'Введите название семьи.';
-                            }
-
-                            if (name.length > 100) {
-                              return 'Название должно быть не длиннее 100 символов.';
-                            }
-
-                            return null;
-                          },
-                          onFieldSubmitted: (_) {
-                            if (!isLoading) {
-                              _create();
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        FilledButton(
-                          onPressed: isLoading ? null : _create,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Text('Создать семью'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+      body: IndexedStack(
+        index: widget.currentTab,
+        children: [
+          TodayPage(
+            householdId: _selectedHousehold.id,
+            householdName: _selectedHousehold.name,
+            currentMemberId: widget.currentMemberId,
           ),
-        );
-      },
+          ScheduledPage(
+            householdId: _selectedHousehold.id,
+            currentMemberId: widget.currentMemberId,
+          ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: widget.currentTab,
+        onDestinationSelected: widget.onTabChanged,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.today_outlined),
+            selectedIcon: Icon(Icons.today),
+            label: 'Сегодня',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month),
+            label: 'Запланированные',
+          ),
+        ],
+      ),
     );
   }
 }

@@ -10,6 +10,8 @@ final class CreateTaskParams extends Equatable {
     required this.plannedFor,
     this.description,
     this.deadline,
+    this.assignedMemberId,
+    this.pinnedMemberId,
     this.recurrence,
     this.recurrenceStartDate,
     this.recurrenceEndDate,
@@ -21,6 +23,8 @@ final class CreateTaskParams extends Equatable {
   final int estimatedDurationMinutes;
   final DateTime plannedFor;
   final DateTime? deadline;
+  final String? assignedMemberId;
+  final String? pinnedMemberId;
 
   /// `null` означает обычную одноразовую задачу.
   final TaskRecurrence? recurrence;
@@ -42,6 +46,8 @@ final class CreateTaskParams extends Equatable {
     estimatedDurationMinutes,
     plannedFor,
     deadline,
+    assignedMemberId,
+    pinnedMemberId,
     recurrence,
     recurrenceStartDate,
     recurrenceEndDate,

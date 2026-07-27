@@ -5,7 +5,9 @@ import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/get_scheduled_tasks_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 
 void main() {
@@ -78,6 +80,22 @@ void main() {
 
       expect(repository.savedTask, isNull);
     });
+
+    test('очищает description и устанавливает null, если он пустой после обрезки', () async {
+      final editedTask = task.copyWith(description: '   ');
+
+      await UpdateTaskUseCase(repository: repository)(task: editedTask);
+
+      expect(repository.savedTask!.description, isNull);
+    });
+
+    test('оставляет непустой description после обрезки', () async {
+      final editedTask = task.copyWith(description: '  Купить ещё и сыр  ');
+
+      await UpdateTaskUseCase(repository: repository)(task: editedTask);
+
+      expect(repository.savedTask!.description, 'Купить ещё и сыр');
+    });
   });
 
   group('DeleteTaskUseCase', () {
@@ -87,11 +105,56 @@ void main() {
       expect(repository.deletedTaskId, 'task-1');
     });
   });
+
+  group('UncompleteTaskUseCase', () {
+    test('сбрасывает выполненную задачу в состояние "ожидает"', () async {
+      final completedTask = task.copyWith(
+        assignedMemberId: 'member-1',
+        status: TaskStatus.completed,
+        completedAt: DateTime(2026, 7, 22, 10),
+      );
+
+      final pendingTask = await UncompleteTaskUseCase(
+        repository: repository,
+      )(task: completedTask);
+
+      expect(pendingTask.status, TaskStatus.pending);
+      expect(pendingTask.assignedMemberId, isNull);
+      expect(pendingTask.completedAt, isNull);
+      expect(repository.savedTask, isNotNull);
+      expect(repository.savedTask!.status, TaskStatus.pending);
+    });
+
+    test('выбрасывает исключение для задачи, которая ещё не выполнена',
+        () async {
+      await expectLater(
+        UncompleteTaskUseCase(repository: repository)(task: task),
+        throwsA(isA<TaskNotCompletedException>()),
+      );
+
+      expect(repository.savedTask, isNull);
+    });
+  });
+
+  group('GetAllPendingTasksUseCase', () {
+    test('запрашивает все невыполненные задачи у репозитория', () async {
+      repository.pendingTasks = [task];
+
+      final result = await GetAllPendingTasksUseCase(
+        repository: repository,
+      )(householdId: 'household-1');
+
+      expect(result, [task]);
+      expect(repository.receivedPendingHouseholdId, 'household-1');
+    });
+  });
 }
 
 final class _FakeTaskRepository implements TaskRepository {
   List<Task> scheduledTasks = const [];
+  List<Task> pendingTasks = const [];
   String? receivedHouseholdId;
+  String? receivedPendingHouseholdId;
   DateTime? receivedDay;
   Task? savedTask;
   String? deletedTaskId;
@@ -129,4 +192,24 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<void> save(Task task) async {
     savedTask = task;
   }
+
+  @override
+  Future<List<Task>> getAllPending({
+    required String householdId,
+  }) async {
+    receivedPendingHouseholdId = householdId;
+    return pendingTasks;
+  }
+
+  @override
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+
+  @override
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
 }

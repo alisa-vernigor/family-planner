@@ -1,26 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
 import 'package:supabase_flutter/supabase_flutter.dart'
-    show PostgresChangeEvent, RealtimeChannel, PostgresChangeFilter, PostgresChangeFilterType;
+    show Supabase, PostgresChangeEvent, RealtimeChannel, PostgresChangeFilter, PostgresChangeFilterType;
 
-import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
+import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_state.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_actions_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
-import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
-import 'package:family_planner/features/auth/presentation/widgets/sign_out_button.dart';
 import 'package:family_planner/features/tasks/domain/services/task_schedule.dart';
-import 'package:family_planner/features/scheduled/presentation/pages/scheduled_page.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/task_card.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
 
 final class TodayPage extends StatelessWidget {
   const TodayPage({
@@ -37,6 +39,7 @@ final class TodayPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repository = context.read<TaskRepository>();
+    final householdRepository = context.read<HouseholdRepository>();
 
     return MultiBlocProvider(
       providers: [
@@ -44,6 +47,11 @@ final class TodayPage extends StatelessWidget {
           create: (_) => TodayTasksCubit(
             getTasksForDayUseCase: GetTasksForDayUseCase(
               repository: repository,
+            ),
+            householdRepository: householdRepository,
+            distributeTasksUseCase: DistributeTasksUseCase(
+              taskRepository: repository,
+              householdRepository: householdRepository,
             ),
           ),
         ),
@@ -168,10 +176,6 @@ final class _TodayViewState extends State<_TodayView> {
 
     if (wasCreated == true && mounted) {
       _reloadTasks();
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Задача создана.')));
     }
   }
 
@@ -216,6 +220,62 @@ final class _TodayViewState extends State<_TodayView> {
     }
   }
 
+  Future<void> _distributeTasks() async {
+    await context.read<TodayTasksCubit>().distribute(
+      householdId: widget.householdId,
+      day: widget.day,
+    );
+  }
+
+  Future<void> _assignTask(Task task, List<HouseholdMember> members) async {
+    final memberId = await showAssigneePicker(
+      context: context,
+      members: members,
+      currentAssigneeId: task.assignedMemberId,
+    );
+
+    if (memberId == null || !mounted) return;
+
+    final repository = context.read<TaskRepository>();
+
+    try {
+      if (memberId.isEmpty) {
+        await repository.save(task.copyWith(assignedMemberId: null));
+      } else {
+        if (!task.allowedMemberIds.contains(memberId)) {
+          await repository.addAllowedMember(
+            taskId: task.id,
+            memberId: memberId,
+          );
+        }
+
+        await repository.save(task.copyWith(assignedMemberId: memberId));
+      }
+    } catch (exception, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось назначить ответственного.')),
+      );
+      AppLogger.error('Ошибка назначения задачи', error: exception, stackTrace: stackTrace);
+    }
+
+    _reloadTasks();
+  }
+
+  Future<void> _togglePinTask(Task task) async {
+    final repository = context.read<TaskRepository>();
+    try {
+      await repository.save(task.copyWith(pinnedMemberId: null));
+    } catch (exception, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось открепить задачу.')),
+      );
+      AppLogger.error('Ошибка открепления задачи', error: exception, stackTrace: stackTrace);
+    }
+    _reloadTasks();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -231,9 +291,8 @@ final class _TodayViewState extends State<_TodayView> {
                 );
                 _reloadTasks();
               case TaskCompletionFailure(:final message):
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(message)));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(message)));
               case TaskCompletionInitial():
               case TaskCompletionInProgress():
                 break;
@@ -243,240 +302,299 @@ final class _TodayViewState extends State<_TodayView> {
         BlocListener<TaskActionsCubit, TaskCompletionState>(
           listener: (context, state) {
             if (state case TaskCompletionFailure(:final message)) {
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(SnackBar(content: Text(message)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(message)));
             }
           },
         ),
       ],
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.householdName),
-          actions: [
-            IconButton(
-              tooltip: 'Запланированные задачи',
-              onPressed: () async {
-                await Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ScheduledPage(householdId: widget.householdId),
-                  ),
-                );
+      child: Stack(
+        children: [
+          BlocBuilder<TodayTasksCubit, TodayTasksState>(
+            builder: (context, state) {
+              switch (state) {
+                case TodayTasksInitial():
+                case TodayTasksLoading():
+                  return const Center(child: CircularProgressIndicator());
 
-                if (mounted) {
-                  _reloadTasks();
-                }
-              },
-              icon: const Icon(Icons.calendar_month_outlined),
-            ),
-            SignOutButton(
-              onPressed: () {
-                context.read<AuthCubit>().signOut();
-              },
-            ),
-          ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _openCreateTaskSheet,
-          tooltip: 'Создать задачу',
-          child: const Icon(Icons.add),
-        ),
-        body: BlocBuilder<TodayTasksCubit, TodayTasksState>(
-          builder: (context, state) {
-            switch (state) {
-              case TodayTasksInitial():
-              case TodayTasksLoading():
-                return const Center(child: CircularProgressIndicator());
-
-              case TodayTasksFailure(:final message):
-                return Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.cloud_off_outlined, size: 48),
-                        const SizedBox(height: 16),
-                        Text(message, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: _reloadTasks,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-
-              case TodayTasksLoaded(:final tasks):
-                final todayTasks = TaskSchedule.forDay(
-                  tasks: tasks,
-                  day: widget.day,
-                );
-
-                if (todayTasks.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'На сегодня задач нет',
-                      key: Key('today_empty_state'),
+                case TodayTasksFailure(:final message):
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.cloud_off_outlined,
+                            size: 48,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(message, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: _reloadTasks,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
                     ),
                   );
-                }
 
-                return ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: todayTasks.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (_, index) {
-                    return _TodayTaskCard(
-                      task: todayTasks[index],
-                      memberId: widget.currentMemberId,
-                      onEdit: () => _openEditTaskSheet(todayTasks[index]),
-                      onDelete: () => _deleteTask(todayTasks[index]),
-                      onUncomplete: () async {
-                        final actionsCubit =
-                            context.read<TaskActionsCubit>();
-                        final result = await actionsCubit.uncompleteTask(
-                          task: todayTasks[index],
-                        );
-                        if (result != null && mounted) {
-                          _reloadTasks();
-                        }
-                      },
+                case TodayTasksLoaded(:final tasks, :final members):
+                  final todayTasks = TaskSchedule.forDay(
+                    tasks: tasks,
+                    day: widget.day,
+                  );
+
+                  if (todayTasks.isEmpty) {
+                    return _emptyState(
+                      icon: Icons.check_circle_outline,
+                      title: 'На сегодня задач нет',
+                      subtitle: 'Создайте новую задачу или запланируйте на другой день',
                     );
-                  },
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async => _reloadTasks(),
+                    child: _TaskListView(
+                      tasks: todayTasks,
+                      members: members,
+                      currentMemberId: widget.currentMemberId,
+                      onEdit: _openEditTaskSheet,
+                      onDelete: _deleteTask,
+                      onAssign: _assignTask,
+                      onTogglePin: _togglePinTask,
+                      onComplete: (task) {
+                        context
+                            .read<TaskCompletionCubit>()
+                            .completeTask(
+                              task: task,
+                              memberId: widget.currentMemberId,
+                            );
+                      },
+                      onUncomplete: (task) async {
+                        final result = await context
+                            .read<TaskActionsCubit>()
+                            .uncompleteTask(task: task);
+                        if (result != null && mounted) _reloadTasks();
+                      },
+                    ),
+                  );
+              }
+            },
+          ),
+          // ── Distribute FAB ──────────────────────────────
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: BlocBuilder<TodayTasksCubit, TodayTasksState>(
+              builder: (context, state) {
+                final isLoading = state is TodayTasksLoading;
+                return FloatingActionButton.small(
+                  heroTag: 'distribute_tasks_fab',
+                  tooltip: 'Автораспределить задачи',
+                  onPressed: isLoading ? null : _distributeTasks,
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome_outlined),
                 );
-            }
-          },
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 64,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _openCreateTaskSheet,
+              icon: const Icon(Icons.add),
+              label: const Text('Создать задачу'),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-final class _TodayTaskCard extends StatelessWidget {
-  const _TodayTaskCard({
-    required this.task,
-    required this.memberId,
+// ── Grouped list view ─────────────────────────────────────────────
+
+final class _TaskListView extends StatelessWidget {
+  const _TaskListView({
+    required this.tasks,
+    required this.members,
+    required this.currentMemberId,
     required this.onEdit,
     required this.onDelete,
+    required this.onAssign,
+    required this.onTogglePin,
+    required this.onComplete,
     required this.onUncomplete,
   });
 
-  final Task task;
-  final String memberId;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onUncomplete;
+  final List<Task> tasks;
+  final List<HouseholdMember> members;
+  final String currentMemberId;
+  final void Function(Task) onEdit;
+  final void Function(Task) onDelete;
+  final void Function(Task, List<HouseholdMember>) onAssign;
+  final void Function(Task) onTogglePin;
+  final void Function(Task) onComplete;
+  final void Function(Task) onUncomplete;
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = task.isCompleted;
+    final myTasks =
+        tasks
+            .where((t) => t.assignedMemberId == currentMemberId)
+            .toList(growable: false);
+    final othersTasks =
+        tasks
+            .where(
+              (t) =>
+                  t.assignedMemberId != null &&
+                  t.assignedMemberId != currentMemberId,
+            )
+            .toList(growable: false);
+    final unassigned =
+        tasks
+            .where((t) => t.assignedMemberId == null)
+            .toList(growable: false);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    task.title,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      decoration: isCompleted
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-                  ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+      children: [
+        if (myTasks.isNotEmpty) ...[
+          _SectionHeader(title: 'Мои задачи', count: myTasks.length),
+          ...myTasks.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TaskCard(
+                  task: t,
+                  members: members,
+                  currentMemberId: currentMemberId,
+                  onComplete: () => onComplete(t),
+                  onUncomplete: () => onUncomplete(t),
+                  onEdit: () => onEdit(t),
+                  onDelete: () => onDelete(t),
+                  onAssign: () => onAssign(t, members),
+                  onTogglePin: () => onTogglePin(t),
                 ),
-                PopupMenuButton<String>(
-                  tooltip: 'Действия',
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        onEdit();
-                      case 'delete':
-                        onDelete();
-                    }
-                  },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: ListTile(
-                        leading: Icon(Icons.edit_outlined),
-                        title: Text('Редактировать'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: ListTile(
-                        leading: Icon(Icons.delete_outline),
-                        title: Text('Удалить'),
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ],
+              )),
+          const SizedBox(height: 8),
+        ],
+        if (othersTasks.isNotEmpty) ...[
+          _SectionHeader(title: 'Задачи семьи', count: othersTasks.length),
+          ...othersTasks.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TaskCard(
+                  task: t,
+                  members: members,
+                  currentMemberId: currentMemberId,
+                  onComplete: () => onComplete(t),
+                  onUncomplete: () => onUncomplete(t),
+                  onEdit: () => onEdit(t),
+                  onDelete: () => onDelete(t),
+                  onAssign: () => onAssign(t, members),
+                  onTogglePin: () => onTogglePin(t),
                 ),
-              ],
+              )),
+          const SizedBox(height: 8),
+        ],
+        if (unassigned.isNotEmpty) ...[
+          _SectionHeader(title: 'Неназначенные', count: unassigned.length),
+          ...unassigned.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TaskCard(
+                  task: t,
+                  members: members,
+                  currentMemberId: currentMemberId,
+                  onComplete: () => onComplete(t),
+                  onUncomplete: () => onUncomplete(t),
+                  onEdit: () => onEdit(t),
+                  onDelete: () => onDelete(t),
+                  onAssign: () => onAssign(t, members),
+                  onTogglePin: () => onTogglePin(t),
+                ),
+              )),
+        ],
+      ],
+    );
+  }
+}
+
+final class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8, left: 4),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
-            if (task.description != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                task.description!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  decoration: isCompleted
-                      ? TextDecoration.lineThrough
-                      : null,
-                ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
-            ],
-            const SizedBox(height: 16),
-            Text('Примерно ${task.estimatedDurationMinutes} минут'),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: BlocBuilder<TaskCompletionCubit, TaskCompletionState>(
-                    builder: (context, completionState) {
-                      final isThisTaskInProgress =
-                          completionState is TaskCompletionInProgress;
-
-                      if (isCompleted) {
-                        return OutlinedButton.icon(
-                          onPressed: isThisTaskInProgress ? null : onUncomplete,
-                          icon: const Icon(Icons.undo),
-                          label: const Text('Отменить'),
-                        );
-                      }
-
-                      return FilledButton.icon(
-                        key: Key('complete_task_button_${task.id}'),
-                        onPressed: task.canBeCompletedBy(memberId) &&
-                                !isThisTaskInProgress
-                            ? () {
-                                context
-                                    .read<TaskCompletionCubit>()
-                                    .completeTask(
-                                      task: task,
-                                      memberId: memberId,
-                                    );
-                              }
-                            : null,
-                        icon: const Icon(Icons.check_circle_outline),
-                        label: const Text('Выполнить'),
-                      );
-                    },
-                  ),
-                ),
-              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

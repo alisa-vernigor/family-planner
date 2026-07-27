@@ -77,9 +77,7 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
   }
 
   void _sendInvitation() {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     context.read<HouseholdMembersCubit>().inviteByEmail(
       householdId: widget.householdId,
@@ -110,10 +108,10 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
 
     if (confirmed != true || !mounted) return;
 
-    final membersCubit = context.read<HouseholdMembersCubit>();
+    final cubit = context.read<HouseholdMembersCubit>();
     final householdCubit = context.read<HouseholdCubit>();
 
-    await membersCubit.leaveHousehold(householdId: widget.householdId);
+    await cubit.leaveHousehold(householdId: widget.householdId);
 
     if (!mounted) return;
 
@@ -146,8 +144,8 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
 
     if (confirmed != true || !mounted) return;
 
-    final membersCubit = context.read<HouseholdMembersCubit>();
-    await membersCubit.removeMember(
+    final cubit = context.read<HouseholdMembersCubit>();
+    await cubit.removeMember(
       householdId: widget.householdId,
       profileId: member.profileId,
     );
@@ -156,7 +154,9 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Участники: ${widget.householdName}')),
+      appBar: AppBar(
+        title: Text('Участники: ${widget.householdName}'),
+      ),
       body: BlocConsumer<HouseholdMembersCubit, HouseholdMembersState>(
         listener: (context, state) {
           if (state is HouseholdInvitationSent) {
@@ -168,9 +168,8 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
           }
 
           if (state case HouseholdMembersFailure(:final message)) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(message)));
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(message)));
           }
         },
         builder: (context, state) {
@@ -184,9 +183,8 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
           final isLoading = state is HouseholdMembersLoading;
           final isSending = state is HouseholdInvitationSending;
 
-          final currentMember = members.where(
-            (m) => m.profileId == widget.currentMemberId,
-          );
+          final currentMember =
+              members.where((m) => m.profileId == widget.currentMemberId);
           final isOwner = currentMember.any((m) => m.isOwner);
 
           if (isLoading) {
@@ -217,115 +215,140 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
               padding: const EdgeInsets.all(16),
               children: [
                 if (isOwner) ...[
-                  Text(
-                    'Пригласить участника',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Укажите email зарегистрированного пользователя. '
-                    'Он увидит приглашение и сам подтвердит вступление.',
-                  ),
-                  const SizedBox(height: 16),
-                  Form(
-                    key: _formKey,
-                    child: Row(
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: TextFormField(
-                            key: const Key('household_invitation_email_field'),
-                            controller: _emailController,
-                            enabled: !isSending,
-                            keyboardType: TextInputType.emailAddress,
-                            autocorrect: false,
-                            decoration: const InputDecoration(
-                              labelText: 'Email участника',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.email_outlined),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.person_add_alt_1_outlined,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
-                            validator: (value) {
-                              final email = value?.trim() ?? '';
-
-                              if (email.isEmpty || !email.contains('@')) {
-                                return 'Введите корректный email.';
-                              }
-
-                              return null;
-                            },
-                            onFieldSubmitted: (_) {
-                              if (!isSending) {
-                                _sendInvitation();
-                              }
-                            },
-                          ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Пригласить участника',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        FilledButton(
-                          key: const Key('send_household_invitation_button'),
-                          onPressed: isSending ? null : _sendInvitation,
-                          child: isSending
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+                        const SizedBox(height: 8),
+                        Text(
+                          'Укажите email зарегистрированного пользователя. '
+                          'Он увидит приглашение и сам подтвердит вступление.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              ),
+                        ),
+                        const SizedBox(height: 16),
+                        Form(
+                          key: _formKey,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  key: const Key(
+                                    'household_invitation_email_field',
                                   ),
-                                )
-                              : const Text('Пригласить'),
+                                  controller: _emailController,
+                                  enabled: !isSending,
+                                  keyboardType: TextInputType.emailAddress,
+                                  autocorrect: false,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Email участника',
+                                    prefixIcon: Icon(Icons.email_outlined),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  validator: (value) {
+                                    final email = value?.trim() ?? '';
+
+                                    if (email.isEmpty ||
+                                        !email.contains('@')) {
+                                      return 'Введите корректный email.';
+                                    }
+
+                                    return null;
+                                  },
+                                  onFieldSubmitted: (_) {
+                                    if (!isSending) _sendInvitation();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              FilledButton(
+                                key: const Key(
+                                  'send_household_invitation_button',
+                                ),
+                                onPressed:
+                                    isSending ? null : _sendInvitation,
+                                child: isSending
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Text('Пригласить'),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                 ],
-                Text(
-                  'Участники (${members.length})',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 8),
-                ...members.map(
-                  (member) => Card(
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Text(
-                          member.displayName.isEmpty
-                              ? '?'
-                              : member.displayName[0].toUpperCase(),
-                        ),
-                      ),
-                      title: Text(member.displayName),
-                      subtitle: Text(
-                        member.isOwner ? 'Владелец семьи' : 'Участник',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (member.isOwner)
-                            const Icon(Icons.workspace_premium_outlined)
-                          else ...[
-                            const Icon(Icons.person_outline),
-                            if (isOwner)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline),
-                                tooltip: 'Удалить участника',
-                                onPressed: () => _removeMember(member),
-                              ),
-                          ],
-                        ],
-                      ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    'Участники (${members.length})',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color:
+                          Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
+                ...members.map(
+                  (member) => _MemberTile(
+                    member: member,
+                    isOwner: isOwner,
+                    isCurrentUser:
+                        member.profileId == widget.currentMemberId,
+                    onRemove: () => _removeMember(member),
+                  ),
+                ),
                 if (!isOwner) ...[
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   SafeArea(
                     child: OutlinedButton.icon(
                       onPressed: _leaveHousehold,
                       icon: const Icon(Icons.exit_to_app),
                       label: const Text('Выйти из семьи'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.error,
                         side: BorderSide(
                           color: Theme.of(context).colorScheme.error,
                         ),
@@ -337,6 +360,97 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+final class _MemberTile extends StatelessWidget {
+  const _MemberTile({
+    required this.member,
+    required this.isOwner,
+    required this.isCurrentUser,
+    required this.onRemove,
+  });
+
+  final HouseholdMember member;
+  final bool isOwner;
+  final bool isCurrentUser;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(
+            backgroundColor: cs.primaryContainer,
+            child: Text(
+              member.displayName.isEmpty
+                  ? '?'
+                  : member.displayName[0].toUpperCase(),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: cs.onPrimaryContainer,
+              ),
+            ),
+          ),
+          title: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  member.displayName,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isCurrentUser) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cs.secondaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'вы',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          subtitle: Text(
+            member.isOwner ? 'Владелец семьи' : 'Участник',
+            style: TextStyle(color: cs.onSurfaceVariant),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (member.isOwner)
+                Icon(Icons.workspace_premium_rounded,
+                    color: cs.primary)
+              else if (isOwner)
+                IconButton(
+                  icon: Icon(Icons.remove_circle_outline,
+                      color: cs.error),
+                  tooltip: 'Удалить участника',
+                  onPressed: onRemove,
+                )
+              else
+                Icon(Icons.person_outline, color: cs.onSurfaceVariant),
+            ],
+          ),
+        ),
       ),
     );
   }

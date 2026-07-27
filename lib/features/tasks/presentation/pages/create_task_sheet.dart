@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_state.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 
 Future<bool?> showCreateTaskSheet({
   required BuildContext context,
@@ -14,6 +18,7 @@ Future<bool?> showCreateTaskSheet({
   required DateTime plannedFor,
 }) {
   final repository = context.read<TaskRepository>();
+  final householdRepository = context.read<HouseholdRepository>();
 
   return showModalBottomSheet<bool>(
     context: context,
@@ -26,6 +31,7 @@ Future<bool?> showCreateTaskSheet({
         child: CreateTaskSheet(
           householdId: householdId,
           plannedFor: plannedFor,
+          householdRepository: householdRepository,
         ),
       );
     },
@@ -36,11 +42,13 @@ final class CreateTaskSheet extends StatefulWidget {
   const CreateTaskSheet({
     required this.householdId,
     required this.plannedFor,
+    required this.householdRepository,
     super.key,
   });
 
   final String householdId;
   final DateTime plannedFor;
+  final HouseholdRepository householdRepository;
 
   @override
   State<CreateTaskSheet> createState() => _CreateTaskSheetState();
@@ -61,6 +69,36 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   bool _isRecurring = false;
   TaskRecurrenceType _recurrenceType = TaskRecurrenceType.daily;
   final Set<int> _selectedWeekdays = {};
+
+  List<HouseholdMember> _members = [];
+  String? _assignedMemberId;
+  bool _isPinned = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await widget.householdRepository.getMembers(
+        householdId: widget.householdId,
+      );
+      if (mounted) {
+        setState(() => _members = members);
+      }
+    } catch (exception, stackTrace) {
+      AppLogger.warning(
+        'Не удалось загрузить участников для назначения',
+      );
+      AppLogger.error(
+        'Ошибка загрузки участников',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -166,6 +204,31 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     });
   }
 
+  Future<void> _pickAssignee() async {
+    final picked = await showAssigneePicker(
+      context: context,
+      members: _members,
+      currentAssigneeId: _assignedMemberId,
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      if (picked.isEmpty) {
+        _assignedMemberId = null;
+        _isPinned = false;
+      } else {
+        _assignedMemberId = picked;
+      }
+    });
+  }
+
+  String? _assigneeName() {
+    if (_assignedMemberId == null) return null;
+    final member = _members.where((m) => m.profileId == _assignedMemberId);
+    return member.isNotEmpty ? member.first.displayName : null;
+  }
+
   String _formatDate(DateTime value) {
     final day = value.day.toString().padLeft(2, '0');
     final month = value.month.toString().padLeft(2, '0');
@@ -185,7 +248,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         weekdays: _selectedWeekdays.toList()..sort(),
       ),
       TaskRecurrenceType.intervalDays => TaskRecurrence.intervalDays(
-        intervalDays: int.tryParse(_recurrenceIntervalController.text),
+        intervalDays: int.tryParse(_recurrenceIntervalController.text) ?? 1,
       ),
     };
   }
@@ -231,8 +294,10 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         title: _titleController.text,
         description: _descriptionController.text,
         estimatedDurationMinutes: int.parse(_durationController.text),
-        plannedFor: _deadline ?? widget.plannedFor,
+        plannedFor: widget.plannedFor,
         deadline: _deadline,
+        assignedMemberId: _assignedMemberId,
+        pinnedMemberId: _isPinned ? _assignedMemberId : null,
         recurrence: _buildRecurrence(),
         recurrenceStartDate: _recurrenceStartDate,
         recurrenceEndDate: _recurrenceEndDate,
@@ -356,6 +421,41 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: isLoading ? null : _pickAssignee,
+                        icon: Icon(
+                          _assignedMemberId != null
+                              ? Icons.person_outlined
+                              : Icons.person_add_outlined,
+                        ),
+                        label: Text(
+                          _assigneeName() ?? 'Назначить ответственного',
+                        ),
+                      ),
+                      if (_assignedMemberId != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SwitchListTile(
+                                key: const Key('pin_assignee_switch'),
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Закрепить'),
+                                subtitle: const Text(
+                                  'Не будет перераспределяться',
+                                ),
+                                value: _isPinned,
+                                onChanged: isLoading
+                                    ? null
+                                    : (value) {
+                                        setState(() => _isPinned = value);
+                                      },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       SwitchListTile(
                         key: const Key('recurrence_switch'),
                         contentPadding: EdgeInsets.zero,
@@ -465,67 +565,10 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                                 isEnabled: !isLoading,
                                 onChanged: _toggleWeekday,
                               ),
-                              const SizedBox(height: 16),
-                              OutlinedButton.icon(
-                                key: const Key('recurrence_start_date_button'),
-                                onPressed: isLoading
-                                    ? null
-                                    : _pickRecurrenceStartDate,
-                                icon: const Icon(Icons.play_circle_outline),
-                                label: Text(
-                                  _recurrenceStartDate == null
-                                      ? 'Начать повторение с даты задачи'
-                                      : 'Начать повторение: '
-                                            '${_formatDate(_recurrenceStartDate!)}',
-                                ),
-                              ),
-                              if (_recurrenceStartDate != null)
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    key: const Key(
-                                      'clear_recurrence_start_date_button',
-                                    ),
-                                    onPressed: isLoading
-                                        ? null
-                                        : _clearRecurrenceStartDate,
-                                    child: const Text(
-                                      'Использовать дату задачи',
-                                    ),
-                                  ),
-                                ),
-                              const SizedBox(height: 8),
-                              OutlinedButton.icon(
-                                key: const Key('recurrence_end_date_button'),
-                                onPressed: isLoading
-                                    ? null
-                                    : _pickRecurrenceEndDate,
-                                icon: const Icon(Icons.stop_circle_outlined),
-                                label: Text(
-                                  _recurrenceEndDate == null
-                                      ? 'Закончить повторение — без срока'
-                                      : 'Закончить повторение: '
-                                            '${_formatDate(_recurrenceEndDate!)}',
-                                ),
-                              ),
-                              if (_recurrenceEndDate != null)
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    key: const Key(
-                                      'clear_recurrence_end_date_button',
-                                    ),
-                                    onPressed: isLoading
-                                        ? null
-                                        : _clearRecurrenceEndDate,
-                                    child: const Text('Без даты окончания'),
-                                  ),
-                                ),
                             ],
                           ),
                         ],
-                        if (_recurrenceType ==
-                            TaskRecurrenceType.intervalDays) ...[
+                        if (_recurrenceType == TaskRecurrenceType.intervalDays) ...[
                           const SizedBox(height: 16),
                           TextFormField(
                             key: const Key('recurrence_interval_field'),
@@ -557,9 +600,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
                           key: const Key('recurrence_start_date_button'),
-                          onPressed: isLoading
-                              ? null
-                              : _pickRecurrenceStartDate,
+                          onPressed: isLoading ? null : _pickRecurrenceStartDate,
                           icon: const Icon(Icons.play_circle_outline),
                           label: Text(
                             _recurrenceStartDate == null
@@ -606,8 +647,8 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                               child: const Text('Без даты окончания'),
                             ),
                           ),
-                      ],
-                      const SizedBox(height: 16),
+                        ],
+                        const SizedBox(height: 16),
                       OutlinedButton.icon(
                         onPressed: isLoading ? null : _pickDeadline,
                         icon: const Icon(Icons.schedule_outlined),

@@ -9,6 +9,8 @@ import 'package:family_planner/features/households/domain/use_cases/get_my_house
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
+import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
+import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
 
 void main() {
   const household = Household(id: 'household-1', name: 'Наша семья');
@@ -18,17 +20,23 @@ void main() {
     Household? createdHousehold,
     Object? loadException,
     Object? createException,
+    Object? deleteException,
+    Object? updateException,
   }) {
     final repository = FakeHouseholdRepository(
       households: households,
       createdHousehold: createdHousehold,
       loadException: loadException,
       createException: createException,
+      deleteException: deleteException,
+      updateException: updateException,
     );
 
     return HouseholdCubit(
       createHouseholdUseCase: CreateHouseholdUseCase(repository: repository),
       getMyHouseholdsUseCase: GetMyHouseholdsUseCase(repository: repository),
+      deleteHouseholdUseCase: DeleteHouseholdUseCase(repository: repository),
+      updateHouseholdUseCase: UpdateHouseholdUseCase(repository: repository),
     );
   }
 
@@ -80,6 +88,53 @@ void main() {
         HouseholdFailure(message: 'Не удалось загрузить или создать семью.'),
       ],
     );
+
+    blocTest<HouseholdCubit, HouseholdState>(
+      'выдаёт Loading и Loaded после удаления семьи (перезагружает список)',
+      build: () => createCubit(households: const [household]),
+      act: (cubit) => cubit.delete(householdId: 'household-1'),
+      expect: () => const [
+        HouseholdLoading(),
+        HouseholdLoaded(households: [household]),
+      ],
+    );
+
+    blocTest<HouseholdCubit, HouseholdState>(
+      'выдаёт Failure при ошибке удаления',
+      build: () => createCubit(
+        households: const [household],
+        deleteException: Exception('Ошибка сети'),
+      ),
+      act: (cubit) => cubit.delete(householdId: 'household-1'),
+      expect: () => const [
+        HouseholdLoading(),
+        HouseholdFailure(message: 'Не удалось удалить семью.'),
+      ],
+    );
+
+    blocTest<HouseholdCubit, HouseholdState>(
+      'выдаёт Loading и Loaded после переименования семьи',
+      build: () => createCubit(households: const [household]),
+      act: (cubit) =>
+          cubit.update(householdId: 'household-1', name: 'Новое имя'),
+      expect: () => const [
+        HouseholdLoading(),
+        HouseholdLoaded(households: [household]),
+      ],
+    );
+
+    blocTest<HouseholdCubit, HouseholdState>(
+      'выдаёт Failure при ошибке переименования',
+      build: () => createCubit(
+        households: const [household],
+        updateException: Exception('Ошибка сети'),
+      ),
+      act: (cubit) =>
+          cubit.update(householdId: 'household-1', name: 'Новое имя'),
+      expect: () => const [
+        HouseholdFailure(message: 'Не удалось переименовать семью.'),
+      ],
+    );
   });
 }
 
@@ -89,12 +144,18 @@ final class FakeHouseholdRepository implements HouseholdRepository {
     this.createdHousehold,
     this.loadException,
     this.createException,
+    this.deleteException,
+    this.updateException,
   });
 
   final List<Household> households;
   final Household? createdHousehold;
   final Object? loadException;
   final Object? createException;
+  final Object? deleteException;
+  final Object? updateException;
+
+  bool _hasCreated = false;
 
   @override
   Future<Household> create({required String name}) async {
@@ -105,6 +166,8 @@ final class FakeHouseholdRepository implements HouseholdRepository {
     if (createdHousehold == null) {
       throw StateError('Не задана семья для создания в тесте.');
     }
+
+    _hasCreated = true;
 
     return createdHousehold!;
   }
@@ -120,6 +183,10 @@ final class FakeHouseholdRepository implements HouseholdRepository {
   Future<List<Household>> getMyHouseholds() async {
     if (loadException != null) {
       throw loadException!;
+    }
+
+    if (_hasCreated && createdHousehold != null) {
+      return [createdHousehold!];
     }
 
     return households;
@@ -146,5 +213,31 @@ final class FakeHouseholdRepository implements HouseholdRepository {
   @override
   Future<void> declineInvitation({required String invitationId}) {
     throw UnimplementedError();
+  }
+
+  @override
+  Future<void> deleteHousehold({required String householdId}) async {
+    if (deleteException != null) {
+      throw deleteException!;
+    }
+  }
+
+  @override
+  Future<void> leaveHousehold({required String householdId}) async {}
+
+  @override
+  Future<void> removeMember({
+    required String householdId,
+    required String profileId,
+  }) async {}
+
+  @override
+  Future<void> updateHousehold({
+    required String householdId,
+    required String name,
+  }) async {
+    if (updateException != null) {
+      throw updateException!;
+    }
   }
 }

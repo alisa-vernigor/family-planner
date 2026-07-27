@@ -12,9 +12,24 @@ abstract interface class TaskRepository {
     required DateTime day,
   });
 
+  /// Все невыполненные задачи домохозяйства (на сегодня, на будущее, просроченные).
+  Future<List<Task>> getAllPending({
+    required String householdId,
+  });
+
   Future<Task> create({required CreateTaskParams params});
 
   Future<void> save(Task task);
 
   Future<void> delete({required String taskId});
+
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  });
+
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  });
 }

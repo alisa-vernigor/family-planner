@@ -23,6 +23,8 @@ import 'package:family_planner/features/households/presentation/cubit/household_
 import 'package:family_planner/features/tasks/data/repositories/supabase_task_repository.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 
+import 'package:family_planner/app/theme.dart';
+
 final class FamilyPlannerApp extends StatelessWidget {
   const FamilyPlannerApp({super.key});
 
@@ -88,7 +90,9 @@ final class FamilyPlannerApp extends StatelessWidget {
         child: MaterialApp(
           title: 'Family Planner',
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: ThemeMode.system,
           home: const AuthGate(),
         ),
       ),

@@ -198,6 +198,37 @@ void main() {
       throwsA(isA<TaskRecurrenceIntervalInvalidException>()),
     );
   });
+
+  test('не принимает день недели вне допустимого диапазона 1–7', () async {
+    final repository = FakeTaskRepository(taskToCreate: createdTask);
+    final useCase = CreateTaskUseCase(repository: repository);
+
+    expect(
+      () => useCase(
+        params: CreateTaskParams(
+          householdId: 'household-1',
+          title: 'Уборка',
+          estimatedDurationMinutes: 30,
+          plannedFor: plannedFor,
+          recurrence: const TaskRecurrence.weekly(weekdays: [0]),
+        ),
+      ),
+      throwsA(isA<TaskRecurrenceWeekdaysInvalidException>()),
+    );
+
+    expect(
+      () => useCase(
+        params: CreateTaskParams(
+          householdId: 'household-1',
+          title: 'Уборка',
+          estimatedDurationMinutes: 30,
+          plannedFor: plannedFor,
+          recurrence: const TaskRecurrence.weekly(weekdays: [8]),
+        ),
+      ),
+      throwsA(isA<TaskRecurrenceWeekdaysInvalidException>()),
+    );
+  });
 }
 
 final class FakeTaskRepository implements TaskRepository {
@@ -233,4 +264,23 @@ final class FakeTaskRepository implements TaskRepository {
 
   @override
   Future<void> save(Task task) async {}
+
+  @override
+  Future<List<Task>> getAllPending({
+    required String householdId,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> addAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
+
+  @override
+  Future<void> removeAllowedMember({
+    required String taskId,
+    required String memberId,
+  }) async {}
 }

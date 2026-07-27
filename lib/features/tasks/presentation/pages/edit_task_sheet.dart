@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_state.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 
 Future<bool?> showEditTaskSheet({
   required BuildContext context,
   required Task task,
 }) {
   final repository = context.read<TaskRepository>();
+  final householdRepository = context.read<HouseholdRepository>();
 
   return showModalBottomSheet<bool>(
     context: context,
@@ -21,16 +26,24 @@ Future<bool?> showEditTaskSheet({
         create: (_) => UpdateTaskCubit(
           updateTaskUseCase: UpdateTaskUseCase(repository: repository),
         ),
-        child: EditTaskSheet(task: task),
+        child: EditTaskSheet(
+          task: task,
+          householdRepository: householdRepository,
+        ),
       );
     },
   );
 }
 
 final class EditTaskSheet extends StatefulWidget {
-  const EditTaskSheet({required this.task, super.key});
+  const EditTaskSheet({
+    required this.task,
+    required this.householdRepository,
+    super.key,
+  });
 
   final Task task;
+  final HouseholdRepository householdRepository;
 
   @override
   State<EditTaskSheet> createState() => _EditTaskSheetState();
@@ -43,6 +56,9 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   late final TextEditingController _durationController;
 
   late DateTime? _deadline;
+  String? _assignedMemberId;
+  bool _isPinned = false;
+  List<HouseholdMember> _members = [];
 
   @override
   void initState() {
@@ -57,6 +73,30 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       text: widget.task.estimatedDurationMinutes.toString(),
     );
     _deadline = widget.task.deadline;
+    _assignedMemberId = widget.task.assignedMemberId;
+    _isPinned = widget.task.isPinned;
+
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final members = await widget.householdRepository.getMembers(
+        householdId: widget.task.householdId,
+      );
+      if (mounted) {
+        setState(() => _members = members);
+      }
+    } catch (exception, stackTrace) {
+      AppLogger.warning(
+        'Не удалось загрузить участников для редактирования',
+      );
+      AppLogger.error(
+        'Ошибка загрузки участников',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   @override
@@ -107,6 +147,31 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
     });
   }
 
+  Future<void> _pickAssignee() async {
+    final picked = await showAssigneePicker(
+      context: context,
+      members: _members,
+      currentAssigneeId: _assignedMemberId,
+    );
+
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      if (picked.isEmpty) {
+        _assignedMemberId = null;
+        _isPinned = false;
+      } else {
+        _assignedMemberId = picked;
+      }
+    });
+  }
+
+  String? _assigneeName() {
+    if (_assignedMemberId == null) return null;
+    final member = _members.where((m) => m.profileId == _assignedMemberId);
+    return member.isNotEmpty ? member.first.displayName : null;
+  }
+
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -123,7 +188,8 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       plannedFor: _deadline ?? widget.task.plannedFor,
       deadline: _deadline,
       allowedMemberIds: widget.task.allowedMemberIds,
-      assignedMemberId: widget.task.assignedMemberId,
+      assignedMemberId: _assignedMemberId,
+      pinnedMemberId: _isPinned ? _assignedMemberId : null,
       status: widget.task.status,
       createdAt: widget.task.createdAt,
       completedAt: widget.task.completedAt,
@@ -268,6 +334,41 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                             child: const Text('Убрать дедлайн'),
                           ),
                         ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: isLoading ? null : _pickAssignee,
+                        icon: Icon(
+                          _assignedMemberId != null
+                              ? Icons.person_outlined
+                              : Icons.person_add_outlined,
+                        ),
+                        label: Text(
+                          _assigneeName() ?? 'Назначить ответственного',
+                        ),
+                      ),
+                      if (_assignedMemberId != null) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SwitchListTile(
+                                key: const Key('edit_pin_assignee_switch'),
+                                contentPadding: EdgeInsets.zero,
+                                title: const Text('Закрепить'),
+                                subtitle: const Text(
+                                  'Не будет перераспределяться',
+                                ),
+                                value: _isPinned,
+                                onChanged: isLoading
+                                    ? null
+                                    : (value) {
+                                        setState(() => _isPinned = value);
+                                      },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       FilledButton(
                         key: const Key('save_task_button'),
