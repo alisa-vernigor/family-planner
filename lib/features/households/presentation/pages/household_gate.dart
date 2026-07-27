@@ -6,6 +6,7 @@ import 'package:family_planner/features/households/presentation/cubit/household_
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_state.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
+import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
 import 'package:family_planner/features/today/presentation/pages/today_page.dart';
 import 'package:family_planner/features/scheduled/presentation/pages/scheduled_page.dart';
 import 'package:family_planner/features/households/presentation/pages/household_invitations_page.dart';
@@ -45,7 +46,9 @@ final class _HouseholdGateState extends State<HouseholdGate> {
 
           case HouseholdEmpty():
             _selectedHouseholdId = null;
-            return const CreateHouseholdPage();
+            return _EmptyShell(
+              currentMemberId: widget.currentMemberId,
+            );
 
           case HouseholdFailure(:final message):
             return Scaffold(
@@ -373,6 +376,164 @@ final class _AppShellState extends State<_AppShell> {
             label: 'Запланированные',
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Экран без семей — показывает приглашения (если есть) или CreateHouseholdPage.
+final class _EmptyShell extends StatefulWidget {
+  const _EmptyShell({required this.currentMemberId});
+
+  final String currentMemberId;
+
+  @override
+  State<_EmptyShell> createState() => _EmptyShellState();
+}
+
+final class _EmptyShellState extends State<_EmptyShell> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<HouseholdInvitationsCubit>().load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Семья'),
+        actions: [
+          IconButton(
+            tooltip: 'Приглашения',
+            icon: BlocBuilder<HouseholdInvitationsCubit,
+                HouseholdInvitationsState>(
+              builder: (context, state) {
+                final count = switch (state) {
+                  HouseholdInvitationsLoaded(:final invitations) =>
+                    invitations.length,
+                  _ => 0,
+                };
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  child: const Icon(Icons.mail_outline),
+                );
+              },
+            ),
+            onPressed: _openInvitations,
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Ещё',
+            onSelected: (value) {
+              if (value == 'signout') {
+                context.read<AuthCubit>().signOut();
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'signout',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Выйти из аккаунта'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: BlocBuilder<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+        builder: (context, state) {
+          if (state is HouseholdInvitationsLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final invitations = switch (state) {
+            HouseholdInvitationsLoaded(:final invitations) => invitations,
+            _ => <HouseholdInvitation>[],
+          };
+
+          if (invitations.isNotEmpty) {
+            return const _InvitationsPrompt();
+          }
+
+          return const CreateHouseholdPage();
+        },
+      ),
+    );
+  }
+
+  void _openInvitations() async {
+    await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => const HouseholdInvitationsPage(),
+      ),
+    );
+
+    if (!context.mounted) return;
+    context.read<HouseholdCubit>().load();
+  }
+}
+
+/// Приглашения есть — предложить посмотреть или создать семью.
+final class _InvitationsPrompt extends StatelessWidget {
+  const _InvitationsPrompt();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.mail_outline,
+              size: 64,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Вас пригласили в семью',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'У вас есть приглашения. Посмотрите их или создайте свою семью.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () async {
+                await Navigator.of(context).push<String>(
+                  MaterialPageRoute(
+                    builder: (_) => const HouseholdInvitationsPage(),
+                  ),
+                );
+                if (!context.mounted) return;
+                context.read<HouseholdCubit>().load();
+              },
+              icon: const Icon(Icons.mail_outline),
+              label: const Text('Посмотреть приглашения'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        const CreateHouseholdPage(closeAfterCreate: true),
+                  ),
+                );
+                if (!context.mounted) return;
+                context.read<HouseholdCubit>().load();
+              },
+              icon: const Icon(Icons.add_home_outlined),
+              label: const Text('Создать свою семью'),
+            ),
+          ],
+        ),
       ),
     );
   }
