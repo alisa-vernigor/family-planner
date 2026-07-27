@@ -93,10 +93,17 @@ final class _ScheduledViewState extends State<_ScheduledView> {
             value: householdId,
           ),
           callback: (_) {
-            if (mounted) _reloadTasks();
+            // Тихая перезагрузка — не дёргаем спиннер
+            if (mounted) _silentReload();
           },
         )
         .subscribe();
+  }
+
+  void _silentReload() {
+    context.read<ScheduledTasksCubit>().refresh(
+      householdId: widget.householdId,
+    );
   }
 
   void _unsubscribeFromRealtime() {
@@ -114,7 +121,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
     final wasUpdated = await showEditTaskSheet(context: context, task: task);
 
     if (wasUpdated == true && mounted) {
-      _reloadTasks();
+      _silentReload();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Изменения сохранены.')),
@@ -130,7 +137,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
     );
 
     if (wasCreated == true && mounted) {
-      _reloadTasks();
+      _silentReload();
     }
   }
 

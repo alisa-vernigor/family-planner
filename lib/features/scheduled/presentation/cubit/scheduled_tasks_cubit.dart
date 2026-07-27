@@ -22,6 +22,29 @@ final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
   }) async {
     emit(const ScheduledTasksLoading());
 
+    await _fetch(householdId: householdId);
+  }
+
+  /// Тихая перезагрузка — не показывает спиннер, если данные уже есть.
+  Future<void> refresh({
+    required String householdId,
+  }) async {
+    final previousState = state;
+
+    await _fetch(
+      householdId: householdId,
+      onFailure: () {
+        if (previousState case ScheduledTasksLoaded()) {
+          emit(previousState);
+        }
+      },
+    );
+  }
+
+  Future<void> _fetch({
+    required String householdId,
+    void Function()? onFailure,
+  }) async {
     try {
       final tasksFuture = getAllPendingTasksUseCase(
         householdId: householdId,
@@ -51,7 +74,11 @@ final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
 
       AppLogger.error(message, error: exception, stackTrace: stackTrace);
 
-      emit(const ScheduledTasksFailure(message: message));
+      if (onFailure != null) {
+        onFailure();
+      } else {
+        emit(const ScheduledTasksFailure(message: message));
+      }
     }
   }
 

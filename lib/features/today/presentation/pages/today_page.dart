@@ -142,7 +142,8 @@ final class _TodayViewState extends State<_TodayView> {
             value: householdId,
           ),
           callback: (_) {
-            if (mounted) _reloadTasks();
+            // Тихая перезагрузка — не дёргаем спиннер
+            if (mounted) _silentReload();
           },
         )
         .subscribe();
@@ -167,6 +168,14 @@ final class _TodayViewState extends State<_TodayView> {
     );
   }
 
+  /// Тихая перезагрузка без спиннера — для реалтайм-событий и фоновых обновлений.
+  void _silentReload() {
+    context.read<TodayTasksCubit>().refresh(
+      householdId: widget.householdId,
+      day: widget.day,
+    );
+  }
+
   Future<void> _openCreateTaskSheet() async {
     final wasCreated = await showCreateTaskSheet(
       context: context,
@@ -175,7 +184,7 @@ final class _TodayViewState extends State<_TodayView> {
     );
 
     if (wasCreated == true && mounted) {
-      _reloadTasks();
+      _silentReload();
     }
   }
 
@@ -183,7 +192,7 @@ final class _TodayViewState extends State<_TodayView> {
     final wasEdited = await showEditTaskSheet(context: context, task: task);
 
     if (wasEdited == true && mounted) {
-      _reloadTasks();
+      _silentReload();
     }
   }
 

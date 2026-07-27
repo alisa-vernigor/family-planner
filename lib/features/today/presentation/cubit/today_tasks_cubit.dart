@@ -26,6 +26,32 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
   }) async {
     emit(const TodayTasksLoading());
 
+    await _fetch(householdId: householdId, day: day);
+  }
+
+  /// Тихая перезагрузка — не показывает спиннер, если данные уже есть.
+  Future<void> refresh({
+    required String householdId,
+    required DateTime day,
+  }) async {
+    final previousState = state;
+
+    await _fetch(
+      householdId: householdId,
+      day: day,
+      onFailure: () {
+        if (previousState case TodayTasksLoaded()) {
+          emit(previousState);
+        }
+      },
+    );
+  }
+
+  Future<void> _fetch({
+    required String householdId,
+    required DateTime day,
+    void Function()? onFailure,
+  }) async {
     try {
       final tasksFuture = getTasksForDayUseCase(
         householdId: householdId,
@@ -51,7 +77,11 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
 
       AppLogger.error(message, error: exception, stackTrace: stackTrace);
 
-      emit(const TodayTasksFailure(message: message));
+      if (onFailure != null) {
+        onFailure();
+      } else {
+        emit(const TodayTasksFailure(message: message));
+      }
     }
   }
 
