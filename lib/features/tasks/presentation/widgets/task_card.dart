@@ -14,6 +14,8 @@ final class TaskCard extends StatelessWidget {
     required this.onDelete,
     required this.onAssign,
     this.onTogglePin,
+    this.isSelected = false,
+    this.onLongPress,
     super.key,
   });
 
@@ -26,6 +28,8 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onAssign;
   final VoidCallback? onTogglePin;
+  final bool isSelected;
+  final VoidCallback? onLongPress;
 
   /// Map memberId → displayName для быстрого поиска
   Map<String, String> get _memberNameMap {
@@ -42,9 +46,18 @@ final class TaskCard extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isCompleted = task.isCompleted;
 
-    return Card(
-      color: isCompleted ? cs.surfaceContainerLowest : cs.surface,
-      child: Padding(
+    return GestureDetector(
+      onLongPress: onLongPress,
+      onTap: isSelected
+          ? () {} // handled by parent
+          : null,
+      child: Card(
+        color: isSelected
+            ? cs.primaryContainer.withAlpha(60)
+            : isCompleted
+                ? cs.surfaceContainerLowest
+                : cs.surface,
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,6 +252,7 @@ final class TaskCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

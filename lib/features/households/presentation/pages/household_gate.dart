@@ -115,9 +115,15 @@ final class _HouseholdGateState extends State<HouseholdGate> {
               currentMemberId: widget.currentMemberId,
               currentTab: _currentTab,
               onTabChanged: (index) {
+                setState(() {
+                  _currentTab = index;
+                });
                 _saveTab(index);
               },
               onHouseholdChanged: (id) {
+                setState(() {
+                  _selectedHouseholdId = id;
+                });
                 _saveHousehold(id);
               },
             );

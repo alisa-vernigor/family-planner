@@ -104,6 +104,8 @@ final class _TodayView extends StatefulWidget {
 
 final class _TodayViewState extends State<_TodayView> {
   RealtimeChannel? _realtimeChannel;
+  final Set<String> _selectedTaskIds = {};
+  bool _isSelectionMode = false;
 
   @override
   void initState() {
@@ -323,6 +325,45 @@ final class _TodayViewState extends State<_TodayView> {
     }
   }
 
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) _selectedTaskIds.clear();
+    });
+  }
+
+  void _toggleTaskSelection(String taskId) {
+    setState(() {
+      if (_selectedTaskIds.contains(taskId)) {
+        _selectedTaskIds.remove(taskId);
+        if (_selectedTaskIds.isEmpty) _isSelectionMode = false;
+      } else {
+        _selectedTaskIds.add(taskId);
+      }
+    });
+  }
+
+  void _batchComplete(List<Task> tasks) {
+    if (!mounted || _selectedTaskIds.isEmpty) return;
+
+    final toComplete = tasks.where(
+      (t) => _selectedTaskIds.contains(t.id) && !t.isCompleted,
+    );
+    final completionCubit = context.read<TaskCompletionCubit>();
+
+    for (final task in toComplete) {
+      completionCubit.completeTask(
+        task: task,
+        memberId: widget.currentMemberId,
+      );
+    }
+
+    setState(() {
+      _selectedTaskIds.clear();
+      _isSelectionMode = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
@@ -417,17 +458,29 @@ final class _TodayViewState extends State<_TodayView> {
                       tasks: todayTasks,
                       members: members,
                       currentMemberId: widget.currentMemberId,
+                      isSelectionMode: _isSelectionMode,
+                      selectedTaskIds: _selectedTaskIds,
                       onEdit: _openEditTaskSheet,
                       onDelete: _deleteTask,
                       onAssign: _assignTask,
                       onTogglePin: _togglePinTask,
                       onComplete: (task) {
-                        context
-                            .read<TaskCompletionCubit>()
-                            .completeTask(
-                              task: task,
-                              memberId: widget.currentMemberId,
-                            );
+                        if (_isSelectionMode) {
+                          _toggleTaskSelection(task.id);
+                        } else {
+                          context
+                              .read<TaskCompletionCubit>()
+                              .completeTask(
+                                task: task,
+                                memberId: widget.currentMemberId,
+                              );
+                        }
+                      },
+                      onLongPress: (task) {
+                        if (!_isSelectionMode) {
+                          _toggleSelectionMode();
+                          _toggleTaskSelection(task.id);
+                        }
                       },
                       onUncomplete: (task) async {
                         final result = await context
@@ -525,17 +578,23 @@ final class _TaskListView extends StatelessWidget {
     required this.onTogglePin,
     required this.onComplete,
     required this.onUncomplete,
+    this.isSelectionMode = false,
+    this.selectedTaskIds = const {},
+    this.onLongPress,
   });
 
   final List<Task> tasks;
   final List<HouseholdMember> members;
   final String currentMemberId;
+  final bool isSelectionMode;
+  final Set<String> selectedTaskIds;
   final void Function(Task) onEdit;
   final void Function(Task) onDelete;
   final void Function(Task, List<HouseholdMember>) onAssign;
   final void Function(Task) onTogglePin;
   final void Function(Task) onComplete;
   final void Function(Task) onUncomplete;
+  final void Function(Task)? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -568,6 +627,8 @@ final class _TaskListView extends StatelessWidget {
                   task: t,
                   members: members,
                   currentMemberId: currentMemberId,
+                  isSelected: selectedTaskIds.contains(t.id),
+                  onLongPress: onLongPress != null ? () => onLongPress!(t) : null,
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
@@ -587,6 +648,8 @@ final class _TaskListView extends StatelessWidget {
                   task: t,
                   members: members,
                   currentMemberId: currentMemberId,
+                  isSelected: selectedTaskIds.contains(t.id),
+                  onLongPress: onLongPress != null ? () => onLongPress!(t) : null,
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
@@ -606,24 +669,8 @@ final class _TaskListView extends StatelessWidget {
                   task: t,
                   members: members,
                   currentMemberId: currentMemberId,
-                  onComplete: () => onComplete(t),
-                  onUncomplete: () => onUncomplete(t),
-                  onEdit: () => onEdit(t),
-                  onDelete: () => onDelete(t),
-                  onAssign: () => onAssign(t, members),
-                  onTogglePin: () => onTogglePin(t),
-                ),
-              )),
-          const SizedBox(height: 8),
-        ],
-        if (unassigned.isNotEmpty) ...[
-          _SectionHeader(title: 'Неназначенные', count: unassigned.length),
-          ...unassigned.map((t) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: TaskCard(
-                  task: t,
-                  members: members,
-                  currentMemberId: currentMemberId,
+                  isSelected: selectedTaskIds.contains(t.id),
+                  onLongPress: onLongPress != null ? () => onLongPress!(t) : null,
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
