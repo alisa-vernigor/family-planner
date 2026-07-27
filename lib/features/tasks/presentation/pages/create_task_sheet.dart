@@ -415,7 +415,8 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                         enabled: !isLoading,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'Длительность, минут',
+                          labelText: 'Длительность работы, минут',
+                          hintText: 'Например: 30',
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.timer_outlined),
                         ),
@@ -485,6 +486,14 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                               },
                       ),
                       if (_isRecurring) ...[
+                        const SizedBox(height: 8),
+                        _RecurrenceSummary(
+                          type: _recurrenceType,
+                          intervalDays: int.tryParse(_recurrenceIntervalController.text) ?? 1,
+                          weekdayCount: _selectedWeekdays.length,
+                          startDate: _recurrenceStartDate,
+                          endDate: _recurrenceEndDate,
+                        ),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<TaskRecurrenceType>(
                           key: const Key('recurrence_type_dropdown'),
@@ -701,6 +710,65 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Человекочитаемая сводка настроек повторения.
+final class _RecurrenceSummary extends StatelessWidget {
+  const _RecurrenceSummary({
+    required this.type,
+    required this.intervalDays,
+    required this.weekdayCount,
+    this.startDate,
+    this.endDate,
+  });
+
+  final TaskRecurrenceType type;
+  final int intervalDays;
+  final int weekdayCount;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    String summary;
+    switch (type) {
+      case TaskRecurrenceType.daily:
+        summary = 'Каждый день';
+      case TaskRecurrenceType.weekly:
+        final days = <String>['', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+        summary = 'По $weekdayCount дн. в неделю';
+      case TaskRecurrenceType.intervalDays:
+        summary = 'Каждые $intervalDays дн.';
+    }
+
+    if (startDate != null) {
+      final start = '${startDate!.day}.${startDate!.month}.${startDate!.year}';
+      if (endDate != null) {
+        final end = '${endDate!.day}.${endDate!.month}.${endDate!.year}';
+        summary += ', с $start по $end';
+      } else {
+        summary += ', с $start';
+      }
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cs.tertiaryContainer.withAlpha(76),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.repeat, size: 16, color: cs.tertiary),
+          const SizedBox(width: 8),
+          Text(summary, style: TextStyle(color: cs.tertiary, fontWeight: FontWeight.w500)),
+        ],
       ),
     );
   }

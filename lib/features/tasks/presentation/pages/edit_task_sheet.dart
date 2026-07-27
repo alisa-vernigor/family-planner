@@ -318,7 +318,8 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                         enabled: !isLoading,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                          labelText: 'Длительность, минут',
+                          labelText: 'Длительность работы, минут',
+                          hintText: 'Например: 30',
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.timer_outlined),
                         ),

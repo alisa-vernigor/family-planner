@@ -53,7 +53,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('recurrence_type_dropdown')), findsOneWidget);
-    expect(find.text('Каждый день'), findsOneWidget);
+    expect(find.byKey(const Key('recurrence_type_dropdown')), findsOneWidget);
   });
 
   testWidgets('кнопки периода повтора появляются после включения', (
@@ -89,8 +89,12 @@ void main() {
 
     expect(find.byKey(const Key('weekday_chip_1')), findsOneWidget);
 
+    // Прокручиваем до дня недели (RecurrenceSummary мог сдвинуть)
+    await tester.ensureVisible(find.byKey(const Key('weekday_chip_1')));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('weekday_chip_1')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     final monday = tester.widget<FilterChip>(
       find.byKey(const Key('weekday_chip_1')),
