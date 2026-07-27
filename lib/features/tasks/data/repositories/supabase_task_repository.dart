@@ -218,7 +218,13 @@ final class SupabaseTaskRepository implements TaskRepository {
       query = query.eq('updated_at', task.updatedAt!.toUtc().toIso8601String());
     }
 
-    await query;
+    final result = await query.select('id');
+    if (result.isEmpty) {
+      AppLogger.warning(
+        'Конфликт при сохранении задачи: taskId=${task.id} — '
+        'другой пользователь изменил задачу',
+      );
+    }
   }
 
   @override

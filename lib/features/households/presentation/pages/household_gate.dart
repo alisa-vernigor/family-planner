@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
@@ -26,11 +27,33 @@ final class HouseholdGate extends StatefulWidget {
 final class _HouseholdGateState extends State<HouseholdGate> {
   int _currentTab = 0;
   String? _selectedHouseholdId;
+  final _prefsKeyTab = 'selected_tab';
+  final _prefsKeyHousehold = 'selected_household_id';
 
   @override
   void initState() {
     super.initState();
+    _restoreState();
     context.read<HouseholdCubit>().load();
+  }
+
+  Future<void> _restoreState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _currentTab = prefs.getInt(_prefsKeyTab) ?? 0;
+      _selectedHouseholdId = prefs.getString(_prefsKeyHousehold);
+    });
+  }
+
+  Future<void> _saveTab(int index) async {
+    _currentTab = index;
+    (await SharedPreferences.getInstance()).setInt(_prefsKeyTab, index);
+  }
+
+  Future<void> _saveHousehold(String id) async {
+    _selectedHouseholdId = id;
+    (await SharedPreferences.getInstance()).setString(_prefsKeyHousehold, id);
   }
 
   @override
@@ -92,10 +115,10 @@ final class _HouseholdGateState extends State<HouseholdGate> {
               currentMemberId: widget.currentMemberId,
               currentTab: _currentTab,
               onTabChanged: (index) {
-                setState(() => _currentTab = index);
+                _saveTab(index);
               },
               onHouseholdChanged: (id) {
-                setState(() => _selectedHouseholdId = id);
+                _saveHousehold(id);
               },
             );
         }

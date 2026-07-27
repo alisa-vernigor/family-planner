@@ -153,6 +153,8 @@ final class _TodayViewState extends State<_TodayView> {
 
           if (status == RealtimeSubscribeStatus.subscribed) {
             AppLogger.debug('Realtime канал подключён');
+            // При переподключении — полная перезагрузка на случай пропущенных событий
+            if (mounted) _reloadTasks();
           }
         });
   }
@@ -329,22 +331,21 @@ final class _TodayViewState extends State<_TodayView> {
           listener: (context, state) {
             switch (state) {
               case TaskCompletionSuccess(:final task):
-                final messenger = ScaffoldMessenger.of(context);
-                messenger.showSnackBar(
-                  SnackBar(
-                    duration: const Duration(seconds: 6),
-                    content: const Text('Задача выполнена. Отличная работа!'),
-                    action: SnackBarAction(
-                      label: 'Отменить',
-                      onPressed: () {
-                        context
-                            .read<TaskActionsCubit>()
-                            .uncompleteTask(task: task);
-                      },
-                    ),
-                  ),
-                );
-                context.read<TodayTasksCubit>().replaceTask(task);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                duration: const Duration(seconds: 6),
+                content: const Text('Задача выполнена. Отличная работа!'),
+                action: SnackBarAction(
+                  label: 'Отменить',
+                  onPressed: () {
+                    context
+                        .read<TaskActionsCubit>()
+                        .uncompleteTask(task: task);
+                  },
+                ),
+              ),
+            );
+            context.read<TodayTasksCubit>().replaceTask(task);
               case TaskCompletionFailure(:final message):
                 ScaffoldMessenger.of(context)
                     .showSnackBar(SnackBar(content: Text(message)));

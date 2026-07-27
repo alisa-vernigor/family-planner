@@ -76,6 +76,16 @@ final class _ScheduledViewState extends State<_ScheduledView> {
   }
 
   @override
+  void didUpdateWidget(covariant _ScheduledView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.householdId != widget.householdId) {
+      _unsubscribeFromRealtime();
+      _subscribeToRealtime(widget.householdId);
+      _reloadTasks();
+    }
+  }
+
+  @override
   void dispose() {
     _unsubscribeFromRealtime();
     super.dispose();
@@ -105,6 +115,8 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
           if (status == RealtimeSubscribeStatus.subscribed) {
             AppLogger.debug('Realtime канал подключён');
+            // При переподключении — полная перезагрузка на случай пропущенных событий
+            if (mounted) _reloadTasks();
           }
         });
   }
@@ -313,28 +325,47 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                   );
                 }
 
+                // Группируем по дате
+                final grouped = <String, List<Task>>{};
+                for (final task in tasks) {
+                  final key = _formatDate(task.plannedFor);
+                  grouped.putIfAbsent(key, () => []).add(task);
+                }
+                final dates = grouped.keys.toList();
+
                 return RefreshIndicator(
                   onRefresh: () async => _reloadTasks(),
-                  child: ListView.builder(
+                  child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                    itemCount: tasks.length,
-                    itemBuilder: (context, index) {
-                      final task = tasks[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _ScheduledTaskCard(
-                          key: ValueKey(task.id),
-                          task: task,
-                          members: members,
-                          currentMemberId: widget.currentMemberId,
-                          formatDate: _formatDate,
-                          onEdit: () => _openEditTaskSheet(task),
-                          onAssign: () => _assignTask(task, members),
-                          onTogglePin: () => _togglePinTask(task),
-                          onDelete: () => _deleteTask(task),
+                    children: [
+                      for (final date in dates) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
+                          child: Text(
+                            date,
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                         ),
-                      );
-                    },
+                        for (final task in grouped[date]!)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _ScheduledTaskCard(
+                              key: ValueKey(task.id),
+                              task: task,
+                              members: members,
+                              currentMemberId: widget.currentMemberId,
+                              formatDate: _formatDate,
+                              onEdit: () => _openEditTaskSheet(task),
+                              onAssign: () => _assignTask(task, members),
+                              onTogglePin: () => _togglePinTask(task),
+                              onDelete: () => _deleteTask(task),
+                            ),
+                          ),
+                      ],
+                    ],
                   ),
                 );
             }
