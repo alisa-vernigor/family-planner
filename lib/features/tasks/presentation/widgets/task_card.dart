@@ -205,21 +205,36 @@ final class TaskCard extends StatelessWidget {
                     )
                   : SizedBox(
                       height: 36,
-                      child: FilledButton.icon(
-                        key: Key('complete_task_button_${task.id}'),
-                        onPressed: task.canBeCompletedBy(currentMemberId)
-                            ? onComplete
-                            : null,
-                        icon: const Icon(Icons.check_circle_outline, size: 18),
-                        label: const Text(
-                          'Выполнить',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
+                      child: task.canBeCompletedBy(currentMemberId)
+                          ? FilledButton.icon(
+                              key: Key('complete_task_button_${task.id}'),
+                              onPressed: onComplete,
+                              icon: const Icon(Icons.check_circle_outline, size: 18),
+                              label: const Text(
+                                'Выполнить',
+                                style: TextStyle(fontSize: 13),
+                              ),
+                              style: FilledButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            )
+                          : Tooltip(
+                              message: 'Вы не назначены исполнителем',
+                              child: FilledButton.icon(
+                                key: Key('complete_task_button_${task.id}'),
+                                onPressed: null,
+                                icon: const Icon(Icons.check_circle_outline, size: 18),
+                                label: const Text(
+                                  'Выполнить',
+                                  style: TextStyle(fontSize: 13),
+                                ),
+                                style: FilledButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                            ),
                     ),
             ),
           ],

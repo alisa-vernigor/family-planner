@@ -329,9 +329,19 @@ final class _TodayViewState extends State<_TodayView> {
           listener: (context, state) {
             switch (state) {
               case TaskCompletionSuccess(:final task):
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Задача выполнена. Отличная работа!'),
+                final messenger = ScaffoldMessenger.of(context);
+                messenger.showSnackBar(
+                  SnackBar(
+                    duration: const Duration(seconds: 6),
+                    content: const Text('Задача выполнена. Отличная работа!'),
+                    action: SnackBarAction(
+                      label: 'Отменить',
+                      onPressed: () {
+                        context
+                            .read<TaskActionsCubit>()
+                            .uncompleteTask(task: task);
+                      },
+                    ),
                   ),
                 );
                 context.read<TodayTasksCubit>().replaceTask(task);
