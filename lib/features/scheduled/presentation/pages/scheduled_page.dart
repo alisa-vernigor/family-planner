@@ -420,10 +420,8 @@ final class _ScheduledTaskCard extends StatelessWidget {
 
   String? _assigneeName() {
     if (task.assignedMemberId == null) return null;
-    final member = members.where(
-      (m) => m.profileId == task.assignedMemberId,
-    );
-    return member.isNotEmpty ? member.first.displayName : null;
+    final nameMap = {for (final m in members) m.profileId: m.displayName};
+    return nameMap[task.assignedMemberId];
   }
 
   @override

@@ -106,9 +106,12 @@ final class _InvitationsList extends StatelessWidget {
         itemBuilder: (context, index) {
           final invitation = invitations[index];
           final isWorking = actionInvitationId == invitation.id;
+          final isExpired = invitation.expiresAt.isBefore(DateTime.now());
 
-          return Card(
-            child: Padding(
+          return Opacity(
+            opacity: isExpired ? 0.5 : 1,
+            child: Card(
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,40 +127,48 @@ final class _InvitationsList extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Действует до ${_formatDate(invitation.expiresAt)}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    isExpired
+                        ? 'Срок действия истёк'
+                        : 'Действует до ${_formatDate(invitation.expiresAt)}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: isExpired
+                          ? Theme.of(context).colorScheme.error
+                          : null,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: isWorking
-                              ? null
-                              : () => _decline(context, invitation),
-                          child: const Text('Отклонить'),
+                  if (!isExpired)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: isWorking
+                                ? null
+                                : () => _decline(context, invitation),
+                            child: const Text('Отклонить'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: isWorking
-                              ? null
-                              : () => _accept(context, invitation),
-                          child: isWorking
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Принять'),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: isWorking
+                                ? null
+                                : () => _accept(context, invitation),
+                            child: isWorking
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Принять'),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                 ],
+              ),
               ),
             ),
           );

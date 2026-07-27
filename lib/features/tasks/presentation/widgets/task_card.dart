@@ -27,12 +27,14 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback onAssign;
   final VoidCallback? onTogglePin;
 
+  /// Map memberId → displayName для быстрого поиска
+  Map<String, String> get _memberNameMap {
+    return {for (final m in members) m.profileId: m.displayName};
+  }
+
   String? _assigneeName() {
     if (task.assignedMemberId == null) return null;
-    final member = members.where(
-      (m) => m.profileId == task.assignedMemberId,
-    );
-    return member.isNotEmpty ? member.first.displayName : null;
+    return _memberNameMap[task.assignedMemberId];
   }
 
   @override
@@ -304,6 +306,13 @@ final class DeadlineChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUrgent = deadline.difference(DateTime.now()).inHours < 24;
+    final isToday = deadline.day == DateTime.now().day &&
+        deadline.month == DateTime.now().month &&
+        deadline.year == DateTime.now().year;
+
+    final label = isToday
+        ? 'до ${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')}'
+        : 'до ${deadline.day.toString().padLeft(2, '0')}.${deadline.month.toString().padLeft(2, '0')} ${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')}';
     return Container(
       decoration: BoxDecoration(
         color: (isUrgent ? cs.error : cs.secondary).withValues(alpha: 0.12),
@@ -320,7 +329,7 @@ final class DeadlineChip extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            'до ${deadline.hour.toString().padLeft(2, '0')}:${deadline.minute.toString().padLeft(2, '0')}',
+            label,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,

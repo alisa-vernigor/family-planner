@@ -58,6 +58,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   late DateTime? _deadline;
   String? _assignedMemberId;
   bool _isPinned = false;
+  bool _isSubmitting = false;
   List<HouseholdMember> _members = [];
 
   @override
@@ -177,6 +178,18 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       return;
     }
 
+    if (_isSubmitting) return;
+    _isSubmitting = true;
+
+    final duration = int.tryParse(_durationController.text) ?? 30;
+
+    // Добавляем нового назначенца в allowedMemberIds, если его там ещё нет
+    final allowedIds = List<String>.from(widget.task.allowedMemberIds);
+    final assignedId = _assignedMemberId;
+    if (assignedId != null && !allowedIds.contains(assignedId)) {
+      allowedIds.add(assignedId);
+    }
+
     final updatedTask = Task(
       id: widget.task.id,
       householdId: widget.task.householdId,
@@ -184,15 +197,16 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       description: _descriptionController.text.trim().isEmpty
           ? null
           : _descriptionController.text,
-      estimatedDurationMinutes: int.parse(_durationController.text),
+      estimatedDurationMinutes: duration,
       plannedFor: widget.task.plannedFor,
       deadline: _deadline,
-      allowedMemberIds: widget.task.allowedMemberIds,
-      assignedMemberId: _assignedMemberId,
-      pinnedMemberId: _isPinned ? _assignedMemberId : null,
+      allowedMemberIds: allowedIds,
+      assignedMemberId: assignedId,
+      pinnedMemberId: _isPinned ? assignedId : null,
       status: widget.task.status,
       createdAt: widget.task.createdAt,
       completedAt: widget.task.completedAt,
+      updatedAt: widget.task.updatedAt,
     );
 
     context.read<UpdateTaskCubit>().update(task: updatedTask);
@@ -214,9 +228,11 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       listener: (context, state) {
         switch (state) {
           case UpdateTaskSuccess():
+            _isSubmitting = false;
             Navigator.of(context).pop(true);
 
           case UpdateTaskFailure(:final message):
+            _isSubmitting = false;
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(message)));

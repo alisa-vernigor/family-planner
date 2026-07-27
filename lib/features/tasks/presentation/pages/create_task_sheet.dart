@@ -73,6 +73,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   List<HouseholdMember> _members = [];
   String? _assignedMemberId;
   bool _isPinned = false;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -268,9 +269,13 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
       return;
     }
 
+    if (_isSubmitting) return;
+    _isSubmitting = true;
+
     if (_isRecurring &&
         _recurrenceType == TaskRecurrenceType.weekly &&
         _selectedWeekdays.isEmpty) {
+      _isSubmitting = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Выберите хотя бы один день недели.')),
       );
@@ -280,6 +285,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     if (_isRecurring &&
         _recurrenceType == TaskRecurrenceType.intervalDays &&
         (int.tryParse(_recurrenceIntervalController.text) ?? 0) <= 0) {
+      _isSubmitting = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Введите интервал повторения больше нуля.'),
@@ -293,7 +299,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         householdId: widget.householdId,
         title: _titleController.text,
         description: _descriptionController.text,
-        estimatedDurationMinutes: int.parse(_durationController.text),
+        estimatedDurationMinutes: int.tryParse(_durationController.text) ?? 0,
         plannedFor: widget.plannedFor,
         deadline: _deadline,
         assignedMemberId: _assignedMemberId,
@@ -321,9 +327,11 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
       listener: (context, state) {
         switch (state) {
           case CreateTaskSuccess():
+            _isSubmitting = false;
             Navigator.of(context).pop(true);
 
           case CreateTaskFailure(:final message):
+            _isSubmitting = false;
             ScaffoldMessenger.of(
               context,
             ).showSnackBar(SnackBar(content: Text(message)));

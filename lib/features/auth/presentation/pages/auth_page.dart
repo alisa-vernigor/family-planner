@@ -17,7 +17,7 @@ final class _AuthPageState extends State<AuthPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _isRegistration = false;
+  bool _isRegistration = true;
   bool _obscurePassword = true;
 
   @override

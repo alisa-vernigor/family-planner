@@ -281,8 +281,15 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
                                   validator: (value) {
                                     final email = value?.trim() ?? '';
 
-                                    if (email.isEmpty ||
-                                        !email.contains('@')) {
+                                    if (email.isEmpty) {
+                                      return 'Введите email.';
+                                    }
+
+                                    final emailRegex = RegExp(
+                                      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                                    );
+
+                                    if (!emailRegex.hasMatch(email)) {
                                       return 'Введите корректный email.';
                                     }
 

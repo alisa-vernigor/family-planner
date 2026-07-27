@@ -553,6 +553,7 @@ final class _TaskListView extends StatelessWidget {
           ...myTasks.map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: TaskCard(
+                  key: ValueKey('my-${t.id}'),
                   task: t,
                   members: members,
                   currentMemberId: currentMemberId,
@@ -571,6 +572,26 @@ final class _TaskListView extends StatelessWidget {
           ...othersTasks.map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: TaskCard(
+                  key: ValueKey('other-${t.id}'),
+                  task: t,
+                  members: members,
+                  currentMemberId: currentMemberId,
+                  onComplete: () => onComplete(t),
+                  onUncomplete: () => onUncomplete(t),
+                  onEdit: () => onEdit(t),
+                  onDelete: () => onDelete(t),
+                  onAssign: () => onAssign(t, members),
+                  onTogglePin: () => onTogglePin(t),
+                ),
+              )),
+          const SizedBox(height: 8),
+        ],
+        if (unassigned.isNotEmpty) ...[
+          _SectionHeader(title: 'Неназначенные', count: unassigned.length),
+          ...unassigned.map((t) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: TaskCard(
+                  key: ValueKey('unassigned-${t.id}'),
                   task: t,
                   members: members,
                   currentMemberId: currentMemberId,
