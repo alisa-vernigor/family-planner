@@ -109,13 +109,12 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
     if (confirmed != true || !mounted) return;
 
     final cubit = context.read<HouseholdMembersCubit>();
+    final succeeded = await cubit.leaveHousehold(householdId: widget.householdId);
+
+    if (!succeeded || !mounted) return;
+
     final householdCubit = context.read<HouseholdCubit>();
-
-    await cubit.leaveHousehold(householdId: widget.householdId);
-
-    if (!mounted) return;
-
-    await householdCubit.load();
+    await householdCubit.refresh();
 
     if (!mounted) return;
     Navigator.of(context).pop();

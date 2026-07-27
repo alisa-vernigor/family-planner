@@ -32,6 +32,7 @@ void main() {
       signInUseCase: SignInUseCase(repository: repository),
       signOutUseCase: SignOutUseCase(repository: repository),
       signUpUseCase: SignUpUseCase(repository: repository),
+      enableAuthListener: false,
     );
   }
 
@@ -71,7 +72,7 @@ void main() {
       ),
       expect: () => const [
         AuthLoading(),
-        AuthFailure(message: 'Не удалось выполнить вход или регистрацию.'),
+        AuthFailure(message: 'Неверный email или пароль.'),
       ],
     );
 
@@ -84,6 +85,7 @@ void main() {
           signInUseCase: SignInUseCase(repository: repository),
           signOutUseCase: SignOutUseCase(repository: repository),
           signUpUseCase: SignUpUseCase(repository: repository),
+          enableAuthListener: false,
         );
       },
       act: (cubit) => cubit.signIn(

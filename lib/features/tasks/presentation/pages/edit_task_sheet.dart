@@ -185,7 +185,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
           ? null
           : _descriptionController.text,
       estimatedDurationMinutes: int.parse(_durationController.text),
-      plannedFor: _deadline ?? widget.task.plannedFor,
+      plannedFor: widget.task.plannedFor,
       deadline: _deadline,
       allowedMemberIds: widget.task.allowedMemberIds,
       assignedMemberId: _assignedMemberId,

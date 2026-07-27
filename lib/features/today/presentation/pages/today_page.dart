@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
-    show Supabase, PostgresChangeEvent, RealtimeChannel, PostgresChangeFilter, PostgresChangeFilterType;
+    show Supabase, PostgresChangeEvent, RealtimeChannel, PostgresChangeFilter,
+         PostgresChangeFilterType, RealtimeSubscribeStatus;
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
@@ -142,11 +143,18 @@ final class _TodayViewState extends State<_TodayView> {
             value: householdId,
           ),
           callback: (_) {
-            // Тихая перезагрузка — не дёргаем спиннер
             if (mounted) _silentReload();
           },
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (error != null) {
+            AppLogger.error('Realtime error', error: error);
+          }
+
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            AppLogger.debug('Realtime канал подключён');
+          }
+        });
   }
 
   void _unsubscribeFromRealtime() {
@@ -221,14 +229,19 @@ final class _TodayViewState extends State<_TodayView> {
 
     if (confirmed != true || !mounted) return;
 
-    // Оптимистичное удаление
-    context.read<TodayTasksCubit>().removeTask(task.id);
-
+    final tasksCubit = context.read<TodayTasksCubit>();
     final actionsCubit = context.read<TaskActionsCubit>();
+
+    // Оптимистичное удаление
+    tasksCubit.removeTask(task.id);
+
     final deleted = await actionsCubit.deleteTask(taskId: task.id);
 
-    if (!deleted && mounted) {
+    if (deleted && mounted) {
+      tasksCubit.confirmDelete(task.id);
+    } else if (mounted) {
       // Откат — перезагружаем
+      tasksCubit.cancelDelete(task.id);
       _reloadTasks();
     }
   }
@@ -238,6 +251,12 @@ final class _TodayViewState extends State<_TodayView> {
       householdId: widget.householdId,
       day: widget.day,
     );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Задачи распределены между участниками.')),
+      );
+    }
   }
 
   Future<void> _assignTask(Task task, List<HouseholdMember> members) async {

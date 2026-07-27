@@ -68,17 +68,21 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
     }
   }
 
-  Future<void> leaveHousehold({required String householdId}) async {
+  Future<bool> leaveHousehold({required String householdId}) async {
     try {
       await leaveHouseholdUseCase(householdId: householdId);
 
       AppLogger.info('Выход из семьи: householdId=$householdId');
+
+      return true;
     } catch (exception, stackTrace) {
       _emitFailure(
         exception: exception,
         stackTrace: stackTrace,
         message: 'Не удалось выйти из семьи.',
       );
+
+      return false;
     }
   }
 

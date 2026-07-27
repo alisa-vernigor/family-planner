@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
@@ -15,12 +17,39 @@ final class AuthCubit extends Cubit<AuthState> {
     required this.signInUseCase,
     required this.signOutUseCase,
     required this.signUpUseCase,
-  }) : super(const AuthInitial());
+    this.enableAuthListener = true,
+  }) : super(const AuthInitial()) {
+    if (enableAuthListener) _initAuthListener();
+  }
 
   final GetCurrentUserUseCase getCurrentUserUseCase;
   final SignInUseCase signInUseCase;
   final SignOutUseCase signOutUseCase;
   final SignUpUseCase signUpUseCase;
+  final bool enableAuthListener;
+
+  StreamSubscription? _authSubscription;
+
+  void _initAuthListener() {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (data) {
+        if (data.event == AuthChangeEvent.signedOut) {
+          emit(const AuthUnauthenticated());
+        } else if (data.event == AuthChangeEvent.tokenRefreshed) {
+          AppLogger.info('Токен обновлён');
+        }
+      },
+      onError: (error) {
+        AppLogger.error('Ошибка слушателя сессии', error: error);
+      },
+    );
+  }
+
+  @override
+  Future<void> close() {
+    _authSubscription?.cancel();
+    return super.close();
+  }
 
   void checkSession() {
     final user = getCurrentUserUseCase();
@@ -90,11 +119,14 @@ final class AuthCubit extends Cubit<AuthState> {
   }
 
   void _emitAuthFailure(AuthException exception, StackTrace stackTrace) {
-    const message = 'Не удалось выполнить вход или регистрацию.';
+    final detail = exception.message;
+    final message = detail != null && detail.isNotEmpty
+        ? detail
+        : 'Не удалось выполнить вход или регистрацию.';
 
-    AppLogger.warning('$message Причина: ${exception.message}');
+    AppLogger.warning('Ошибка входа: $message');
 
-    emit(const AuthFailure(message: message));
+    emit(AuthFailure(message: message));
   }
 
   void _emitUnexpectedFailure(Object exception, StackTrace stackTrace) {

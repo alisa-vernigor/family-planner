@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
@@ -12,6 +11,7 @@ import 'package:family_planner/features/scheduled/presentation/pages/scheduled_p
 import 'package:family_planner/features/households/presentation/pages/household_invitations_page.dart';
 import 'package:family_planner/features/households/presentation/pages/household_members_page.dart';
 import 'package:family_planner/features/households/presentation/pages/create_household_page.dart';
+import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
 
 final class HouseholdGate extends StatefulWidget {
   const HouseholdGate({required this.currentMemberId, super.key});
@@ -24,6 +24,7 @@ final class HouseholdGate extends StatefulWidget {
 
 final class _HouseholdGateState extends State<HouseholdGate> {
   int _currentTab = 0;
+  String? _selectedHouseholdId;
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ final class _HouseholdGateState extends State<HouseholdGate> {
             );
 
           case HouseholdEmpty():
+            _selectedHouseholdId = null;
             return const CreateHouseholdPage();
 
           case HouseholdFailure(:final message):
@@ -75,12 +77,22 @@ final class _HouseholdGateState extends State<HouseholdGate> {
             );
 
           case HouseholdLoaded(:final households):
+            // Сохраняем selected ID при первом входе или если текущий исчез
+            final selected = _selectedHouseholdId;
+            if (selected == null || !households.any((h) => h.id == selected)) {
+              _selectedHouseholdId = households.first.id;
+            }
+
             return _AppShell(
               households: households,
+              selectedHouseholdId: _selectedHouseholdId!,
               currentMemberId: widget.currentMemberId,
               currentTab: _currentTab,
               onTabChanged: (index) {
                 setState(() => _currentTab = index);
+              },
+              onHouseholdChanged: (id) {
+                setState(() => _selectedHouseholdId = id);
               },
             );
         }
@@ -92,45 +104,35 @@ final class _HouseholdGateState extends State<HouseholdGate> {
 final class _AppShell extends StatefulWidget {
   const _AppShell({
     required this.households,
+    required this.selectedHouseholdId,
     required this.currentMemberId,
     required this.currentTab,
     required this.onTabChanged,
+    required this.onHouseholdChanged,
   });
 
   final List<Household> households;
+  final String selectedHouseholdId;
   final String currentMemberId;
   final int currentTab;
   final ValueChanged<int> onTabChanged;
+  final ValueChanged<String> onHouseholdChanged;
 
   @override
   State<_AppShell> createState() => _AppShellState();
 }
 
 final class _AppShellState extends State<_AppShell> {
-  late String _selectedHouseholdId;
-
   @override
   void initState() {
     super.initState();
-    _selectedHouseholdId = widget.households.first.id;
     context.read<HouseholdInvitationsCubit>().load();
-  }
-
-  @override
-  void didUpdateWidget(covariant _AppShell oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    final exists =
-        widget.households.any((h) => h.id == _selectedHouseholdId);
-
-    if (!exists) {
-      _selectedHouseholdId = widget.households.first.id;
-    }
   }
 
   Household get _selectedHousehold {
     return widget.households.firstWhere(
-      (h) => h.id == _selectedHouseholdId,
+      (h) => h.id == widget.selectedHouseholdId,
+      orElse: () => widget.households.first,
     );
   }
 
@@ -217,7 +219,7 @@ final class _AppShellState extends State<_AppShell> {
       appBar: AppBar(
         title: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            value: _selectedHouseholdId,
+            value: widget.selectedHouseholdId,
             isDense: true,
             items: widget.households
                 .map(
@@ -229,7 +231,7 @@ final class _AppShellState extends State<_AppShell> {
                 .toList(growable: false),
             onChanged: (householdId) {
               if (householdId == null) return;
-              setState(() => _selectedHouseholdId = householdId);
+              widget.onHouseholdChanged(householdId);
             },
           ),
         ),
@@ -300,6 +302,8 @@ final class _AppShellState extends State<_AppShell> {
                   }
                 case 'delete':
                   await _deleteHousehold(_selectedHousehold);
+                case 'signout':
+                  context.read<AuthCubit>().signOut();
               }
             },
             itemBuilder: (context) => [
@@ -324,6 +328,15 @@ final class _AppShellState extends State<_AppShell> {
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
                   title: Text('Удалить семью'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'signout',
+                child: ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Выйти из аккаунта'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),

@@ -6,7 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart'
         RealtimeChannel,
         PostgresChangeEvent,
         PostgresChangeFilter,
-        PostgresChangeFilterType;
+        PostgresChangeFilterType,
+        RealtimeSubscribeStatus;
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
@@ -97,7 +98,15 @@ final class _ScheduledViewState extends State<_ScheduledView> {
             if (mounted) _silentReload();
           },
         )
-        .subscribe();
+        .subscribe((status, error) {
+          if (error != null) {
+            AppLogger.error('Realtime error', error: error);
+          }
+
+          if (status == RealtimeSubscribeStatus.subscribed) {
+            AppLogger.debug('Realtime канал подключён');
+          }
+        });
   }
 
   void _silentReload() {
@@ -227,14 +236,18 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
     if (confirmed != true || !mounted) return;
 
+    final tasksCubit = context.read<ScheduledTasksCubit>();
+
     // Оптимистичное удаление
-    context.read<ScheduledTasksCubit>().removeTask(task.id);
+    tasksCubit.removeTask(task.id);
 
     final deleteUseCase = DeleteTaskUseCase(repository: context.read<TaskRepository>());
     try {
       await deleteUseCase(taskId: task.id);
+      tasksCubit.confirmDelete(task.id);
     } catch (exception, stackTrace) {
       // Откат — перезагружаем
+      tasksCubit.cancelDelete(task.id);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось удалить задачу.')),

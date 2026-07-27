@@ -184,14 +184,20 @@ final class _InvitationsList extends StatelessWidget {
       return;
     }
 
+    // SnackBar перед pop — успеет показаться
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        duration: const Duration(seconds: 4),
         content: Text(
           'Вы присоединились к семье «${invitation.householdName}».',
         ),
       ),
     );
 
+    // Небольшая задержка, чтобы SnackBar успел показаться
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    if (!context.mounted) return;
     Navigator.of(context).pop(householdId);
   }
 
