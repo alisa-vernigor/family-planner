@@ -86,7 +86,7 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
     }
   }
 
-  Future<void> removeMember({
+  Future<bool> removeMember({
     required String householdId,
     required String profileId,
   }) async {
@@ -102,12 +102,16 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
 
       final updated = members.where((m) => m.profileId != profileId).toList();
       emit(HouseholdMembersLoaded(members: updated));
+
+      return true;
     } catch (exception, stackTrace) {
       _emitFailure(
         exception: exception,
         stackTrace: stackTrace,
         message: 'Не удалось удалить участника.',
       );
+
+      return false;
     }
   }
 
