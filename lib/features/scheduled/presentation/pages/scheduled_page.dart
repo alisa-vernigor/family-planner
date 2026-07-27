@@ -315,12 +315,15 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
                 return RefreshIndicator(
                   onRefresh: () async => _reloadTasks(),
-                  child: ListView(
+                  child: ListView.builder(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                    children: tasks.map((task) {
+                    itemCount: tasks.length,
+                    itemBuilder: (context, index) {
+                      final task = tasks[index];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: _ScheduledTaskCard(
+                          key: ValueKey(task.id),
                           task: task,
                           members: members,
                           currentMemberId: widget.currentMemberId,
@@ -331,7 +334,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                           onDelete: () => _deleteTask(task),
                         ),
                       );
-                    }).toList(),
+                    },
                   ),
                 );
             }
@@ -399,6 +402,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
 final class _ScheduledTaskCard extends StatelessWidget {
   const _ScheduledTaskCard({
+    super.key,
     required this.task,
     required this.members,
     required this.currentMemberId,
