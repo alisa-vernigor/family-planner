@@ -491,6 +491,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                           type: _recurrenceType,
                           intervalDays: int.tryParse(_recurrenceIntervalController.text) ?? 1,
                           weekdayCount: _selectedWeekdays.length,
+                          weekdays: _selectedWeekdays.toList()..sort(),
                           startDate: _recurrenceStartDate,
                           endDate: _recurrenceEndDate,
                         ),
@@ -721,6 +722,7 @@ final class _RecurrenceSummary extends StatelessWidget {
     required this.type,
     required this.intervalDays,
     required this.weekdayCount,
+    this.weekdays = const [],
     this.startDate,
     this.endDate,
   });
@@ -728,6 +730,7 @@ final class _RecurrenceSummary extends StatelessWidget {
   final TaskRecurrenceType type;
   final int intervalDays;
   final int weekdayCount;
+  final List<int> weekdays;
   final DateTime? startDate;
   final DateTime? endDate;
 
@@ -740,10 +743,37 @@ final class _RecurrenceSummary extends StatelessWidget {
       case TaskRecurrenceType.daily:
         summary = 'Каждый день';
       case TaskRecurrenceType.weekly:
-        final days = <String>['', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
-        summary = 'По $weekdayCount дн. в неделю';
+        if (weekdays.isEmpty) {
+          summary = 'Каждую неделю';
+        } else {
+          final labels = ['', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
+          summary = 'По ${weekdays.map((d) => labels[d]).join(', ')}';
+        }
       case TaskRecurrenceType.intervalDays:
         summary = 'Каждые $intervalDays дн.';
+    }
+
+    // Считаем количество
+    int? count;
+    if (startDate != null && endDate != null) {
+      final days = endDate!.difference(startDate!).inDays + 1;
+      switch (type) {
+        case TaskRecurrenceType.daily:
+          count = days;
+        case TaskRecurrenceType.weekly:
+          if (weekdays.isNotEmpty) {
+            count = 0;
+            for (var d = 0; d < days; d++) {
+              final date = startDate!.add(Duration(days: d));
+              if (weekdays.contains(date.weekday)) count = count! + 1;
+            }
+          }
+        case TaskRecurrenceType.intervalDays:
+          count = days ~/ intervalDays + 1;
+      }
+    }
+    if (endDate == null) {
+      count = null;
     }
 
     if (startDate != null) {

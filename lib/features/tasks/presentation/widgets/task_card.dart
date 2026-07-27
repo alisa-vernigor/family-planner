@@ -45,18 +45,23 @@ final class TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isCompleted = task.isCompleted;
+    final isOverdue = !isCompleted &&
+        task.deadline != null &&
+        task.deadline!.isBefore(DateTime.now());
 
     return GestureDetector(
       onLongPress: onLongPress,
       onTap: isSelected
-          ? () {} // handled by parent
+          ? () {}
           : null,
       child: Card(
         color: isSelected
             ? cs.primaryContainer.withAlpha(60)
-            : isCompleted
-                ? cs.surfaceContainerLowest
-                : cs.surface,
+            : isOverdue
+                ? cs.errorContainer.withAlpha(30)
+                : isCompleted
+                    ? cs.surfaceContainerLowest
+                    : cs.surface,
         child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

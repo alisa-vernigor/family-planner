@@ -144,10 +144,17 @@ final class _HouseholdMembersViewState extends State<_HouseholdMembersView> {
     if (confirmed != true || !mounted) return;
 
     final cubit = context.read<HouseholdMembersCubit>();
-    await cubit.removeMember(
+
+    final success = await cubit.removeMember(
       householdId: widget.householdId,
       profileId: member.profileId,
     );
+
+    if (!success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось удалить участника.')),
+      );
+    }
   }
 
   @override
