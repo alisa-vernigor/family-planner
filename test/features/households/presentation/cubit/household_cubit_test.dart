@@ -100,14 +100,13 @@ void main() {
     );
 
     blocTest<HouseholdCubit, HouseholdState>(
-      'выдаёт Failure при ошибке удаления',
+      'выдаёт Failure при ошибке удаления (предыдущий стейт сохраняется)',
       build: () => createCubit(
         households: const [household],
         deleteException: Exception('Ошибка сети'),
       ),
       act: (cubit) => cubit.delete(householdId: 'household-1'),
       expect: () => const [
-        HouseholdLoading(),
         HouseholdFailure(message: 'Не удалось удалить семью.'),
       ],
     );

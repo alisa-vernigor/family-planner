@@ -99,7 +99,7 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
   }
 
   Future<void> delete({required String householdId}) async {
-    emit(const HouseholdLoading());
+    final previousState = state;
 
     try {
       await deleteHouseholdUseCase(householdId: householdId);
@@ -108,6 +108,10 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
 
       await load();
     } catch (exception, stackTrace) {
+      // Возвращаем предыдущее состояние при ошибке
+      if (previousState case HouseholdLoaded()) {
+        emit(previousState);
+      }
       _emitFailure(exception, stackTrace, 'Не удалось удалить семью.');
     }
   }

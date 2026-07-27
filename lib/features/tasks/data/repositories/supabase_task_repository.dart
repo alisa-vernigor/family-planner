@@ -195,7 +195,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       'status=${task.status.name}; assignedMemberId=${task.assignedMemberId}',
     );
 
-    await _client
+    var query = _client
         .from('task_occurrences')
         .update({
           'title': task.title,
@@ -212,6 +212,13 @@ final class SupabaseTaskRepository implements TaskRepository {
           'completed_at': task.completedAt?.toUtc().toIso8601String(),
         })
         .eq('id', task.id);
+
+    // Оптимистичная блокировка: проверяем, что никто не изменил задачу
+    if (task.updatedAt != null) {
+      query = query.eq('updated_at', task.updatedAt!.toUtc().toIso8601String());
+    }
+
+    await query;
   }
 
   @override

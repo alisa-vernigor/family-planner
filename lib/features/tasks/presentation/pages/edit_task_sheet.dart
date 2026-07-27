@@ -313,6 +313,10 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                             return 'Введите длительность больше нуля.';
                           }
 
+                          if (duration > 1440) {
+                            return 'Максимум 24 часа (1440 минут).';
+                          }
+
                           return null;
                         },
                       ),
