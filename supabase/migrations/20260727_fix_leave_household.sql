@@ -8,18 +8,12 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
 declare
   current_user_id uuid;
-  is_owner boolean;
 begin
   current_user_id := auth.uid();
 
   if current_user_id is null then
     raise exception 'Требуется авторизация.';
   end if;
-
-  -- Проверяем, является ли пользователь владельцем
-  select role = 'owner' into is_owner
-  from public.household_members
-  where household_id = p_household_id and profile_id = current_user_id;
 
   -- Очищаем allowed members
   delete from public.task_occurrence_allowed_members
