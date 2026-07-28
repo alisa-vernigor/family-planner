@@ -1,9 +1,17 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 final class SupabaseConfig {
   SupabaseConfig._();
 
-  static const url = String.fromEnvironment('SUPABASE_URL');
+  static String get url {
+    final value = dotenv.maybeGet('SUPABASE_URL');
+    if (value != null && value.isNotEmpty) return value;
+    return const String.fromEnvironment('SUPABASE_URL');
+  }
 
-  static const publishableKey = String.fromEnvironment(
-    'SUPABASE_PUBLISHABLE_KEY',
-  );
+  static String get publishableKey {
+    final value = dotenv.maybeGet('SUPABASE_PUBLISHABLE_KEY');
+    if (value != null && value.isNotEmpty) return value;
+    return const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
+  }
 }
