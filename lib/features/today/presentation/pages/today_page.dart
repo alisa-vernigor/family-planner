@@ -566,7 +566,7 @@ final class _TodayViewState extends State<_TodayView> {
               child: BlocBuilder<TodayTasksCubit, TodayTasksState>(
               builder: (context, state) {
                 final isLoading = state is TodayTasksLoading;
-                return FloatingActionButton.small(
+                return FloatingActionButton(
                   heroTag: 'distribute_tasks_fab',
                   tooltip: 'Автораспределить задачи',
                   onPressed: isLoading ? null : _distributeTasks,
