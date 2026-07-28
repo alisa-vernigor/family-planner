@@ -192,7 +192,7 @@ final class _AppShellState extends State<_AppShell> {
       );
 
       if (wasCreated == true && mounted) {
-        _triggerRefresh();
+        _onHouseholdActionDone();
       }
     }
   }
