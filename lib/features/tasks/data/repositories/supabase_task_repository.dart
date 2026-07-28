@@ -238,6 +238,27 @@ final class SupabaseTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> patchStatus({
+    required String taskId,
+    required String status,
+    String? completedByMemberId,
+    String? completedAt,
+    String? assignedMemberId,
+  }) async {
+    final payload = <String, dynamic>{
+      'status': status,
+      'completed_by_member_id': completedByMemberId,
+      'completed_at': completedAt,
+    };
+    // assignedMemberId шлём только когда он реально меняется
+    if (assignedMemberId != null) {
+      payload['assigned_member_id'] = assignedMemberId;
+    }
+
+    await _client.from('task_occurrences').update(payload).eq('id', taskId);
+  }
+
+  @override
   Future<void> addAllowedMember({
     required String taskId,
     required String memberId,

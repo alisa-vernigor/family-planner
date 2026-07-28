@@ -20,13 +20,22 @@ final class CompleteTaskUseCase {
       );
     }
 
+    final completedAt = now();
+
+    // patchStatus — 3 поля вместо save (11 полей)
+    await repository.patchStatus(
+      taskId: task.id,
+      status: TaskStatus.completed.name,
+      completedByMemberId: memberId,
+      completedAt: completedAt.toUtc().toIso8601String(),
+      assignedMemberId: memberId,
+    );
+
     final completedTask = task.copyWith(
       assignedMemberId: memberId,
       status: TaskStatus.completed,
-      completedAt: now(),
+      completedAt: completedAt,
     );
-
-    await repository.save(completedTask);
 
     return completedTask;
   }

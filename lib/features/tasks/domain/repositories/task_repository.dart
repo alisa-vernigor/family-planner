@@ -21,6 +21,16 @@ abstract interface class TaskRepository {
 
   Future<void> save(Task task);
 
+  /// Быстрая смена статуса (complete/uncomplete).
+  /// Отправляет 3 поля вместо 11 — для самого частого действия.
+  Future<void> patchStatus({
+    required String taskId,
+    required String status,
+    String? completedByMemberId,
+    String? completedAt,
+    String? assignedMemberId,
+  });
+
   Future<void> delete({required String taskId});
 
   Future<void> addAllowedMember({

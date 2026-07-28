@@ -130,25 +130,49 @@ void main() {
         completedAt: null,
       );
 
-      when(() => repository.save(any())).thenAnswer((_) async {});
+      when(() => repository.patchStatus(
+        taskId: any(named: 'taskId'),
+        status: any(named: 'status'),
+        completedByMemberId: any(named: 'completedByMemberId'),
+        completedAt: any(named: 'completedAt'),
+        assignedMemberId: any(named: 'assignedMemberId'),
+      )).thenAnswer((_) async {});
 
       final result = await UncompleteTaskUseCase(repository: repository)(
         task: completedTask,
       );
 
       expect(result, expectedTask);
-      verify(() => repository.save(expectedTask)).called(1);
+      verify(() => repository.patchStatus(
+        taskId: 'task-1',
+        status: 'pending',
+        completedByMemberId: null,
+        completedAt: null,
+        assignedMemberId: any(named: 'assignedMemberId'),
+      )).called(1);
     });
 
     test('throws TaskNotCompletedException for non-completed task', () async {
-      when(() => repository.save(any())).thenAnswer((_) async {});
+      when(() => repository.patchStatus(
+        taskId: any(named: 'taskId'),
+        status: any(named: 'status'),
+        completedByMemberId: any(named: 'completedByMemberId'),
+        completedAt: any(named: 'completedAt'),
+        assignedMemberId: any(named: 'assignedMemberId'),
+      )).thenAnswer((_) async {});
 
       await expectLater(
         UncompleteTaskUseCase(repository: repository)(task: task),
         throwsA(isA<TaskNotCompletedException>()),
       );
 
-      verifyNever(() => repository.save(any()));
+      verifyNever(() => repository.patchStatus(
+        taskId: any(named: 'taskId'),
+        status: any(named: 'status'),
+        completedByMemberId: any(named: 'completedByMemberId'),
+        completedAt: any(named: 'completedAt'),
+        assignedMemberId: any(named: 'assignedMemberId'),
+      ));
     });
   });
 

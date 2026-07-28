@@ -98,6 +98,8 @@ final class _FakeTaskRepo implements TaskRepository {
   @override Future<void> save(Task task) async {}
   @override Future<void> addAllowedMember({required String taskId, required String memberId}) async {}
   @override Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
+  @override
+  Future<void> patchStatus({required String taskId, required String status, String? completedByMemberId, String? completedAt, String? assignedMemberId}) async {}
 }
 
 final class _FakeHouseholdRepo implements HouseholdRepository {

@@ -12,13 +12,20 @@ final class UncompleteTaskUseCase {
       throw const TaskNotCompletedException();
     }
 
+    // patchStatus — 3 поля вместо save (11 полей).
+    // При отмене выполнения assigned_member_id не трогаем.
+    await repository.patchStatus(
+      taskId: task.id,
+      status: TaskStatus.pending.name,
+      completedByMemberId: null,
+      completedAt: null,
+    );
+
     final pendingTask = task.copyWith(
       assignedMemberId: null,
       status: TaskStatus.pending,
       completedAt: null,
     );
-
-    await repository.save(pendingTask);
 
     return pendingTask;
   }

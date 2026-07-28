@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
@@ -108,6 +109,7 @@ final class _TodayViewState extends State<_TodayView> {
   RealtimeChannel? _realtimeChannel;
   final Set<String> _selectedTaskIds = {};
   bool _isSelectionMode = false;
+  Timer? _realtimeDebounce;
 
   @override
   void initState() {
@@ -130,6 +132,7 @@ final class _TodayViewState extends State<_TodayView> {
 
   @override
   void dispose() {
+    _realtimeDebounce?.cancel();
     _unsubscribeFromRealtime();
     super.dispose();
   }
@@ -147,7 +150,14 @@ final class _TodayViewState extends State<_TodayView> {
             value: householdId,
           ),
           callback: (_) {
-            if (mounted) _silentReload();
+            if (!mounted) return;
+
+            // Debounce — события realtime сыплются пачкой при батч-операциях
+            // Ждём тишины 1.5с перед релоадом
+            _realtimeDebounce?.cancel();
+            _realtimeDebounce = Timer(const Duration(milliseconds: 1500), () {
+              if (mounted) _silentReload();
+            });
           },
         )
         .subscribe((status, error) {
@@ -157,8 +167,6 @@ final class _TodayViewState extends State<_TodayView> {
 
           if (status == RealtimeSubscribeStatus.subscribed) {
             AppLogger.debug('Realtime канал подключён');
-            // При переподключении — полная перезагрузка на случай пропущенных событий
-            if (mounted) _reloadTasks();
           }
         });
   }

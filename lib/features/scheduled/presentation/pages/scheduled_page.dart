@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'
@@ -68,6 +69,7 @@ final class _ScheduledView extends StatefulWidget {
 final class _ScheduledViewState extends State<_ScheduledView> {
   RealtimeChannel? _realtimeChannel;
   String _taskFilter = 'all'; // all, mine, unassigned
+  Timer? _realtimeDebounce;
 
   @override
   void initState() {
@@ -88,6 +90,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
   @override
   void dispose() {
+    _realtimeDebounce?.cancel();
     _unsubscribeFromRealtime();
     super.dispose();
   }
@@ -105,7 +108,13 @@ final class _ScheduledViewState extends State<_ScheduledView> {
             value: householdId,
           ),
           callback: (_) {
-            if (mounted) _silentReload();
+            if (!mounted) return;
+
+            // Debounce — пачка realtime-событий схлопывается в один релоад
+            _realtimeDebounce?.cancel();
+            _realtimeDebounce = Timer(const Duration(milliseconds: 1500), () {
+              if (mounted) _silentReload();
+            });
           },
         )
         .subscribe((status, error) {
@@ -115,8 +124,6 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
           if (status == RealtimeSubscribeStatus.subscribed) {
             AppLogger.debug('Realtime канал подключён');
-            // При переподключении — полная перезагрузка на случай пропущенных событий
-            if (mounted) _reloadTasks();
           }
         });
   }

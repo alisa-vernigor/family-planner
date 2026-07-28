@@ -115,4 +115,7 @@ final class _FakeRepo implements TaskRepository {
   @override Future<List<Task>> getAllPending({required String householdId}) => Future.value([]);
   @override Future<void> addAllowedMember({required String taskId, required String memberId}) async {}
   @override Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
+
+  @override
+  Future<void> patchStatus({required String taskId, required String status, String? completedByMemberId, String? completedAt, String? assignedMemberId}) async {}
 }

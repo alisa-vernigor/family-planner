@@ -230,6 +230,9 @@ class _SlowTaskRepo implements TaskRepository {
   @override Future<void> save(Task task) async {}
   @override Future<void> addAllowedMember({required String taskId, required String memberId}) async {}
   @override Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
+
+  @override
+  Future<void> patchStatus({required String taskId, required String status, String? completedByMemberId, String? completedAt, String? assignedMemberId}) async {}
 }
 
 class _KeepTaskRepo implements TaskRepository {
@@ -243,6 +246,9 @@ class _KeepTaskRepo implements TaskRepository {
   @override Future<void> save(Task task) async { _saved.removeWhere((t) => t.id == task.id); _saved.add(task); }
   @override Future<void> addAllowedMember({required String taskId, required String memberId}) async {}
   @override Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
+
+  @override
+  Future<void> patchStatus({required String taskId, required String status, String? completedByMemberId, String? completedAt, String? assignedMemberId}) async {}
 }
 
 HouseholdCubit _makeHC(HouseholdRepository repo) => HouseholdCubit(

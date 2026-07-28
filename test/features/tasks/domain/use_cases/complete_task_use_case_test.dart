@@ -47,7 +47,11 @@ void main() {
       expect(completedTask.status, TaskStatus.completed);
       expect(completedTask.completedAt, completedAt);
       expect(completedTask.assignedMemberId, 'member-1');
-      expect(repository.savedTasks, [completedTask]);
+      // task-менеджмент теперь использует patchStatus (3 поля вместо 11)
+      expect(repository.lastStatusPatched, 'completed');
+      expect(repository.lastCompletedByPatched, 'member-1');
+      expect(repository.lastCompletedAtPatched, completedAt.toUtc().toIso8601String());
+      expect(repository.lastAssignedIdPatched, 'member-1');
     });
 
     test('не даёт выполнить задачу недопустимому участнику', () async {
@@ -76,6 +80,10 @@ void main() {
 
 final class FakeTaskRepository implements TaskRepository {
   final List<Task> savedTasks = [];
+  String? lastStatusPatched;
+  String? lastCompletedByPatched;
+  String? lastCompletedAtPatched;
+  String? lastAssignedIdPatched;
 
   @override
   Future<void> delete({required String taskId}) async {}
@@ -120,8 +128,13 @@ final class FakeTaskRepository implements TaskRepository {
   }) async {}
 
   @override
-  Future<void> removeAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
+
+  @override
+  Future<void> patchStatus({required String taskId, required String status, String? completedByMemberId, String? completedAt, String? assignedMemberId}) async {
+    lastStatusPatched = status;
+    lastCompletedByPatched = completedByMemberId;
+    lastCompletedAtPatched = completedAt;
+    lastAssignedIdPatched = assignedMemberId;
+  }
 }

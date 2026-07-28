@@ -233,8 +233,32 @@ final class _FakeTaskRepository implements TaskRepository {
   }) async {}
 
   @override
-  Future<void> removeAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
+
+  @override
+  Future<void> patchStatus({required String taskId, required String status, String? completedByMemberId, String? completedAt, String? assignedMemberId}) async {
+    if (shouldThrowOnSave) {
+      throw Exception('Ошибка сети');
+    }
+    // UncompleteTaskUseCase вызывает patchStatus, а не save
+    if (savedTask != null) {
+      savedTask = savedTask!.copyWith(
+        status: status == 'completed' ? TaskStatus.completed : TaskStatus.pending,
+        assignedMemberId: assignedMemberId,
+      );
+    } else {
+      // Фейковый task для тестов
+      savedTask = Task(
+        id: taskId,
+        householdId: '',
+        title: '',
+        estimatedDurationMinutes: 0,
+        plannedFor: DateTime.now(),
+        allowedMemberIds: const [],
+        status: status == 'completed' ? TaskStatus.completed : TaskStatus.pending,
+        assignedMemberId: assignedMemberId,
+        createdAt: DateTime.now(),
+      );
+    }
+  }
 }
