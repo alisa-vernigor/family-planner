@@ -133,19 +133,19 @@ final class HomeWidgetService {
     try {
       await HomeWidget.registerInteractivityCallback(interactiveCallback);
 
-    // Сохраняем конфигурацию для фонового коллбэка
-    await HomeWidget.saveWidgetData('supabase_url', SupabaseConfig.url);
-    await HomeWidget.saveWidgetData('supabase_key', SupabaseConfig.publishableKey);
+      // Сохраняем конфигурацию для фонового коллбэка
+      await HomeWidget.saveWidgetData('supabase_url', SupabaseConfig.url);
+      await HomeWidget.saveWidgetData('supabase_key', SupabaseConfig.publishableKey);
 
-    // Сохраняем сессию для фонового коллбэка
-    await _saveSession();
+      // Сохраняем сессию для фонового коллбэка
+      await _saveSession();
 
-    // Слушаем обновления сессии
-    Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
-      if (authState.session != null) {
-        _saveSessionFromSession(authState.session!);
-      }
-    });
+      // Слушаем обновления сессии
+      Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
+        if (authState.session != null) {
+          _saveSessionFromSession(authState.session!);
+        }
+      });
     } on MissingPluginException catch (e) {
       AppLogger.warning('HomeWidget плагин недоступен в данной сборке: $e');
     } catch (e) {
@@ -157,7 +157,6 @@ final class HomeWidgetService {
     if (!_isSupportedPlatform) return;
 
     try {
-      // Выбираем только задачи назначенного пользователя на сегодня
       final myTasks = tasks
           .where((t) => t.assignedMemberId == currentMemberId)
           .map((t) => {
@@ -170,15 +169,12 @@ final class HomeWidgetService {
           .toList();
 
       await HomeWidget.saveWidgetData('today_tasks', jsonEncode(myTasks));
-  
-    // Освежаем сессию при каждой синхронизации
-    await _saveSession();
 
-    await HomeWidget.updateWidget(androidName: _androidWidgetName);
-    } on MissingPluginException catch (e) {
-      AppLogger.warning('HomeWidget плагин недоступен в данной сборке: $e');
+      await _saveSession();
+
+      await HomeWidget.updateWidget(androidName: _androidWidgetName);
     } catch (e) {
-      AppLogger.warning('Не удалось обновить HomeWidget: $e');
+      AppLogger.warning('syncTasks: ошибка — $e');
     }
   }
 

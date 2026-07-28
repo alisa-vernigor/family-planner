@@ -104,16 +104,15 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
     final householdIds =
         rows.map((r) => r['household_id'] as String).toSet().toList();
 
+    // Единый запрос вместо N+1 RPC вызовов
     final nameMap = <String, String>{};
-    for (final id in householdIds) {
-      try {
-        final name = await _client.rpc(
-          'get_household_name_for_invitation',
-          params: {'p_household_id': id},
-        ) as String?;
-        if (name != null && name.isNotEmpty) nameMap[id] = name;
-      } catch (_) {
-        // household might have been deleted
+    if (householdIds.isNotEmpty) {
+      final householdRows = await _client
+          .from('households')
+          .select('id, name')
+          .inFilter('id', householdIds);
+      for (final h in householdRows) {
+        nameMap[h['id'] as String] = h['name'] as String;
       }
     }
 

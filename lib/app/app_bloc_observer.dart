@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../core/logging/app_logger.dart';
@@ -12,10 +13,14 @@ final class AppBlocObserver extends BlocObserver {
   @override
   void onChange(BlocBase<dynamic> bloc, Change<dynamic> change) {
     super.onChange(bloc, change);
-    AppLogger.debug(
-      'BLoC изменился: ${bloc.runtimeType}; '
-      'изменение: $change',
-    );
+    // В production не логируем каждое изменение — это создаёт тонну логов
+    // и добавляет ~0.1ms на каждый emit при дебаге. Только критические изменения.
+    if (kDebugMode) {
+      AppLogger.debug(
+        'BLoC изменился: ${bloc.runtimeType}; '
+        'изменение: $change',
+      );
+    }
   }
 
   @override

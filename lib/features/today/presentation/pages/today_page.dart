@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart'
          PostgresChangeFilterType, RealtimeSubscribeStatus;
 
 import 'package:family_planner/core/logging/app_logger.dart';
-import 'package:family_planner/core/services/home_widget_service.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
@@ -51,6 +50,8 @@ final class TodayPage extends StatelessWidget {
               repository: repository,
             ),
             householdRepository: householdRepository,
+            currentMemberId: currentMemberId,
+            householdId: householdId,
             distributeTasksUseCase: DistributeTasksUseCase(
               taskRepository: repository,
               householdRepository: householdRepository,
@@ -352,7 +353,11 @@ final class _TodayViewState extends State<_TodayView> {
     );
     final completionCubit = context.read<TaskCompletionCubit>();
 
+    // Batch-complete — не показываем N снекбаров,
+    // один общий снекбар после последнего завершения.
+    var count = 0;
     for (final task in toComplete) {
+      count++;
       completionCubit.completeTask(
         task: task,
         memberId: widget.currentMemberId,
@@ -363,42 +368,43 @@ final class _TodayViewState extends State<_TodayView> {
       _selectedTaskIds.clear();
       _isSelectionMode = false;
     });
+
+    // Единый снекбар вместо N
+    if (count > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 3),
+          content: Text('Выполнено задач: $count'),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
-        BlocListener<TodayTasksCubit, TodayTasksState>(
-          listener: (context, state) {
-            // Синхронизируем задачи с Android Widget при их загрузке или обновлении
-            if (state is TodayTasksLoaded) {
-              HomeWidgetService.syncTasks(
-                state.tasks,
-                widget.currentMemberId,
-                widget.householdId,
-              );
-            }
-          },
-        ),
         BlocListener<TaskCompletionCubit, TaskCompletionState>(
           listener: (context, state) {
             switch (state) {
               case TaskCompletionSuccess(:final task):
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                duration: const Duration(seconds: 6),
-                content: const Text('Задача выполнена. Отличная работа!'),
-                action: SnackBarAction(
-                  label: 'Отменить',
-                  onPressed: () {
-                    context
-                        .read<TaskActionsCubit>()
-                        .uncompleteTask(task: task);
-                  },
+            // В batch-режиме не показываем N индивидуальных снекбаров
+            if (!_isSelectionMode) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  duration: const Duration(seconds: 6),
+                  content: const Text('Задача выполнена. Отличная работа!'),
+                  action: SnackBarAction(
+                    label: 'Отменить',
+                    onPressed: () {
+                      context
+                          .read<TaskActionsCubit>()
+                          .uncompleteTask(task: task);
+                    },
+                  ),
                 ),
-              ),
-            );
+              );
+            }
             context.read<TodayTasksCubit>().replaceTask(task);
               case TaskCompletionFailure(:final message):
                 ScaffoldMessenger.of(context)

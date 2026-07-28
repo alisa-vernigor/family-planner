@@ -25,11 +25,6 @@ final class DistributeTasksUseCase {
   final HouseholdRepository householdRepository;
 
   /// Распределяет нераспределённые задачи на сегодня между членами семьи.
-  ///
-  /// - Уже назначенные задачи (assignedMemberId != null) не трогает,
-  ///   но учитывает их время в нагрузке.
-  /// - Закреплённые задачи (isPinned) никогда не перераспределяются.
-  /// - Новые задачи назначаются жадным алгоритмом наименее загруженному.
   Future<DistributeTasksResult> call({
     required String householdId,
     required DateTime day,
@@ -48,21 +43,21 @@ final class DistributeTasksUseCase {
 
     final result = _distribute(pendingTasks, members);
 
-    // Persist only changed tasks + add to allowed members
+    // Батчим сохранение — один save на каждую изменившуюся задачу,
+    // но без addAllowedMember если он уже в списке
     for (final task in result.updatedTasks) {
       final original = tasks.firstWhere((t) => t.id == task.id);
       if (task.assignedMemberId != original.assignedMemberId) {
-        await taskRepository.save(task);
-
-        // Add assigned member to allowed members list if needed
-        final assignedId = task.assignedMemberId;
-        if (assignedId != null &&
-            !original.allowedMemberIds.contains(assignedId)) {
-          await taskRepository.addAllowedMember(
-            taskId: task.id,
-            memberId: assignedId,
-          );
-        }
+        // Одновременно
+        await Future.wait([
+          taskRepository.save(task),
+          if (task.assignedMemberId != null &&
+              !original.allowedMemberIds.contains(task.assignedMemberId))
+            taskRepository.addAllowedMember(
+              taskId: task.id,
+              memberId: task.assignedMemberId!,
+            ),
+        ]);
       }
     }
 
@@ -89,16 +84,13 @@ final class DistributeTasksUseCase {
 
     for (final task in tasks) {
       if (task.isPinned && workloads.containsKey(task.pinnedMemberId!)) {
-        // Pinned task — count duration at pinned member, never reassign
         workloads[task.pinnedMemberId!] =
             workloads[task.pinnedMemberId!]! + task.estimatedDurationMinutes;
       } else if (task.assignedMemberId != null &&
           workloads.containsKey(task.assignedMemberId)) {
-        // Already assigned — count duration, don't reassign
         workloads[task.assignedMemberId!] =
             workloads[task.assignedMemberId!]! + task.estimatedDurationMinutes;
       } else {
-        // Unassigned and not pinned — needs distribution
         toAssign.add(task);
       }
     }

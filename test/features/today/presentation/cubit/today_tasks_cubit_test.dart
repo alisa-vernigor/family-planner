@@ -41,6 +41,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) => cubit.load(householdId: 'household-1', day: day),
@@ -57,6 +59,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) => cubit.load(householdId: 'household-1', day: day),
@@ -73,6 +77,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) => cubit.load(householdId: 'household-1', day: day),
@@ -92,6 +98,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) async {
@@ -110,6 +118,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) async {
@@ -129,6 +139,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) async {
@@ -148,6 +160,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) async {
@@ -168,6 +182,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
       );
     },
     act: (cubit) => cubit.distribute(householdId: 'household-1', day: day),
@@ -181,6 +197,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(members: [member]),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
         distributeTasksUseCase: DistributeTasksUseCase(
           taskRepository: repository,
           householdRepository: _FakeHouseholdRepository(members: [member]),
@@ -201,6 +219,8 @@ void main() {
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
         distributeTasksUseCase: DistributeTasksUseCase(
           taskRepository: repository,
           householdRepository: _FakeHouseholdRepository(),

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/core/services/home_widget_service.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
@@ -13,12 +16,16 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
   TodayTasksCubit({
     required this.getTasksForDayUseCase,
     required this.householdRepository,
+    required this.currentMemberId,
+    required this.householdId,
     this.distributeTasksUseCase,
   }) : super(const TodayTasksInitial());
 
   final GetTasksForDayUseCase getTasksForDayUseCase;
   final HouseholdRepository householdRepository;
   final DistributeTasksUseCase? distributeTasksUseCase;
+  final String currentMemberId;
+  final String householdId;
 
   /// ID задач, которые сейчас удаляются — не возвращать из refresh пока удаление не завершится.
   final Set<String> _pendingDeleteIds = {};
@@ -80,6 +87,17 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
       );
 
       emit(TodayTasksLoaded(tasks: tasks, members: members));
+
+      // Синхронизируем виджет ТОЛЬКО при реальной загрузке с сервера
+      try {
+        unawaited(HomeWidgetService.syncTasks(
+          tasks,
+          currentMemberId,
+          householdId,
+        ));
+      } catch (_) {
+        // Виджет — не критично
+      }
     } catch (exception, stackTrace) {
       const message = 'Не удалось загрузить задачи на сегодня.';
 

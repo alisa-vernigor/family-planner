@@ -35,6 +35,8 @@ void main() {
         return TodayTasksCubit(
           getTasksForDayUseCase: GetTasksForDayUseCase(repository: repo),
           householdRepository: _FakeHouseholdRepo(),
+          currentMemberId: 'm1',
+          householdId: 'h1',
           distributeTasksUseCase: DistributeTasksUseCase(
             taskRepository: repo,
             householdRepository: _FakeHouseholdRepo(),

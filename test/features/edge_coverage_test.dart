@@ -126,6 +126,8 @@ void main() {
       build: () => TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: _FakeTaskRepo(tasks: [task])),
         householdRepository: _EmptyHHRepo(),
+        currentMemberId: 'm1',
+        householdId: 'h1',
       ),
       act: (c) async {
         await c.load(householdId: 'h1', day: day);
@@ -140,6 +142,8 @@ void main() {
       build: () => TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: _FakeTaskRepo()),
         householdRepository: _FailGetMembers(),
+        currentMemberId: 'm1',
+        householdId: 'h1',
       ),
       seed: () => TodayTasksLoaded(tasks: [task], members: []),
       act: (c) => c.refresh(householdId: 'h1', day: day),
@@ -151,6 +155,8 @@ void main() {
       build: () => TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: _FakeTaskRepo()),
         householdRepository: _FailGetMembers(),
+        currentMemberId: 'm1',
+        householdId: 'h1',
       ),
       act: (c) => c.load(householdId: 'h1', day: day),
       expect: () => const [TodayTasksLoading(), TodayTasksFailure(message: 'Не удалось загрузить задачи на сегодня.')],

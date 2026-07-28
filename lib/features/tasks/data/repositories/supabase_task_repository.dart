@@ -64,6 +64,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         )
         .eq('household_id', householdId)
         .gte('planned_for', _dateOnly(startOfTomorrow))
+        .lte('planned_for', _dateOnly(day.add(const Duration(days: 180)))) // максимум 6 месяцев вперёд
         .neq('status', TaskStatus.completed.name)
         .order('planned_for')
         .order('deadline_at');
@@ -93,8 +94,10 @@ final class SupabaseTaskRepository implements TaskRepository {
         )
         .eq('household_id', householdId)
         .neq('status', TaskStatus.completed.name)
+        .gte('planned_for', _dateOnly(DateTime.now().subtract(const Duration(days: 7)))) // не тащим просрочку на месяцы
         .order('planned_for')
-        .order('deadline_at');
+        .order('deadline_at')
+        .limit(200); // не тащим больше 200 записей
 
     AppLogger.debug(
       'SupabaseTaskRepository.getAllPending: получил ${rows.length} записей',

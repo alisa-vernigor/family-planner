@@ -155,8 +155,6 @@ final class _AppShell extends StatefulWidget {
 }
 
 final class _AppShellState extends State<_AppShell> {
-  int _refreshCounter = 0;
-
   @override
   void initState() {
     super.initState();
@@ -170,11 +168,7 @@ final class _AppShellState extends State<_AppShell> {
     );
   }
 
-  void _triggerRefresh() {
-    if (!mounted) return;
-    setState(() {
-      _refreshCounter++;
-    });
+  void _onHouseholdActionDone() {
     context.read<HouseholdCubit>().refresh();
   }
 
@@ -292,7 +286,7 @@ final class _AppShellState extends State<_AppShell> {
                 ),
               );
 
-              _triggerRefresh();
+              _onHouseholdActionDone();
             },
           ),
           IconButton(
@@ -320,7 +314,7 @@ final class _AppShellState extends State<_AppShell> {
                 ),
               );
 
-              _triggerRefresh();
+              _onHouseholdActionDone();
             },
           ),
           PopupMenuButton<String>(
@@ -351,7 +345,7 @@ final class _AppShellState extends State<_AppShell> {
                       ),
                     ),
                   );
-                  _triggerRefresh();
+                  _onHouseholdActionDone();
               }
             },
             itemBuilder: (context) => [
@@ -404,13 +398,13 @@ final class _AppShellState extends State<_AppShell> {
         index: widget.currentTab,
         children: [
           TodayPage(
-            key: ValueKey('today_${_selectedHousehold.id}_$_refreshCounter'),
+            key: ValueKey('today_${_selectedHousehold.id}'),
             householdId: _selectedHousehold.id,
             householdName: _selectedHousehold.name,
             currentMemberId: widget.currentMemberId,
           ),
           ScheduledPage(
-            key: ValueKey('scheduled_${_selectedHousehold.id}_$_refreshCounter'),
+            key: ValueKey('scheduled_${_selectedHousehold.id}'),
             householdId: _selectedHousehold.id,
             currentMemberId: widget.currentMemberId,
           ),
