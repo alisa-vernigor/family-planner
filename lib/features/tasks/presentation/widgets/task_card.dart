@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
@@ -18,6 +19,7 @@ final class TaskCard extends StatelessWidget {
     this.isSelected = false,
     this.onLongPress,
     this.onSwipeComplete,
+    this.onSwipeUncomplete,
     this.onSwipeDelete,
     super.key,
   });
@@ -34,6 +36,7 @@ final class TaskCard extends StatelessWidget {
   final bool isSelected;
   final VoidCallback? onLongPress;
   final VoidCallback? onSwipeComplete;
+  final VoidCallback? onSwipeUncomplete;
   final VoidCallback? onSwipeDelete;
 
   /// Map memberId → member details for quick lookup
@@ -243,31 +246,50 @@ final class TaskCard extends StatelessWidget {
       ),
     );
 
-    final canSwipeComplete = !isCompleted && onSwipeComplete != null;
+    // Логика разрешения свайпа (свайп для изменения статуса слева направо, удаление справа налево)
+    final canSwipeStatus = (!isCompleted && onSwipeComplete != null) ||
+        (isCompleted && onSwipeUncomplete != null);
     final canSwipeDelete = onSwipeDelete != null;
 
     return Dismissible(
       key: ValueKey('swipe-${task.id}'),
-      direction: (canSwipeComplete || canSwipeDelete)
+      direction: (canSwipeStatus || canSwipeDelete)
           ? DismissDirection.horizontal
           : DismissDirection.none,
       confirmDismiss: (direction) async {
-        if (direction == DismissDirection.startToEnd && canSwipeComplete) {
-          onSwipeComplete!();
+        if (direction == DismissDirection.startToEnd && canSwipeStatus) {
+          // Легкая вибрация, подтверждающая, что свайп сработал
+          HapticFeedback.mediumImpact();
+
+          // Переключаем статус задачи
+          if (isCompleted) {
+            onSwipeUncomplete?.call();
+          } else {
+            onSwipeComplete?.call();
+          }
+          // Возвращаем false, чтобы карточка "спружинила" обратно
+          // вместо того, чтобы исчезнуть (так как она остается в списке, просто меняя вид)
           return false;
         }
         if (direction == DismissDirection.endToStart && canSwipeDelete) {
+          HapticFeedback.mediumImpact();
           onSwipeDelete!();
-          return false;
+          return false; // Откат карточки, само удаление происходит оптимистично в BLoC
         }
         return false;
       },
+      // Фон слева (изменение статуса)
       background: Container(
-        color: cs.primary,
+        color: isCompleted ? cs.secondary : cs.primary,
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 24),
-        child: const Icon(Icons.check_circle_outline, color: Colors.white, size: 28),
+        child: Icon(
+          isCompleted ? Icons.undo_outlined : Icons.check_circle_outline,
+          color: Colors.white,
+          size: 28,
+        ),
       ),
+      // Фон справа (удаление)
       secondaryBackground: Container(
         color: cs.error,
         alignment: Alignment.centerRight,

@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +11,11 @@ import '../../features/tasks/domain/entities/task.dart';
 import '../logging/app_logger.dart';
 
 const String _androidWidgetName = 'TasksWidgetProvider';
+
+bool get _isSupportedPlatform {
+  if (kIsWeb) return false;
+  return Platform.isAndroid || Platform.isIOS;
+}
 
 /// Вызывается в фоновом изоляте при нажатии на задачу в виджете.
 @pragma('vm:entry-point')
@@ -120,7 +128,10 @@ Future<void> interactiveCallback(Uri? uri) async {
 
 final class HomeWidgetService {
   static Future<void> initialize() async {
-    await HomeWidget.registerInteractivityCallback(interactiveCallback);
+    if (!_isSupportedPlatform) return;
+
+    try {
+      await HomeWidget.registerInteractivityCallback(interactiveCallback);
 
     // Сохраняем конфигурацию для фонового коллбэка
     await HomeWidget.saveWidgetData('supabase_url', SupabaseConfig.url);
@@ -135,30 +146,40 @@ final class HomeWidgetService {
         _saveSessionFromSession(authState.session!);
       }
     });
+    } on MissingPluginException catch (e) {
+      AppLogger.warning('HomeWidget плагин недоступен в данной сборке: $e');
+    } catch (e) {
+      AppLogger.warning('Не удалось инициализировать HomeWidget: $e');
+    }
   }
 
-  static Future<void> syncTasks(
-    List<Task> tasks,
-    String currentMemberId,
-    String householdId,
-  ) async {
-    final myTasks = tasks
-        .where((t) => t.assignedMemberId == currentMemberId)
-        .map((t) => {
-              'id': t.id,
-              'title': t.title,
-              'isCompleted': t.isCompleted,
-              'householdId': householdId,
-              'memberId': currentMemberId,
-            })
-        .toList();
+  static Future<void> syncTasks(List<Task> tasks, String currentMemberId, String householdId) async {
+    if (!_isSupportedPlatform) return;
 
-    await HomeWidget.saveWidgetData('today_tasks', jsonEncode(myTasks));
+    try {
+      // Выбираем только задачи назначенного пользователя на сегодня
+      final myTasks = tasks
+          .where((t) => t.assignedMemberId == currentMemberId)
+          .map((t) => {
+                'id': t.id,
+                'title': t.title,
+                'isCompleted': t.isCompleted,
+                'householdId': householdId,
+                'memberId': currentMemberId,
+              })
+          .toList();
 
+      await HomeWidget.saveWidgetData('today_tasks', jsonEncode(myTasks));
+  
     // Освежаем сессию при каждой синхронизации
     await _saveSession();
 
     await HomeWidget.updateWidget(androidName: _androidWidgetName);
+    } on MissingPluginException catch (e) {
+      AppLogger.warning('HomeWidget плагин недоступен в данной сборке: $e');
+    } catch (e) {
+      AppLogger.warning('Не удалось обновить HomeWidget: $e');
+    }
   }
 
   static Future<void> _saveSession() async {
