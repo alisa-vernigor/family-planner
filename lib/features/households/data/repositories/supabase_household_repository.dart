@@ -47,7 +47,7 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
   }) async {
     final rows = await _client
         .from('household_members')
-        .select('profile_id, role, profiles(display_name)')
+        .select('profile_id, role, profiles(display_name, avatar_url)')
         .eq('household_id', householdId)
         .order('joined_at');
 
@@ -58,6 +58,7 @@ final class SupabaseHouseholdRepository implements HouseholdRepository {
           return HouseholdMember(
             profileId: row['profile_id'] as String,
             displayName: profile['display_name'] as String,
+            avatarUrl: profile['avatar_url'] as String?,
             role: row['role'] as String,
           );
         })

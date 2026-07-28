@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 
 final class TaskCard extends StatelessWidget {
@@ -35,14 +36,19 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback? onSwipeComplete;
   final VoidCallback? onSwipeDelete;
 
-  /// Map memberId → displayName для быстрого поиска
-  Map<String, String> get _memberNameMap {
-    return {for (final m in members) m.profileId: m.displayName};
+  /// Map memberId → member details for quick lookup
+  Map<String, ({String displayName, String? avatarUrl})> get _memberMap {
+    return {
+      for (final m in members)
+        m.profileId: (displayName: m.displayName, avatarUrl: m.avatarUrl)
+    };
   }
 
-  String? _assigneeName() {
+  ({String name, String? avatarUrl})? _assigneeInfo() {
     if (task.assignedMemberId == null) return null;
-    return _memberNameMap[task.assignedMemberId];
+    final info = _memberMap[task.assignedMemberId];
+    if (info == null) return null;
+    return (name: info.displayName, avatarUrl: info.avatarUrl);
   }
 
   @override
@@ -195,7 +201,8 @@ final class TaskCard extends StatelessWidget {
                     DeadlineChip(deadline: task.deadline!, cs: cs),
                   if (task.assignedMemberId != null)
                     _AssigneeChip(
-                      name: _assigneeName() ?? 'Участник',
+                      info: _assigneeInfo(),
+                      profileId: task.assignedMemberId!,
                       isMine: task.assignedMemberId == currentMemberId,
                       cs: cs,
                     ),
@@ -421,41 +428,69 @@ final class DeadlineChip extends StatelessWidget {
 
 final class _AssigneeChip extends StatelessWidget {
   const _AssigneeChip({
-    required this.name,
+    required this.info,
+    required this.profileId,
     required this.isMine,
     required this.cs,
   });
 
-  final String name;
+  final ({String name, String? avatarUrl})? info;
+  final String profileId;
   final bool isMine;
   final ColorScheme cs;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: (isMine ? cs.primary : cs.outlineVariant).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            isMine ? Icons.person : Icons.person_outline,
-            size: 14,
-            color: isMine ? cs.primary : cs.onSurfaceVariant,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            isMine ? 'Я' : name,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isMine ? cs.primary : cs.onSurfaceVariant,
+    final name = info?.name ?? 'Участник';
+    final avatarUrl = info?.avatarUrl;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => ProfilePage(
+              profileId: profileId,
+              displayName: name,
             ),
           ),
-        ],
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: (isMine ? cs.primary : cs.outlineVariant).withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 8,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? NetworkImage(avatarUrl)
+                  : null,
+              child: (avatarUrl == null || avatarUrl.isEmpty)
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onPrimaryContainer,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              isMine ? 'Я' : name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: isMine ? cs.primary : cs.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

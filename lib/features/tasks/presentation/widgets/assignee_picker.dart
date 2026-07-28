@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
+import 'package:family_planner/features/profile/presentation/widgets/avatar_widget.dart';
 
 /// Shows a bottom sheet to pick a family member for assignment.
 ///
@@ -88,16 +90,13 @@ final class _AssigneePickerSheet extends StatelessWidget {
                     member.profileId == currentAssigneeId;
 
                 return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: cs.primaryContainer,
-                    child: Text(
-                      member.displayName.isNotEmpty
-                          ? member.displayName[0].toUpperCase()
-                          : '?',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: cs.onPrimaryContainer,
-                      ),
+                  leading: AvatarWidget(
+                    radius: 18,
+                    profile: UserProfile(
+                      id: member.profileId,
+                      displayName: member.displayName,
+                      avatarUrl: member.avatarUrl,
+                      timezone: '',
                     ),
                   ),
                   title: Text(member.displayName),

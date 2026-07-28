@@ -4,6 +4,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
+import 'package:family_planner/features/profile/data/repositories/supabase_profile_repository.dart';
 import 'package:family_planner/features/auth/data/repositories/supabase_auth_repository.dart';
 import 'package:family_planner/features/auth/domain/use_cases/get_current_user_use_case.dart';
 import 'package:family_planner/features/auth/domain/use_cases/sign_in_use_case.dart';
@@ -35,12 +37,16 @@ final class FamilyPlannerApp extends StatelessWidget {
     final authRepository = SupabaseAuthRepository(client: client);
     final householdRepository = SupabaseHouseholdRepository(client: client);
     final taskRepository = SupabaseTaskRepository(client: client);
+    final profileRepository = SupabaseProfileRepository(client: client);
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<TaskRepository>.value(value: taskRepository),
         RepositoryProvider<HouseholdRepository>.value(
           value: householdRepository,
+        ),
+        RepositoryProvider<ProfileRepository>.value(
+          value: profileRepository,
         ),
       ],
       child: MultiBlocProvider(

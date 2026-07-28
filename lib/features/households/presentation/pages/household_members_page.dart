@@ -10,6 +10,7 @@ import 'package:family_planner/features/households/domain/use_cases/remove_house
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_state.dart';
+import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
 
 final class HouseholdMembersPage extends StatelessWidget {
   const HouseholdMembersPage({
@@ -401,15 +402,20 @@ final class _MemberTile extends StatelessWidget {
         child: ListTile(
           leading: CircleAvatar(
             backgroundColor: cs.primaryContainer,
-            child: Text(
-              member.displayName.isEmpty
-                  ? '?'
-                  : member.displayName[0].toUpperCase(),
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: cs.onPrimaryContainer,
-              ),
-            ),
+            backgroundImage: member.avatarUrl != null && member.avatarUrl!.isNotEmpty
+                ? NetworkImage(member.avatarUrl!)
+                : null,
+            child: (member.avatarUrl == null || member.avatarUrl!.isEmpty)
+                ? Text(
+                    member.displayName.isEmpty
+                        ? '?'
+                        : member.displayName[0].toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: cs.onPrimaryContainer,
+                    ),
+                  )
+                : null,
           ),
           title: Row(
             children: [
@@ -463,6 +469,16 @@ final class _MemberTile extends StatelessWidget {
                 Icon(Icons.person_outline, color: cs.onSurfaceVariant),
             ],
           ),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ProfilePage(
+                  profileId: member.profileId,
+                  displayName: member.displayName,
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

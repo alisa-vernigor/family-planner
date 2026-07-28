@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:family_planner/features/households/domain/entities/household.dart';
+import 'package:family_planner/features/profile/presentation/pages/profile_settings_page.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_state.dart';
@@ -336,6 +337,14 @@ final class _AppShellState extends State<_AppShell> {
                   await _deleteHousehold(_selectedHousehold);
                 case 'signout':
                   context.read<AuthCubit>().signOut();
+                case 'profile':
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProfileSettingsPage(
+                        profileId: widget.currentMemberId,
+                      ),
+                    ),
+                  );
               }
             },
             itemBuilder: (context) => [
@@ -364,6 +373,14 @@ final class _AppShellState extends State<_AppShell> {
                 ),
               ),
               const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'profile',
+                child: ListTile(
+                  leading: Icon(Icons.person_outline),
+                  title: Text('Настройки профиля'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
               const PopupMenuItem(
                 value: 'signout',
                 child: ListTile(
