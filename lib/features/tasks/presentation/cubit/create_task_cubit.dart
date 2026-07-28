@@ -12,6 +12,8 @@ final class CreateTaskCubit extends Cubit<CreateTaskState> {
 
   final CreateTaskUseCase createTaskUseCase;
 
+  void reset() => emit(const CreateTaskInitial());
+
   Future<void> create({required CreateTaskParams params}) async {
     emit(const CreateTaskInProgress());
 

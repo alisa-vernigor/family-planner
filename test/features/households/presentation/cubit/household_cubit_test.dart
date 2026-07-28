@@ -14,6 +14,7 @@ import 'package:family_planner/features/households/domain/use_cases/update_house
 
 void main() {
   const household = Household(id: 'household-1', name: 'Наша семья');
+  const household2 = Household(id: 'household-2', name: 'Вторая семья');
 
   HouseholdCubit createCubit({
     List<Household> households = const [],
@@ -90,12 +91,33 @@ void main() {
     );
 
     blocTest<HouseholdCubit, HouseholdState>(
+      'выдаёт Loading и Loaded при создании из состояния Empty',
+      build: () => createCubit(createdHousehold: household),
+      seed: () => const HouseholdEmpty(),
+      act: (cubit) => cubit.create(name: 'Наша семья'),
+      expect: () => const [
+        HouseholdLoading(),
+        HouseholdLoaded(households: [household]),
+      ],
+    );
+
+    blocTest<HouseholdCubit, HouseholdState>(
       'выдаёт Loading и Loaded после удаления семьи (перезагружает список)',
+      build: () => createCubit(households: const [household, household2]),
+      act: (cubit) => cubit.delete(householdId: 'household-1'),
+      expect: () => const [
+        HouseholdLoading(),
+        HouseholdLoaded(households: [household2]),
+      ],
+    );
+
+    blocTest<HouseholdCubit, HouseholdState>(
+      'выдаёт Loading и Empty при удалении последней семьи',
       build: () => createCubit(households: const [household]),
       act: (cubit) => cubit.delete(householdId: 'household-1'),
       expect: () => const [
         HouseholdLoading(),
-        HouseholdLoaded(households: [household]),
+        HouseholdEmpty(),
       ],
     );
 
@@ -133,6 +155,16 @@ void main() {
         HouseholdFailure(message: 'Не удалось переименовать семью.'),
       ],
     );
+
+    blocTest<HouseholdCubit, HouseholdState>(
+      'после refresh возвращает загруженные данные',
+      build: () => createCubit(households: const [household]),
+      seed: () => const HouseholdEmpty(),
+      act: (cubit) => cubit.refresh(),
+      expect: () => const [
+        HouseholdLoaded(households: [household]),
+      ],
+    );
   });
 }
 
@@ -144,9 +176,10 @@ final class FakeHouseholdRepository implements HouseholdRepository {
     this.createException,
     this.deleteException,
     this.updateException,
-  });
+  }) : _households = List.of(households);
 
   final List<Household> households;
+  final List<Household> _households;
   final Household? createdHousehold;
   final Object? loadException;
   final Object? createException;
@@ -154,6 +187,7 @@ final class FakeHouseholdRepository implements HouseholdRepository {
   final Object? updateException;
 
   bool _hasCreated = false;
+  final Set<String> _deletedIds = {};
 
   @override
   Future<Household> create({required String name}) async {
@@ -187,7 +221,7 @@ final class FakeHouseholdRepository implements HouseholdRepository {
       return [createdHousehold!];
     }
 
-    return households;
+    return _households.where((h) => !_deletedIds.contains(h.id)).toList();
   }
 
   @override
@@ -218,6 +252,7 @@ final class FakeHouseholdRepository implements HouseholdRepository {
     if (deleteException != null) {
       throw deleteException!;
     }
+    _deletedIds.add(householdId);
   }
 
   @override

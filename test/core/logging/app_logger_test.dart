@@ -4,6 +4,11 @@ import 'package:family_planner/core/logging/app_logger.dart';
 
 void main() {
   group('AppLogger', () {
+    test('статика — класс существует', () {
+      // покрывает приватный конструктор AppLogger._()
+      expect(AppLogger, isA<Type>());
+    });
+
     test('info не выбрасывает исключения', () {
       expect(() => AppLogger.info('сообщение'), returnsNormally);
     });

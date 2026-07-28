@@ -36,4 +36,16 @@ final class TaskSchedule {
 
     return tasks.where((task) => task.plannedFor.isBefore(startOfDay)).toList();
   }
+
+  static List<Task> forDateRange({
+    required List<Task> tasks,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    return tasks
+        .where((task) =>
+            !task.plannedFor.isBefore(start) &&
+            !task.plannedFor.isAfter(end))
+        .toList();
+  }
 }

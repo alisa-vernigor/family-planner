@@ -19,12 +19,18 @@ void main() {
     AppUser? signInResult,
     AppUser? signUpResult,
     bool signOutThrows = false,
+    bool signInThrowsGeneric = false,
+    bool signUpThrowsAuthException = false,
+    bool signUpThrowsGeneric = false,
   }) {
     final repository = FakeAuthRepository(
       currentUser: currentUser,
       signInResult: signInResult,
       signUpResult: signUpResult,
       signOutThrows: signOutThrows,
+      signInThrowsGeneric: signInThrowsGeneric,
+      signUpThrowsAuthException: signUpThrowsAuthException,
+      signUpThrowsGeneric: signUpThrowsGeneric,
     );
 
     return AuthCubit(
@@ -63,9 +69,7 @@ void main() {
 
     blocTest<AuthCubit, AuthState>(
       'выдаёт Loading и Failure при AuthException',
-      build: () => createCubit(
-        signInResult: null,
-      ),
+      build: () => createCubit(signInResult: null),
       act: (cubit) => cubit.signIn(
         email: 'anna@example.com',
         password: 'wrong',
@@ -78,16 +82,7 @@ void main() {
 
     blocTest<AuthCubit, AuthState>(
       'выдаёт Loading и Failure при неожиданной ошибке',
-      build: () {
-        final repository = _FakeAuthRepositoryThrows();
-        return AuthCubit(
-          getCurrentUserUseCase: GetCurrentUserUseCase(repository: repository),
-          signInUseCase: SignInUseCase(repository: repository),
-          signOutUseCase: SignOutUseCase(repository: repository),
-          signUpUseCase: SignUpUseCase(repository: repository),
-          enableAuthListener: false,
-        );
-      },
+      build: () => createCubit(signInThrowsGeneric: true),
       act: (cubit) => cubit.signIn(
         email: 'anna@example.com',
         password: 'password123',
@@ -129,17 +124,22 @@ void main() {
     );
 
     blocTest<AuthCubit, AuthState>(
-      'выдаёт Failure при AuthException во время регистрации',
-      build: () {
-        final repository = _FakeAuthRepositoryThrows();
-        return AuthCubit(
-          getCurrentUserUseCase: GetCurrentUserUseCase(repository: repository),
-          signInUseCase: SignInUseCase(repository: repository),
-          signOutUseCase: SignOutUseCase(repository: repository),
-          signUpUseCase: SignUpUseCase(repository: repository),
-          enableAuthListener: false,
-        );
-      },
+      'выдаёт Failure с текстом ошибки при AuthException во время регистрации',
+      build: () => createCubit(signUpThrowsAuthException: true),
+      act: (cubit) => cubit.signUp(
+        email: 'anna@example.com',
+        password: 'password123',
+        displayName: 'Аня',
+      ),
+      expect: () => const [
+        AuthLoading(),
+        AuthFailure(message: 'Пользователь уже существует'),
+      ],
+    );
+
+    blocTest<AuthCubit, AuthState>(
+      'выдаёт Failure при неожиданной ошибке во время регистрации',
+      build: () => createCubit(signUpThrowsGeneric: true),
       act: (cubit) => cubit.signUp(
         email: 'anna@example.com',
         password: 'password123',
@@ -170,6 +170,14 @@ void main() {
       ],
     );
   });
+
+  group('auth listener', () {
+    test('не запускает слушатель Supabase при enableAuthListener: false', () async {
+      final cubit = createCubit();
+      expect(cubit.state, const AuthInitial());
+      await cubit.close();
+    });
+  });
 }
 
 final class FakeAuthRepository implements AuthRepository {
@@ -178,6 +186,9 @@ final class FakeAuthRepository implements AuthRepository {
     this.signInResult,
     this.signUpResult,
     this.signOutThrows = false,
+    this.signInThrowsGeneric = false,
+    this.signUpThrowsAuthException = false,
+    this.signUpThrowsGeneric = false,
   });
 
   @override
@@ -186,12 +197,18 @@ final class FakeAuthRepository implements AuthRepository {
   final AppUser? signInResult;
   final AppUser? signUpResult;
   final bool signOutThrows;
+  final bool signInThrowsGeneric;
+  final bool signUpThrowsAuthException;
+  final bool signUpThrowsGeneric;
 
   @override
   Future<AppUser> signIn({
     required String email,
     required String password,
   }) async {
+    if (signInThrowsGeneric) {
+      throw Exception('Ошибка сети');
+    }
     if (signInResult == null) {
       throw AuthException('Неверный email или пароль.');
     }
@@ -212,31 +229,12 @@ final class FakeAuthRepository implements AuthRepository {
     required String password,
     required String displayName,
   }) async {
+    if (signUpThrowsAuthException) {
+      throw AuthException('Пользователь уже существует');
+    }
+    if (signUpThrowsGeneric) {
+      throw Exception('Ошибка сети');
+    }
     return signUpResult;
-  }
-}
-
-final class _FakeAuthRepositoryThrows implements AuthRepository {
-  @override
-  AppUser? get currentUser => null;
-
-  @override
-  Future<AppUser> signIn({
-    required String email,
-    required String password,
-  }) async {
-    throw Exception('Ошибка сети');
-  }
-
-  @override
-  Future<void> signOut() async {}
-
-  @override
-  Future<AppUser?> signUp({
-    required String email,
-    required String password,
-    required String displayName,
-  }) async {
-    throw Exception('Ошибка сети');
   }
 }

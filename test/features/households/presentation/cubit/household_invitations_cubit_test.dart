@@ -1,0 +1,178 @@
+import 'package:bloc_test/bloc_test.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+
+import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/households/domain/use_cases/accept_household_invitation_use_case.dart';
+import 'package:family_planner/features/households/domain/use_cases/decline_household_invitation_use_case.dart';
+import 'package:family_planner/features/households/domain/use_cases/get_pending_household_invitations_use_case.dart';
+import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
+import 'package:family_planner/features/households/presentation/cubit/household_invitations_state.dart';
+
+class _MockHouseholdRepository extends Mock implements HouseholdRepository {}
+
+void main() {
+  final invitation = HouseholdInvitation(
+    id: 'invitation-1',
+    householdId: 'household-1',
+    householdName: 'Our Home',
+    invitedByDisplayName: 'Alice',
+    createdAt: DateTime(2026, 7, 28),
+    expiresAt: DateTime(2026, 8, 4),
+  );
+
+  const householdId = 'household-1';
+
+  late _MockHouseholdRepository repository;
+  late GetPendingHouseholdInvitationsUseCase getPendingUseCase;
+  late AcceptHouseholdInvitationUseCase acceptUseCase;
+  late DeclineHouseholdInvitationUseCase declineUseCase;
+
+  HouseholdInvitationsCubit createCubit() {
+    return HouseholdInvitationsCubit(
+      getPendingHouseholdInvitationsUseCase: getPendingUseCase,
+      acceptHouseholdInvitationUseCase: acceptUseCase,
+      declineHouseholdInvitationUseCase: declineUseCase,
+    );
+  }
+
+  setUp(() {
+    repository = _MockHouseholdRepository();
+    getPendingUseCase = GetPendingHouseholdInvitationsUseCase(
+      repository: repository,
+    );
+    acceptUseCase = AcceptHouseholdInvitationUseCase(
+      repository: repository,
+    );
+    declineUseCase = DeclineHouseholdInvitationUseCase(
+      repository: repository,
+    );
+  });
+
+  group('HouseholdInvitationsCubit', () {
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '1) initial state is HouseholdInvitationsInitial',
+      build: createCubit,
+      verify: (cubit) {
+        expect(cubit.state, const HouseholdInvitationsInitial());
+      },
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '2) load() emits [HouseholdInvitationsLoading, HouseholdInvitationsLoaded]',
+      setUp: () {
+        when(() => repository.getPendingInvitations())
+            .thenAnswer((_) async => [invitation]);
+      },
+      build: createCubit,
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        const HouseholdInvitationsLoading(),
+        HouseholdInvitationsLoaded(invitations: [invitation]),
+      ],
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '3) load() emits HouseholdInvitationsFailure on error',
+      setUp: () {
+        when(() => repository.getPendingInvitations())
+            .thenThrow(Exception('Network error'));
+      },
+      build: createCubit,
+      act: (cubit) => cubit.load(),
+      expect: () => [
+        const HouseholdInvitationsLoading(),
+        const HouseholdInvitationsFailure(
+          message: 'Не удалось загрузить приглашения.',
+        ),
+      ],
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '4) accept() emits [ActionInProgress, Loaded] and returns household ID',
+      setUp: () {
+        when(
+          () => repository.acceptInvitation(invitationId: any(named: 'invitationId')),
+        ).thenAnswer((_) async => householdId);
+      },
+      seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
+      build: createCubit,
+      act: (cubit) async {
+        final result = await cubit.accept(invitation: invitation);
+        expect(result, householdId);
+      },
+      expect: () => [
+        HouseholdInvitationActionInProgress(
+          invitations: [invitation],
+          invitationId: invitation.id,
+        ),
+        HouseholdInvitationsLoaded(invitations: []),
+      ],
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '5) accept() emits HouseholdInvitationsFailure on error',
+      setUp: () {
+        when(
+          () => repository.acceptInvitation(invitationId: any(named: 'invitationId')),
+        ).thenThrow(Exception('DB error'));
+      },
+      seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
+      build: createCubit,
+      act: (cubit) async {
+        final result = await cubit.accept(invitation: invitation);
+        expect(result, isNull);
+      },
+      expect: () => [
+        HouseholdInvitationActionInProgress(
+          invitations: [invitation],
+          invitationId: invitation.id,
+        ),
+        const HouseholdInvitationsFailure(
+          message: 'Не удалось принять приглашение.',
+        ),
+      ],
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '6) decline() emits [ActionInProgress, Loaded] on success',
+      setUp: () {
+        when(
+          () => repository.declineInvitation(invitationId: any(named: 'invitationId')),
+        ).thenAnswer((_) async {});
+      },
+      seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
+      build: createCubit,
+      act: (cubit) => cubit.decline(invitation: invitation),
+      expect: () => [
+        HouseholdInvitationActionInProgress(
+          invitations: [invitation],
+          invitationId: invitation.id,
+        ),
+        HouseholdInvitationsLoaded(invitations: []),
+      ],
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '7) decline() emits HouseholdInvitationsFailure on error',
+      setUp: () {
+        when(
+          () => repository.declineInvitation(invitationId: any(named: 'invitationId')),
+        ).thenThrow(Exception('DB error'));
+      },
+      seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
+      build: createCubit,
+      act: (cubit) => cubit.decline(invitation: invitation),
+      expect: () => [
+        HouseholdInvitationActionInProgress(
+          invitations: [invitation],
+          invitationId: invitation.id,
+        ),
+        const HouseholdInvitationsFailure(
+          message: 'Не удалось отклонить приглашение.',
+        ),
+      ],
+    );
+  });
+}

@@ -45,4 +45,6 @@ final class TaskCompletionCubit extends Cubit<TaskCompletionState> {
       emit(const TaskCompletionFailure(message: message));
     }
   }
+
+  void reset() => emit(const TaskCompletionInitial());
 }

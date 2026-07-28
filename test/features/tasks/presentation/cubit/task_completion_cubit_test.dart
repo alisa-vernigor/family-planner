@@ -9,105 +9,158 @@ import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_state.dart';
 
-	void main() {
-	  late FakeTaskRepository repository;
-	  late CompleteTaskUseCase completeTask;
-	  late TaskCompletionCubit cubit;
+void main() {
+  late FakeTaskRepository repository;
+  late CompleteTaskUseCase completeTask;
+  late TaskCompletionCubit cubit;
 
-	  final completedAt = DateTime.utc(2026, 7, 20, 10);
+  final completedAt = DateTime.utc(2026, 7, 20, 10);
 
-	  final task = Task(
-	    id: 'task-1',
-	    householdId: 'household-1',
-	    title: 'Пропылесосить гостиную',
-	    estimatedDurationMinutes: 20,
-	    plannedFor: DateTime.utc(2026, 7, 20),
-	    allowedMemberIds: const ['member-1'],
-	    status: TaskStatus.pending,
-	    createdAt: DateTime.utc(2026, 7, 19, 12),
-	  );
+  final task = Task(
+    id: 'task-1',
+    householdId: 'household-1',
+    title: 'Пропылесосить гостиную',
+    estimatedDurationMinutes: 20,
+    plannedFor: DateTime.utc(2026, 7, 20),
+    allowedMemberIds: const ['member-1'],
+    status: TaskStatus.pending,
+    createdAt: DateTime.utc(2026, 7, 19, 12),
+  );
 
-	  setUp(() {
-	    repository = FakeTaskRepository();
-	    completeTask = CompleteTaskUseCase(
-	      repository: repository,
-	      now: () => completedAt,
-	    );
-	    cubit = TaskCompletionCubit(completeTaskUseCase: completeTask);
-	  });
+  setUp(() {
+    repository = FakeTaskRepository();
+    completeTask = CompleteTaskUseCase(
+      repository: repository,
+      now: () => completedAt,
+    );
+    cubit = TaskCompletionCubit(completeTaskUseCase: completeTask);
+  });
 
-	  tearDown(() async {
-	    await cubit.close();
-	  });
+  tearDown(() async {
+    await cubit.close();
+  });
 
-	  blocTest<TaskCompletionCubit, TaskCompletionState>(
-	    'выдаёт InProgress и Success, когда задача успешно выполнена',
-	    build: () => cubit,
-	    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-1'),
-	    expect: () => [
-	      const TaskCompletionInProgress(),
-	      TaskCompletionSuccess(
-	        task: task.copyWith(
-	          assignedMemberId: 'member-1',
-	          status: TaskStatus.completed,
-	          completedAt: completedAt,
-	        ),
-	      ),
-	    ],
-	    verify: (_) {
-	      expect(repository.savedTasks, hasLength(1));
-	    },
-	  );
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'initial state должен быть TaskCompletionInitial',
+    build: () => cubit,
+    expect: () => const [],
+  );
 
-	  blocTest<TaskCompletionCubit, TaskCompletionState>(
-	    'выдаёт InProgress и Failure, когда участник не может выполнить задачу',
-	    build: () => cubit,
-	    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-2'),
-	    expect: () => const [
-	      TaskCompletionInProgress(),
-	      TaskCompletionFailure(message: 'У вас нет права выполнить эту задачу.'),
-	    ],
-	    verify: (_) {
-	      expect(repository.savedTasks, isEmpty);
-	    },
-	  );
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'выдаёт InProgress и Success, когда задача успешно выполнена',
+    build: () => cubit,
+    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-1'),
+    expect: () => [
+      const TaskCompletionInProgress(),
+      TaskCompletionSuccess(
+        task: task.copyWith(
+          assignedMemberId: 'member-1',
+          status: TaskStatus.completed,
+          completedAt: completedAt,
+        ),
+      ),
+    ],
+    verify: (_) {
+      expect(repository.savedTasks, hasLength(1));
+    },
+  );
 
-	  blocTest<TaskCompletionCubit, TaskCompletionState>(
-	    'выдаёт Failure, когда задача уже выполнена',
-	    build: () => cubit,
-	    act: (cubit) => cubit.completeTask(
-	      task: task.copyWith(
-	        assignedMemberId: 'member-1',
-	        status: TaskStatus.completed,
-	        completedAt: completedAt,
-	      ),
-	      memberId: 'member-1',
-	    ),
-	    expect: () => const [
-	      TaskCompletionInProgress(),
-	      TaskCompletionFailure(message: 'Эта задача уже была выполнена.'),
-	    ],
-	  );
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'выдаёт InProgress и Failure, когда участник не может выполнить задачу',
+    build: () => cubit,
+    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-2'),
+    expect: () => const [
+      TaskCompletionInProgress(),
+      TaskCompletionFailure(message: 'У вас нет права выполнить эту задачу.'),
+    ],
+    verify: (_) {
+      expect(repository.savedTasks, isEmpty);
+    },
+  );
 
-	  blocTest<TaskCompletionCubit, TaskCompletionState>(
-	    'выдаёт Failure при неожиданной ошибке репозитория',
-	    build: () {
-	      final repository = FakeTaskRepository(shouldThrowOnSave: true);
-	      final useCase = CompleteTaskUseCase(
-	        repository: repository,
-	        now: () => completedAt,
-	      );
-	      return TaskCompletionCubit(completeTaskUseCase: useCase);
-	    },
-	    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-1'),
-	    expect: () => const [
-	      TaskCompletionInProgress(),
-	      TaskCompletionFailure(
-	        message: 'Не удалось отметить задачу выполненной.',
-	      ),
-	    ],
-	  );
-	}
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'выдаёт Failure, когда задача уже выполнена',
+    build: () => cubit,
+    act: (cubit) => cubit.completeTask(
+      task: task.copyWith(
+        assignedMemberId: 'member-1',
+        status: TaskStatus.completed,
+        completedAt: completedAt,
+      ),
+      memberId: 'member-1',
+    ),
+    expect: () => const [
+      TaskCompletionInProgress(),
+      TaskCompletionFailure(message: 'Эта задача уже была выполнена.'),
+    ],
+  );
+
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'выдаёт Failure при неожиданной ошибке репозитория',
+    build: () {
+      final repository = FakeTaskRepository(shouldThrowOnSave: true);
+      final useCase = CompleteTaskUseCase(
+        repository: repository,
+        now: () => completedAt,
+      );
+      return TaskCompletionCubit(completeTaskUseCase: useCase);
+    },
+    act: (cubit) => cubit.completeTask(task: task, memberId: 'member-1'),
+    expect: () => const [
+      TaskCompletionInProgress(),
+      TaskCompletionFailure(
+        message: 'Не удалось отметить задачу выполненной.',
+      ),
+    ],
+  );
+
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'reset() возвращает в TaskCompletionInitial после успешного выполнения',
+    build: () => cubit,
+    act: (cubit) async {
+      await cubit.completeTask(task: task, memberId: 'member-1');
+      cubit.reset();
+    },
+    expect: () => [
+      const TaskCompletionInProgress(),
+      TaskCompletionSuccess(
+        task: task.copyWith(
+          assignedMemberId: 'member-1',
+          status: TaskStatus.completed,
+          completedAt: completedAt,
+        ),
+      ),
+      const TaskCompletionInitial(),
+    ],
+    verify: (_) {
+      expect(cubit.state, const TaskCompletionInitial());
+    },
+  );
+
+  blocTest<TaskCompletionCubit, TaskCompletionState>(
+    'reset() возвращает в TaskCompletionInitial после Failure',
+    build: () => cubit,
+    act: (cubit) async {
+      await cubit.completeTask(
+        task: task.copyWith(
+          assignedMemberId: 'member-1',
+          status: TaskStatus.completed,
+          completedAt: completedAt,
+        ),
+        memberId: 'member-1',
+      );
+      cubit.reset();
+    },
+    expect: () => const [
+      TaskCompletionInProgress(),
+      TaskCompletionFailure(message: 'Эта задача уже была выполнена.'),
+      TaskCompletionInitial(),
+    ],
+    verify: (_) {
+      expect(cubit.state, const TaskCompletionInitial());
+    },
+  );
+}
 
 final class FakeTaskRepository implements TaskRepository {
   FakeTaskRepository({this.shouldThrowOnSave = false});

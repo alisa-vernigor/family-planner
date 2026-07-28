@@ -32,4 +32,8 @@ final class UpdateTaskCubit extends Cubit<UpdateTaskState> {
       emit(const UpdateTaskFailure(message: message));
     }
   }
+
+  void reset() {
+    emit(const UpdateTaskInitial());
+  }
 }

@@ -39,79 +39,145 @@ void main() {
     await cubit.close();
   });
 
-  blocTest<TaskActionsCubit, TaskCompletionState>(
-    'uncompleteTask возвращает задачу и переводит в Initial',
-    build: () => cubit,
-    act: (cubit) => cubit.uncompleteTask(task: task),
-    expect: () => const [
-      TaskCompletionInProgress(),
-      TaskCompletionInitial(),
-    ],
-    verify: (_) {
-      expect(repository.savedTask, isNotNull);
-      expect(repository.savedTask!.status, TaskStatus.pending);
-    },
-  );
+  group('initial state', () {
+    blocTest<TaskActionsCubit, TaskCompletionState>(
+      'должен быть TaskCompletionInitial',
+      build: () => cubit,
+      expect: () => const [],
+    );
+  });
 
-  blocTest<TaskActionsCubit, TaskCompletionState>(
-    'uncompleteTask возвращает null и Failure для невыполненной задачи',
-    build: () {
-      final repository = _FakeTaskRepository();
-      return TaskActionsCubit(
-        uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
-        deleteTaskUseCase: DeleteTaskUseCase(repository: repository),
-      );
-    },
-    act: (cubit) => cubit.uncompleteTask(
-      task: task.copyWith(
-        status: TaskStatus.pending,
-        assignedMemberId: null,
-        completedAt: null,
+  group('uncompleteTask', () {
+    blocTest<TaskActionsCubit, TaskCompletionState>(
+      'возвращает задачу и переводит в Initial',
+      build: () => cubit,
+      act: (cubit) => cubit.uncompleteTask(task: task),
+      expect: () => const [
+        TaskCompletionInProgress(),
+        TaskCompletionInitial(),
+      ],
+      verify: (_) {
+        expect(repository.savedTask, isNotNull);
+        expect(repository.savedTask!.status, TaskStatus.pending);
+      },
+    );
+
+    blocTest<TaskActionsCubit, TaskCompletionState>(
+      'возвращает null и Failure для невыполненной задачи',
+      build: () {
+        final repository = _FakeTaskRepository();
+        return TaskActionsCubit(
+          uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+          deleteTaskUseCase: DeleteTaskUseCase(repository: repository),
+        );
+      },
+      act: (cubit) => cubit.uncompleteTask(
+        task: task.copyWith(
+          status: TaskStatus.pending,
+          assignedMemberId: null,
+          completedAt: null,
+        ),
       ),
-    ),
-    expect: () => const [
-      TaskCompletionInProgress(),
-      TaskCompletionFailure(message: 'Не удалось отменить выполнение.'),
-    ],
-    verify: (_) {
-      expect(repository.savedTask, isNull);
-    },
-  );
+      expect: () => const [
+        TaskCompletionInProgress(),
+        TaskCompletionFailure(message: 'Не удалось отменить выполнение.'),
+      ],
+      verify: (_) {
+        expect(repository.savedTask, isNull);
+      },
+    );
 
-  blocTest<TaskActionsCubit, TaskCompletionState>(
-    'deleteTask удаляет задачу и переводит в Initial',
-    build: () => cubit,
-    act: (cubit) => cubit.deleteTask(taskId: 'task-1'),
-    expect: () => const [
-      TaskCompletionInProgress(),
-      TaskCompletionInitial(),
-    ],
-    verify: (_) {
-      expect(repository.deletedTaskId, 'task-1');
-    },
-  );
+    test('возвращает объект Task при успешном выполнении', () async {
+      final result = await cubit.uncompleteTask(task: task);
+      expect(result, isA<Task>());
+      expect(result!.status, TaskStatus.pending);
+      expect(result!.id, task.id);
+    });
 
-  blocTest<TaskActionsCubit, TaskCompletionState>(
-    'deleteTask возвращает false и Failure при ошибке репозитория',
-    build: () {
+    test('возвращает null при попытке отменить невыполненную задачу', () async {
+      final result = await cubit.uncompleteTask(
+        task: task.copyWith(
+          status: TaskStatus.pending,
+          assignedMemberId: null,
+          completedAt: null,
+        ),
+      );
+      expect(result, isNull);
+    });
+
+    blocTest<TaskActionsCubit, TaskCompletionState>(
+      'выдаёт Failure при ошибке сохранения в репозитории',
+      build: () {
+        final repository = _FakeTaskRepository(shouldThrowOnSave: true);
+        return TaskActionsCubit(
+          uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+          deleteTaskUseCase: DeleteTaskUseCase(repository: repository),
+        );
+      },
+      act: (cubit) => cubit.uncompleteTask(task: task),
+      expect: () => const [
+        TaskCompletionInProgress(),
+        TaskCompletionFailure(message: 'Не удалось отменить выполнение.'),
+      ],
+    );
+  });
+
+  group('deleteTask', () {
+    blocTest<TaskActionsCubit, TaskCompletionState>(
+      'удаляет задачу и переводит в Initial',
+      build: () => cubit,
+      act: (cubit) => cubit.deleteTask(taskId: 'task-1'),
+      expect: () => const [
+        TaskCompletionInProgress(),
+        TaskCompletionInitial(),
+      ],
+      verify: (_) {
+        expect(repository.deletedTaskId, 'task-1');
+      },
+    );
+
+    blocTest<TaskActionsCubit, TaskCompletionState>(
+      'возвращает false и Failure при ошибке репозитория',
+      build: () {
+        final repository = _FakeTaskRepository(shouldThrowOnDelete: true);
+        return TaskActionsCubit(
+          uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+          deleteTaskUseCase: DeleteTaskUseCase(repository: repository),
+        );
+      },
+      act: (cubit) => cubit.deleteTask(taskId: 'task-1'),
+      expect: () => const [
+        TaskCompletionInProgress(),
+        TaskCompletionFailure(message: 'Не удалось удалить задачу.'),
+      ],
+    );
+
+    test('возвращает true при успешном удалении', () async {
+      final result = await cubit.deleteTask(taskId: 'task-1');
+      expect(result, isTrue);
+    });
+
+    test('возвращает false при ошибке удаления', () async {
       final repository = _FakeTaskRepository(shouldThrowOnDelete: true);
-      return TaskActionsCubit(
+      final cubit = TaskActionsCubit(
         uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
         deleteTaskUseCase: DeleteTaskUseCase(repository: repository),
       );
-    },
-    act: (cubit) => cubit.deleteTask(taskId: 'task-1'),
-    expect: () => const [
-      TaskCompletionInProgress(),
-      TaskCompletionFailure(message: 'Не удалось удалить задачу.'),
-    ],
-  );
+      final result = await cubit.deleteTask(taskId: 'task-1');
+      expect(result, isFalse);
+      await cubit.close();
+    });
+  });
 }
 
 final class _FakeTaskRepository implements TaskRepository {
-  _FakeTaskRepository({this.shouldThrowOnDelete = false});
+  _FakeTaskRepository({
+    this.shouldThrowOnDelete = false,
+    this.shouldThrowOnSave = false,
+  });
 
   final bool shouldThrowOnDelete;
+  final bool shouldThrowOnSave;
 
   Task? savedTask;
   String? deletedTaskId;
@@ -154,6 +220,9 @@ final class _FakeTaskRepository implements TaskRepository {
 
   @override
   Future<void> save(Task task) async {
+    if (shouldThrowOnSave) {
+      throw Exception('Ошибка сети');
+    }
     savedTask = task;
   }
 

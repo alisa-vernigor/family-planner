@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
@@ -9,7 +10,13 @@ import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_c
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_state.dart';
 
+class MockTaskRepository extends Mock implements TaskRepository {}
+
 void main() {
+  late MockTaskRepository repository;
+  late CreateTaskUseCase useCase;
+  late CreateTaskCubit cubit;
+
   final plannedFor = DateTime.utc(2026, 7, 19);
 
   final params = CreateTaskParams(
@@ -30,92 +37,62 @@ void main() {
     createdAt: DateTime.utc(2026, 7, 19, 12),
   );
 
-  CreateTaskCubit createCubit({Task? createdTask, Object? exception}) {
-    final repository = FakeTaskRepository(
-      createdTask: createdTask,
-      exception: exception,
+  setUpAll(() {
+    registerFallbackValue(
+      CreateTaskParams(
+        householdId: 'household-1',
+        title: 'test',
+        estimatedDurationMinutes: 30,
+        plannedFor: DateTime.utc(2026, 7, 19),
+      ),
     );
+  });
 
-    return CreateTaskCubit(
-      createTaskUseCase: CreateTaskUseCase(repository: repository),
-    );
-  }
+  setUp(() {
+    repository = MockTaskRepository();
+    useCase = CreateTaskUseCase(repository: repository);
+    cubit = CreateTaskCubit(createTaskUseCase: useCase);
+  });
+
+  tearDown(() {
+    cubit.close();
+  });
+
+  test('initial state is CreateTaskInitial', () {
+    expect(cubit.state, const CreateTaskInitial());
+  });
 
   blocTest<CreateTaskCubit, CreateTaskState>(
-    'выдаёт InProgress и Success после успешного создания',
-    build: () => createCubit(createdTask: task),
+    'create emits [CreateTaskInProgress, CreateTaskSuccess] with returned task',
+    build: () {
+      when(
+        () => repository.create(params: any(named: 'params')),
+      ).thenAnswer((_) async => task);
+      return cubit;
+    },
     act: (cubit) => cubit.create(params: params),
     expect: () => [const CreateTaskInProgress(), CreateTaskSuccess(task: task)],
   );
 
   blocTest<CreateTaskCubit, CreateTaskState>(
-    'выдаёт InProgress и Failure при ошибке репозитория',
-    build: () => createCubit(exception: Exception('Нет подключения')),
+    'create emits [CreateTaskInProgress, CreateTaskFailure] on exception',
+    build: () {
+      when(
+        () => repository.create(params: any(named: 'params')),
+      ).thenThrow(Exception('Ошибка соединения'));
+      return cubit;
+    },
     act: (cubit) => cubit.create(params: params),
     expect: () => const [
       CreateTaskInProgress(),
       CreateTaskFailure(message: 'Не удалось создать задачу.'),
     ],
   );
-}
 
-final class FakeTaskRepository implements TaskRepository {
-  FakeTaskRepository({this.createdTask, this.exception});
-
-  final Task? createdTask;
-  final Object? exception;
-
-  @override
-  Future<void> delete({required String taskId}) async {}
-
-  @override
-  Future<List<Task>> getScheduledAfter({
-    required String householdId,
-    required DateTime day,
-  }) async {
-    return const [];
-  }
-
-  @override
-  Future<Task> create({required CreateTaskParams params}) async {
-    if (exception != null) {
-      throw exception!;
-    }
-
-    if (createdTask == null) {
-      throw StateError('Для теста не задана создаваемая задача.');
-    }
-
-    return createdTask!;
-  }
-
-  @override
-  Future<List<Task>> getForDay({
-    required String householdId,
-    required DateTime day,
-  }) async {
-    return const [];
-  }
-
-  @override
-  Future<void> save(Task task) async {}
-
-  @override
-  Future<List<Task>> getAllPending({
-    required String householdId,
-  }) async {
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<void> addAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
-
-  @override
-  Future<void> removeAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  blocTest<CreateTaskCubit, CreateTaskState>(
+    'reset returns to CreateTaskInitial',
+    build: () => cubit,
+    act: (cubit) => cubit.reset(),
+    expect: () => [const CreateTaskInitial()],
+  );
 }
