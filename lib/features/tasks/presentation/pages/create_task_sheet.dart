@@ -776,6 +776,26 @@ final class _RecurrenceSummary extends StatelessWidget {
       count = null;
     }
 
+    // Генерируем первые 5 дат для предпросмотра
+    final previewDates = <DateTime>[];
+    if (startDate != null) {
+      final end = endDate ?? startDate!.add(const Duration(days: 60));
+      final totalDays = end.difference(startDate!).inDays + 1;
+      for (var d = 0; d < totalDays && previewDates.length < 5; d++) {
+        final date = startDate!.add(Duration(days: d));
+        bool matches;
+        switch (type) {
+          case TaskRecurrenceType.daily:
+            matches = true;
+          case TaskRecurrenceType.weekly:
+            matches = weekdays.contains(date.weekday);
+          case TaskRecurrenceType.intervalDays:
+            matches = d % intervalDays == 0;
+        }
+        if (matches) previewDates.add(date);
+      }
+    }
+
     if (startDate != null) {
       final start = '${startDate!.day}.${startDate!.month}.${startDate!.year}';
       if (endDate != null) {
@@ -786,20 +806,79 @@ final class _RecurrenceSummary extends StatelessWidget {
       }
     }
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.tertiaryContainer.withAlpha(76),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.repeat, size: 16, color: cs.tertiary),
-          const SizedBox(width: 8),
-          Text(summary, style: TextStyle(color: cs.tertiary, fontWeight: FontWeight.w500)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: cs.tertiaryContainer.withAlpha(76),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.repeat, size: 16, color: cs.tertiary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  summary,
+                  style: TextStyle(color: cs.tertiary, fontWeight: FontWeight.w500),
+                ),
+              ),
+              if (count != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.tertiary.withAlpha(30),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: cs.tertiary),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (previewDates.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest.withAlpha(60),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...previewDates.map((date) => Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Row(
+                    children: [
+                      Icon(Icons.checklist, size: 14, color: cs.tertiary),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}',
+                        style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                )),
+                if (count != null && count! > previewDates.length)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '…и ещё ${count! - previewDates.length}',
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
