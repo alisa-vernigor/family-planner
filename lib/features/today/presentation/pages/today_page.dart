@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart'
          PostgresChangeFilterType, RealtimeSubscribeStatus;
 
 import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/core/services/home_widget_service.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
@@ -368,6 +369,18 @@ final class _TodayViewState extends State<_TodayView> {
   Widget build(BuildContext context) {
     return MultiBlocListener(
       listeners: [
+        BlocListener<TodayTasksCubit, TodayTasksState>(
+          listener: (context, state) {
+            // Синхронизируем задачи с Android Widget при их загрузке или обновлении
+            if (state is TodayTasksLoaded) {
+              HomeWidgetService.syncTasks(
+                state.tasks,
+                widget.currentMemberId,
+                widget.householdId,
+              );
+            }
+          },
+        ),
         BlocListener<TaskCompletionCubit, TaskCompletionState>(
           listener: (context, state) {
             switch (state) {

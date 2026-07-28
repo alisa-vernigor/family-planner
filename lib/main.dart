@@ -7,6 +7,7 @@ import 'app/app.dart';
 import 'app/app_bloc_observer.dart';
 import 'core/config/supabase_config.dart';
 import 'core/logging/app_logger.dart';
+import 'core/services/home_widget_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,8 @@ Future<void> main() async {
     url: SupabaseConfig.url,
     publishableKey: SupabaseConfig.publishableKey,
   );
+
+  await HomeWidgetService.initialize();
 
   AppLogger.info('Supabase инициализирован');
   AppLogger.info('Запуск Family Planner');
