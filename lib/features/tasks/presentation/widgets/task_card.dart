@@ -58,9 +58,11 @@ final class TaskCard extends StatelessWidget {
           ? cs.primaryContainer.withAlpha(60)
           : isOverdue
               ? cs.errorContainer.withAlpha(30)
-              : isCompleted
-                  ? cs.surfaceContainerLowest
-                  : cs.surface,
+              : task.isPinned && !isCompleted
+                  ? cs.tertiaryContainer.withAlpha(40)
+                  : isCompleted
+                      ? cs.surfaceContainerLowest
+                      : cs.surface,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

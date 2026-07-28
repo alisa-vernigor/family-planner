@@ -326,47 +326,88 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                 }
 
                 // Группируем по дате
+                final filteredTasks = switch (_taskFilter) {
+                  'mine' => tasks.where((t) => t.assignedMemberId == widget.currentMemberId).toList(),
+                  'unassigned' => tasks.where((t) => t.assignedMemberId == null).toList(),
+                  _ => tasks,
+                };
+
+                if (filteredTasks.isEmpty) {
+                  return _emptyState(
+                    icon: Icons.calendar_month_outlined,
+                    title: 'Нет задач по выбранному фильтру',
+                    subtitle: 'Попробуйте другой фильтр',
+                    onCreate: _openCreateTaskSheet,
+                  );
+                }
+
                 final grouped = <String, List<Task>>{};
-                for (final task in tasks) {
+                for (final task in filteredTasks) {
                   final key = _formatDate(task.plannedFor);
                   grouped.putIfAbsent(key, () => []).add(task);
                 }
                 final dates = grouped.keys.toList();
 
-                return RefreshIndicator(
-                  onRefresh: () async => _reloadTasks(),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
-                    children: [
-                      for (final date in dates) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
-                          child: Text(
-                            date,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            ),
-                          ),
+                return Column(
+                  children: [
+                    // Фильтр
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                      child: Row(children: [
+                        _FilterChip(
+                          label: 'Все', selected: _taskFilter == 'all',
+                          onSelected: () => setState(() => _taskFilter = 'all'),
                         ),
-                        for (final task in grouped[date]!)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _ScheduledTaskCard(
-                              key: ValueKey(task.id),
-                              task: task,
-                              members: members,
-                              currentMemberId: widget.currentMemberId,
-                              formatDate: _formatDate,
-                              onEdit: () => _openEditTaskSheet(task),
-                              onAssign: () => _assignTask(task, members),
-                              onTogglePin: () => _togglePinTask(task),
-                              onDelete: () => _deleteTask(task),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Мои', selected: _taskFilter == 'mine',
+                          onSelected: () => setState(() => _taskFilter = 'mine'),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterChip(
+                          label: 'Без назначения', selected: _taskFilter == 'unassigned',
+                          onSelected: () => setState(() => _taskFilter = 'unassigned'),
+                        ),
+                      ]),
+                    ),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () async => _reloadTasks(),
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                          children: [
+                            for (final date in dates) ...[
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12, bottom: 4, left: 4),
+                                child: Text(
+                                  date,
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                              for (final task in grouped[date]!)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _ScheduledTaskCard(
+                                    key: ValueKey(task.id),
+                                    task: task,
+                                    members: members,
+                                    currentMemberId: widget.currentMemberId,
+                                    formatDate: _formatDate,
+                                    onEdit: () => _openEditTaskSheet(task),
+                                    onAssign: () => _assignTask(task, members),
+                                    onTogglePin: () => _togglePinTask(task),
+                                    onDelete: () => _deleteTask(task),
+                                  ),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 );
             }
           },
@@ -571,6 +612,41 @@ final class _ScheduledTaskCard extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+final class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: onSelected,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
+          ),
         ),
       ),
     );

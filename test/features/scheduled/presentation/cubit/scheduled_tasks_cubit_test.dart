@@ -36,9 +36,7 @@ void main() {
     final householdRepository = _FakeHouseholdRepository(members: [member]);
 
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(
-        repository: repository,
-      ),
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
       householdRepository: householdRepository,
     );
     addTearDown(cubit.close);
@@ -49,7 +47,7 @@ void main() {
     expect(repository.receivedHouseholdId, 'household-1');
   });
 
-  test('показывает ошибку, если загрузка завершилась неудачно', () async {
+  test('показывает ошибку при неудачной загрузке', () async {
     final cubit = ScheduledTasksCubit(
       getAllPendingTasksUseCase: GetAllPendingTasksUseCase(
         repository: _FakeTaskRepository(shouldThrow: true),
@@ -62,53 +60,102 @@ void main() {
 
     expect(
       cubit.state,
-      const ScheduledTasksFailure(
-        message: 'Не удалось загрузить запланированные задачи.',
-      ),
+      const ScheduledTasksFailure(message: 'Не удалось загрузить запланированные задачи.'),
     );
+  });
+
+  test('refresh не заменяет Loaded на Failure при ошибке', () async {
+    final repository = _FakeTaskRepository(tasks: [task], shouldThrowOnSecondCall: true);
+    final cubit = ScheduledTasksCubit(
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      householdRepository: _FakeHouseholdRepository(members: [member]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.load(householdId: 'household-1');
+    expect(cubit.state, isA<ScheduledTasksLoaded>());
+
+    await cubit.refresh(householdId: 'household-1');
+    expect(cubit.state, isA<ScheduledTasksLoaded>());
+  });
+
+  test('replaceTask заменяет задачу в списке', () async {
+    final repository = _FakeTaskRepository(tasks: [task]);
+    final cubit = ScheduledTasksCubit(
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      householdRepository: _FakeHouseholdRepository(members: [member]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.load(householdId: 'household-1');
+    cubit.replaceTask(task.copyWith(title: 'Обновлено'));
+
+    final state = cubit.state as ScheduledTasksLoaded;
+    expect(state.tasks.first.title, 'Обновлено');
+  });
+
+  test('removeTask убирает задачу из списка', () async {
+    final repository = _FakeTaskRepository(tasks: [task]);
+    final cubit = ScheduledTasksCubit(
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      householdRepository: _FakeHouseholdRepository(members: [member]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.load(householdId: 'household-1');
+    cubit.removeTask('task-1');
+
+    final state = cubit.state as ScheduledTasksLoaded;
+    expect(state.tasks, isEmpty);
+  });
+
+  test('confirmDelete не вызывает ошибок', () async {
+    final repository = _FakeTaskRepository(tasks: [task]);
+    final cubit = ScheduledTasksCubit(
+      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      householdRepository: _FakeHouseholdRepository(members: [member]),
+    );
+    addTearDown(cubit.close);
+
+    await cubit.load(householdId: 'household-1');
+    cubit.removeTask('task-1');
+    cubit.confirmDelete('task-1');
+    cubit.cancelDelete('task-1');
   });
 }
 
 final class _FakeTaskRepository implements TaskRepository {
-  _FakeTaskRepository({this.tasks = const [], this.shouldThrow = false});
+  _FakeTaskRepository({
+    this.tasks = const [],
+    this.shouldThrow = false,
+    this.shouldThrowOnSecondCall = false,
+  });
 
   final List<Task> tasks;
   final bool shouldThrow;
+  final bool shouldThrowOnSecondCall;
+  int _callCount = 0;
 
   String? receivedHouseholdId;
 
   @override
-  Future<Task> create({required CreateTaskParams params}) {
-    throw UnimplementedError();
-  }
+  Future<Task> create({required CreateTaskParams params}) => throw UnimplementedError();
 
   @override
   Future<void> delete({required String taskId}) async {}
 
   @override
-  Future<List<Task>> getForDay({
-    required String householdId,
-    required DateTime day,
-  }) {
-    throw UnimplementedError();
-  }
+  Future<List<Task>> getForDay({required String householdId, required DateTime day}) => throw UnimplementedError();
 
   @override
-  Future<List<Task>> getScheduledAfter({
-    required String householdId,
-    required DateTime day,
-  }) {
-    throw UnimplementedError();
-  }
+  Future<List<Task>> getScheduledAfter({required String householdId, required DateTime day}) => throw UnimplementedError();
 
   @override
-  Future<List<Task>> getAllPending({
-    required String householdId,
-  }) async {
-    if (shouldThrow) {
+  Future<List<Task>> getAllPending({required String householdId}) async {
+    _callCount++;
+    if (shouldThrow || (shouldThrowOnSecondCall && _callCount > 1)) {
       throw Exception('Ошибка сети');
     }
-
     receivedHouseholdId = householdId;
     return tasks;
   }
@@ -117,16 +164,10 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<void> save(Task task) async {}
 
   @override
-  Future<void> addAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  Future<void> addAllowedMember({required String taskId, required String memberId}) async {}
 
   @override
-  Future<void> removeAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
 }
 
 final class _FakeHouseholdRepository implements HouseholdRepository {
@@ -135,9 +176,7 @@ final class _FakeHouseholdRepository implements HouseholdRepository {
   final List<HouseholdMember> members;
 
   @override
-  Future<List<HouseholdMember>> getMembers({required String householdId}) async {
-    return members;
-  }
+  Future<List<HouseholdMember>> getMembers({required String householdId}) async => members;
 
   @override
   Future<List<Household>> getMyHouseholds() => throw UnimplementedError();
@@ -146,18 +185,13 @@ final class _FakeHouseholdRepository implements HouseholdRepository {
   Future<Household> create({required String name}) => throw UnimplementedError();
 
   @override
-  Future<void> createInvitation({
-    required String householdId,
-    required String email,
-  }) async {}
+  Future<void> createInvitation({required String householdId, required String email}) async {}
 
   @override
-  Future<List<HouseholdInvitation>> getPendingInvitations() =>
-      throw UnimplementedError();
+  Future<List<HouseholdInvitation>> getPendingInvitations() => throw UnimplementedError();
 
   @override
-  Future<String> acceptInvitation({required String invitationId}) =>
-      throw UnimplementedError();
+  Future<String> acceptInvitation({required String invitationId}) => throw UnimplementedError();
 
   @override
   Future<void> declineInvitation({required String invitationId}) async {}
@@ -166,17 +200,11 @@ final class _FakeHouseholdRepository implements HouseholdRepository {
   Future<void> leaveHousehold({required String householdId}) async {}
 
   @override
-  Future<void> removeMember({
-    required String householdId,
-    required String profileId,
-  }) async {}
+  Future<void> removeMember({required String householdId, required String profileId}) async {}
 
   @override
   Future<void> deleteHousehold({required String householdId}) async {}
 
   @override
-  Future<void> updateHousehold({
-    required String householdId,
-    required String name,
-  }) async {}
+  Future<void> updateHousehold({required String householdId, required String name}) async {}
 }

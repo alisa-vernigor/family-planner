@@ -28,11 +28,16 @@ void main() {
     createdAt: DateTime.utc(2026, 7, 19, 12),
   );
 
+  final member = const HouseholdMember(
+    profileId: 'member-1',
+    displayName: 'Alice',
+    role: 'owner',
+  );
+
   blocTest<TodayTasksCubit, TodayTasksState>(
     'выдаёт Loading и Loaded со списком задач при успешной загрузке',
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
-
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
@@ -46,10 +51,9 @@ void main() {
   );
 
   blocTest<TodayTasksCubit, TodayTasksState>(
-    'выдаёт Loading и Loaded с пустым списком, когда задач нет',
+    'выдаёт Loaded с пустым списком, когда задач нет',
     build: () {
       final repository = _FakeTaskRepository();
-
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
@@ -63,12 +67,9 @@ void main() {
   );
 
   blocTest<TodayTasksCubit, TodayTasksState>(
-    'выдаёт Loading и Failure при ошибке репозитория',
+    'выдаёт Failure при ошибке загрузки',
     build: () {
-      final repository = _FakeTaskRepository(
-        exceptionToThrow: Exception('Нет подключения'),
-      );
-
+      final repository = _FakeTaskRepository(exceptionToThrow: Exception('Нет подключения'));
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
@@ -82,46 +83,121 @@ void main() {
   );
 
   blocTest<TodayTasksCubit, TodayTasksState>(
+    'refresh не заменяет Loaded на Failure при ошибке и возвращает предыдущий стейт',
+    build: () {
+      final repository = _FakeTaskRepository(
+        tasksToReturn: [task],
+        exceptionOnSecondCall: true,
+      );
+      return TodayTasksCubit(
+        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        householdRepository: _FakeHouseholdRepository(),
+      );
+    },
+    act: (cubit) async {
+      await cubit.load(householdId: 'household-1', day: day);
+      await cubit.refresh(householdId: 'household-1', day: day);
+    },
+    verify: (cubit) {
+      expect(cubit.state, isA<TodayTasksLoaded>());
+    },
+  );
+
+  blocTest<TodayTasksCubit, TodayTasksState>(
+    'replaceTask заменяет задачу, если стейт Loaded',
+    build: () {
+      final repository = _FakeTaskRepository(tasksToReturn: [task]);
+      return TodayTasksCubit(
+        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        householdRepository: _FakeHouseholdRepository(),
+      );
+    },
+    act: (cubit) async {
+      await cubit.load(householdId: 'household-1', day: day);
+      cubit.replaceTask(task.copyWith(title: 'Обновлённая задача'));
+    },
+    verify: (cubit) {
+      final state = cubit.state as TodayTasksLoaded;
+      expect(state.tasks.first.title, 'Обновлённая задача');
+    },
+  );
+
+  blocTest<TodayTasksCubit, TodayTasksState>(
+    'removeTask убирает задачу из списка',
+    build: () {
+      final repository = _FakeTaskRepository(tasksToReturn: [task]);
+      return TodayTasksCubit(
+        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        householdRepository: _FakeHouseholdRepository(),
+      );
+    },
+    act: (cubit) async {
+      await cubit.load(householdId: 'household-1', day: day);
+      cubit.removeTask('task-1');
+    },
+    verify: (cubit) {
+      final state = cubit.state as TodayTasksLoaded;
+      expect(state.tasks, isEmpty);
+    },
+  );
+
+  blocTest<TodayTasksCubit, TodayTasksState>(
+    'confirmDelete и cancelDelete не меняют стейт',
+    build: () {
+      final repository = _FakeTaskRepository(tasksToReturn: [task]);
+      return TodayTasksCubit(
+        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        householdRepository: _FakeHouseholdRepository(),
+      );
+    },
+    act: (cubit) async {
+      await cubit.load(householdId: 'household-1', day: day);
+      cubit.removeTask('task-1');
+      cubit.confirmDelete('task-1');
+      cubit.cancelDelete('task-1');
+    },
+    verify: (cubit) {
+      // confirmDelete и cancelDelete не должны вызывать ошибок
+    },
+  );
+
+  blocTest<TodayTasksCubit, TodayTasksState>(
+    'distribute с null useCase не делает ничего',
+    build: () {
+      final repository = _FakeTaskRepository(tasksToReturn: [task]);
+      return TodayTasksCubit(
+        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        householdRepository: _FakeHouseholdRepository(),
+      );
+    },
+    act: (cubit) => cubit.distribute(householdId: 'household-1', day: day),
+    expect: () => const [],
+  );
+
+  blocTest<TodayTasksCubit, TodayTasksState>(
     'distribute перезагружает задачи после успешного распределения',
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
-      const members = [
-        HouseholdMember(
-          profileId: 'member-1',
-          displayName: 'Alice',
-          role: 'owner',
-        ),
-      ];
-
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
-        householdRepository: _FakeHouseholdRepository(members: members),
+        householdRepository: _FakeHouseholdRepository(members: [member]),
         distributeTasksUseCase: DistributeTasksUseCase(
           taskRepository: repository,
-          householdRepository: _FakeHouseholdRepository(members: members),
+          householdRepository: _FakeHouseholdRepository(members: [member]),
         ),
       );
     },
     act: (cubit) => cubit.distribute(householdId: 'household-1', day: day),
     expect: () => [
       const TodayTasksLoading(),
-      TodayTasksLoaded(tasks: [task], members: [
-        HouseholdMember(
-          profileId: 'member-1',
-          displayName: 'Alice',
-          role: 'owner',
-        ),
-      ]),
+      TodayTasksLoaded(tasks: [task], members: [member]),
     ],
   );
 
   blocTest<TodayTasksCubit, TodayTasksState>(
-    'distribute выдаёт Failure при ошибке распределения',
+    'distribute выдаёт Failure при ошибке',
     build: () {
-      final repository = _FakeTaskRepository(
-        exceptionToThrow: Exception('Ошибка БД'),
-      );
-
+      final repository = _FakeTaskRepository(exceptionToThrow: Exception('Ошибка БД'));
       return TodayTasksCubit(
         getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
         householdRepository: _FakeHouseholdRepository(),
@@ -139,60 +215,49 @@ void main() {
 }
 
 final class _FakeTaskRepository implements TaskRepository {
-  _FakeTaskRepository({this.tasksToReturn = const [], this.exceptionToThrow});
+  _FakeTaskRepository({
+    this.tasksToReturn = const [],
+    this.exceptionToThrow,
+    this.exceptionOnSecondCall = false,
+  });
 
   final List<Task> tasksToReturn;
   final Object? exceptionToThrow;
+  final bool exceptionOnSecondCall;
+  bool _firstCall = true;
 
   @override
   Future<void> delete({required String taskId}) async {}
 
   @override
-  Future<List<Task>> getScheduledAfter({
-    required String householdId,
-    required DateTime day,
-  }) async {
-    return const [];
-  }
+  Future<List<Task>> getScheduledAfter({required String householdId, required DateTime day}) async => [];
 
   @override
-  Future<List<Task>> getAllPending({
-    required String householdId,
-  }) async {
-    return const [];
-  }
+  Future<List<Task>> getAllPending({required String householdId}) async => [];
 
   @override
-  Future<List<Task>> getForDay({
-    required String householdId,
-    required DateTime day,
-  }) async {
+  Future<List<Task>> getForDay({required String householdId, required DateTime day}) async {
     if (exceptionToThrow != null) {
+      if (exceptionOnSecondCall && _firstCall) {
+        _firstCall = false;
+        return tasksToReturn;
+      }
       throw exceptionToThrow!;
     }
-
     return tasksToReturn;
   }
 
   @override
-  Future<Task> create({required CreateTaskParams params}) {
-    throw UnimplementedError();
-  }
+  Future<Task> create({required CreateTaskParams params}) => throw UnimplementedError();
 
   @override
   Future<void> save(Task task) async {}
 
   @override
-  Future<void> addAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  Future<void> addAllowedMember({required String taskId, required String memberId}) async {}
 
   @override
-  Future<void> removeAllowedMember({
-    required String taskId,
-    required String memberId,
-  }) async {}
+  Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}
 }
 
 final class _FakeHouseholdRepository implements HouseholdRepository {
@@ -201,29 +266,22 @@ final class _FakeHouseholdRepository implements HouseholdRepository {
   final List<HouseholdMember> members;
 
   @override
-  Future<List<HouseholdMember>> getMembers({required String householdId}) async {
-    return members;
-  }
+  Future<List<HouseholdMember>> getMembers({required String householdId}) async => members;
 
   @override
   Future<List<Household>> getMyHouseholds() async => [];
 
   @override
-  Future<Household> create({required String name}) async =>
-      Household(id: '1', name: name);
+  Future<Household> create({required String name}) async => Household(id: '1', name: name);
 
   @override
-  Future<void> createInvitation({
-    required String householdId,
-    required String email,
-  }) async {}
+  Future<void> createInvitation({required String householdId, required String email}) async {}
 
   @override
   Future<List<HouseholdInvitation>> getPendingInvitations() async => [];
 
   @override
-  Future<String> acceptInvitation({required String invitationId}) async =>
-      'household-1';
+  Future<String> acceptInvitation({required String invitationId}) async => 'household-1';
 
   @override
   Future<void> declineInvitation({required String invitationId}) async {}
@@ -232,17 +290,11 @@ final class _FakeHouseholdRepository implements HouseholdRepository {
   Future<void> leaveHousehold({required String householdId}) async {}
 
   @override
-  Future<void> removeMember({
-    required String householdId,
-    required String profileId,
-  }) async {}
+  Future<void> removeMember({required String householdId, required String profileId}) async {}
 
   @override
   Future<void> deleteHousehold({required String householdId}) async {}
 
   @override
-  Future<void> updateHousehold({
-    required String householdId,
-    required String name,
-  }) async {}
+  Future<void> updateHousehold({required String householdId, required String name}) async {}
 }

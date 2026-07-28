@@ -127,6 +127,29 @@ void main() {
         AuthAuthenticated(user: user),
       ],
     );
+
+    blocTest<AuthCubit, AuthState>(
+      'выдаёт Failure при AuthException во время регистрации',
+      build: () {
+        final repository = _FakeAuthRepositoryThrows();
+        return AuthCubit(
+          getCurrentUserUseCase: GetCurrentUserUseCase(repository: repository),
+          signInUseCase: SignInUseCase(repository: repository),
+          signOutUseCase: SignOutUseCase(repository: repository),
+          signUpUseCase: SignUpUseCase(repository: repository),
+          enableAuthListener: false,
+        );
+      },
+      act: (cubit) => cubit.signUp(
+        email: 'anna@example.com',
+        password: 'password123',
+        displayName: 'Аня',
+      ),
+      expect: () => const [
+        AuthLoading(),
+        AuthFailure(message: 'Произошла непредвиденная ошибка авторизации.'),
+      ],
+    );
   });
 
   group('signOut', () {
