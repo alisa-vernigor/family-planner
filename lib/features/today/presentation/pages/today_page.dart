@@ -442,7 +442,17 @@ final class _TodayViewState extends State<_TodayView> {
                   final todayTasks = TaskSchedule.forDay(
                     tasks: tasks,
                     day: widget.day,
-                  );
+                  )..sort((a, b) {
+                    // Просроченные сверху, потом с дедлайном, потом без
+                    final aOverdue = a.deadline != null && a.deadline!.isBefore(DateTime.now());
+                    final bOverdue = b.deadline != null && b.deadline!.isBefore(DateTime.now());
+                    if (aOverdue && !bOverdue) return -1;
+                    if (!aOverdue && bOverdue) return 1;
+                    if (a.deadline != null && b.deadline != null) return a.deadline!.compareTo(b.deadline!);
+                    if (a.deadline != null) return -1;
+                    if (b.deadline != null) return 1;
+                    return 0;
+                  });
 
                   if (todayTasks.isEmpty) {
                     return _emptyState(
