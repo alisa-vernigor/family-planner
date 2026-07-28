@@ -476,6 +476,19 @@ final class _TodayViewState extends State<_TodayView> {
                               );
                         }
                       },
+                      onSwipeComplete: (task) {
+                        if (!task.isCompleted) {
+                          context
+                              .read<TaskCompletionCubit>()
+                              .completeTask(
+                                task: task,
+                                memberId: widget.currentMemberId,
+                              );
+                        }
+                      },
+                      onSwipeDelete: (task) {
+                        _deleteTask(task);
+                      },
                       onLongPress: (task) {
                         if (!_isSelectionMode) {
                           _toggleSelectionMode();
@@ -622,6 +635,8 @@ final class _TaskListView extends StatelessWidget {
     this.isSelectionMode = false,
     this.selectedTaskIds = const {},
     this.onLongPress,
+    this.onSwipeComplete,
+    this.onSwipeDelete,
   });
 
   final List<Task> tasks;
@@ -636,6 +651,8 @@ final class _TaskListView extends StatelessWidget {
   final void Function(Task) onComplete;
   final void Function(Task) onUncomplete;
   final void Function(Task)? onLongPress;
+  final void Function(Task)? onSwipeComplete;
+  final void Function(Task)? onSwipeDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -670,6 +687,8 @@ final class _TaskListView extends StatelessWidget {
                   currentMemberId: currentMemberId,
                   isSelected: selectedTaskIds.contains(t.id),
                   onLongPress: onLongPress != null ? () => onLongPress!(t) : null,
+                  onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(t) : null,
+                  onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(t) : null,
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
@@ -691,6 +710,8 @@ final class _TaskListView extends StatelessWidget {
                   currentMemberId: currentMemberId,
                   isSelected: selectedTaskIds.contains(t.id),
                   onLongPress: onLongPress != null ? () => onLongPress!(t) : null,
+                  onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(t) : null,
+                  onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(t) : null,
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
@@ -712,6 +733,8 @@ final class _TaskListView extends StatelessWidget {
                   currentMemberId: currentMemberId,
                   isSelected: selectedTaskIds.contains(t.id),
                   onLongPress: onLongPress != null ? () => onLongPress!(t) : null,
+                  onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(t) : null,
+                  onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(t) : null,
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),

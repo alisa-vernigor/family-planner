@@ -16,6 +16,8 @@ final class TaskCard extends StatelessWidget {
     this.onTogglePin,
     this.isSelected = false,
     this.onLongPress,
+    this.onSwipeComplete,
+    this.onSwipeDelete,
     super.key,
   });
 
@@ -30,6 +32,8 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback? onTogglePin;
   final bool isSelected;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSwipeComplete;
+  final VoidCallback? onSwipeDelete;
 
   /// Map memberId → displayName для быстрого поиска
   Map<String, String> get _memberNameMap {
@@ -49,20 +53,15 @@ final class TaskCard extends StatelessWidget {
         task.deadline != null &&
         task.deadline!.isBefore(DateTime.now());
 
-    return GestureDetector(
-      onLongPress: onLongPress,
-      onTap: isSelected
-          ? () {}
-          : null,
-      child: Card(
-        color: isSelected
-            ? cs.primaryContainer.withAlpha(60)
-            : isOverdue
-                ? cs.errorContainer.withAlpha(30)
-                : isCompleted
-                    ? cs.surfaceContainerLowest
-                    : cs.surface,
-        child: Padding(
+    final card = Card(
+      color: isSelected
+          ? cs.primaryContainer.withAlpha(60)
+          : isOverdue
+              ? cs.errorContainer.withAlpha(30)
+              : isCompleted
+                  ? cs.surfaceContainerLowest
+                  : cs.surface,
+      child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,6 +257,43 @@ final class TaskCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    final canSwipeComplete = !isCompleted && onSwipeComplete != null;
+    final canSwipeDelete = onSwipeDelete != null;
+
+    return Dismissible(
+      key: ValueKey('swipe-${task.id}'),
+      direction: (canSwipeComplete || canSwipeDelete)
+          ? DismissDirection.horizontal
+          : DismissDirection.none,
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd && canSwipeComplete) {
+          onSwipeComplete!();
+          return false;
+        }
+        if (direction == DismissDirection.endToStart && canSwipeDelete) {
+          onSwipeDelete!();
+          return false;
+        }
+        return false;
+      },
+      background: Container(
+        color: cs.primary,
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 24),
+        child: const Icon(Icons.check_circle_outline, color: Colors.white, size: 28),
+      ),
+      secondaryBackground: Container(
+        color: cs.error,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 28),
+      ),
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        onTap: isSelected ? () {} : null,
+        child: card,
       ),
     );
   }

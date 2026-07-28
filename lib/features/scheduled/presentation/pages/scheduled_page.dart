@@ -67,6 +67,7 @@ final class _ScheduledView extends StatefulWidget {
 
 final class _ScheduledViewState extends State<_ScheduledView> {
   RealtimeChannel? _realtimeChannel;
+  String _taskFilter = 'all'; // all, mine, unassigned
 
   @override
   void initState() {
@@ -104,7 +105,6 @@ final class _ScheduledViewState extends State<_ScheduledView> {
             value: householdId,
           ),
           callback: (_) {
-            // Тихая перезагрузка — не дёргаем спиннер
             if (mounted) _silentReload();
           },
         )
