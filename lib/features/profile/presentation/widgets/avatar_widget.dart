@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
@@ -8,6 +10,7 @@ final class AvatarWidget extends StatelessWidget {
   const AvatarWidget({
     required this.profile,
     this.radius = 20,
+    this.imageBytes,
     this.onTap,
     super.key,
   });
@@ -15,6 +18,7 @@ final class AvatarWidget extends StatelessWidget {
   AvatarWidget.fromMember({
     required HouseholdMember member,
     this.radius = 20,
+    this.imageBytes,
     this.onTap,
     super.key,
   }) : profile = UserProfile(
@@ -27,6 +31,7 @@ final class AvatarWidget extends StatelessWidget {
   /// Create from a URL string directly (for cached headers).
   AvatarWidget.url({
     this.radius = 20,
+    this.imageBytes,
     this.onTap,
     required String? imageUrl,
     required String displayName,
@@ -40,6 +45,7 @@ final class AvatarWidget extends StatelessWidget {
 
   final UserProfile profile;
   final double radius;
+  final Uint8List? imageBytes;
   final VoidCallback? onTap;
 
   String get _initials {
@@ -56,26 +62,21 @@ final class AvatarWidget extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
 
     Widget avatar;
-    if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
-      avatar = CircleAvatar(
-        radius: radius,
-        backgroundImage: NetworkImage(profile.avatarUrl!),
-        onBackgroundImageError: (_, __) {},
-        child: _initialCircle(cs),
-      );
-    } else {
+    if (imageBytes != null && imageBytes!.isNotEmpty) {
       avatar = CircleAvatar(
         radius: radius,
         backgroundColor: cs.primaryContainer,
-        child: Text(
-          _initials,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: radius * 0.7,
-            color: cs.onPrimaryContainer,
-          ),
-        ),
+        backgroundImage: MemoryImage(imageBytes!),
       );
+    } else if (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty) {
+      avatar = CircleAvatar(
+        radius: radius,
+        backgroundColor: cs.primaryContainer,
+        backgroundImage: NetworkImage(profile.avatarUrl!),
+        onBackgroundImageError: (_, __) {},
+      );
+    } else {
+      avatar = _initialCircle(cs);
     }
 
     if (onTap != null) {

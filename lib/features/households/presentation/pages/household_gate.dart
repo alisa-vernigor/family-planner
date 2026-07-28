@@ -104,7 +104,6 @@ final class _HouseholdGateState extends State<HouseholdGate> {
             );
 
           case HouseholdLoaded(:final households):
-            // Сохраняем selected ID при первом входе или если текущий исчез
             final selected = _selectedHouseholdId;
             if (selected == null || !households.any((h) => h.id == selected)) {
               _selectedHouseholdId = households.first.id;
@@ -156,6 +155,8 @@ final class _AppShell extends StatefulWidget {
 }
 
 final class _AppShellState extends State<_AppShell> {
+  int _refreshCounter = 0;
+
   @override
   void initState() {
     super.initState();
@@ -167,6 +168,14 @@ final class _AppShellState extends State<_AppShell> {
       (h) => h.id == widget.selectedHouseholdId,
       orElse: () => widget.households.first,
     );
+  }
+
+  void _triggerRefresh() {
+    if (!mounted) return;
+    setState(() {
+      _refreshCounter++;
+    });
+    context.read<HouseholdCubit>().refresh();
   }
 
   Future<void> _showRenameDialog(Household household) async {
@@ -272,8 +281,8 @@ final class _AppShellState extends State<_AppShell> {
           IconButton(
             tooltip: 'Участники',
             icon: const Icon(Icons.group_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
+            onPressed: () async {
+              await Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => HouseholdMembersPage(
                     householdId: _selectedHousehold.id,
@@ -281,11 +290,9 @@ final class _AppShellState extends State<_AppShell> {
                     currentMemberId: widget.currentMemberId,
                   ),
                 ),
-              ).then((_) {
-                if (context.mounted) {
-                  context.read<HouseholdCubit>().refresh();
-                }
-              });
+              );
+
+              _triggerRefresh();
             },
           ),
           IconButton(
@@ -313,8 +320,7 @@ final class _AppShellState extends State<_AppShell> {
                 ),
               );
 
-              if (!context.mounted) return;
-              context.read<HouseholdCubit>().refresh();
+              _triggerRefresh();
             },
           ),
           PopupMenuButton<String>(
@@ -338,13 +344,14 @@ final class _AppShellState extends State<_AppShell> {
                 case 'signout':
                   context.read<AuthCubit>().signOut();
                 case 'profile':
-                  Navigator.of(context).push(
+                  await Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ProfileSettingsPage(
                         profileId: widget.currentMemberId,
                       ),
                     ),
                   );
+                  _triggerRefresh();
               }
             },
             itemBuilder: (context) => [
@@ -397,11 +404,13 @@ final class _AppShellState extends State<_AppShell> {
         index: widget.currentTab,
         children: [
           TodayPage(
+            key: ValueKey('today_${_selectedHousehold.id}_$_refreshCounter'),
             householdId: _selectedHousehold.id,
             householdName: _selectedHousehold.name,
             currentMemberId: widget.currentMemberId,
           ),
           ScheduledPage(
+            key: ValueKey('scheduled_${_selectedHousehold.id}_$_refreshCounter'),
             householdId: _selectedHousehold.id,
             currentMemberId: widget.currentMemberId,
           ),

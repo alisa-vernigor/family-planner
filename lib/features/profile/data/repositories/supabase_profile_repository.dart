@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:flutter/widgets.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/logging/app_logger.dart';
@@ -80,8 +81,13 @@ final class SupabaseProfileRepository implements ProfileRepository {
       ),
     );
 
-    // Get public URL
-    final publicUrl = _client.storage.from('avatars').getPublicUrl(path);
+    // Get public URL with timestamp parameter to bust Flutter NetworkImage & HTTP cache
+    final rawUrl = _client.storage.from('avatars').getPublicUrl(path);
+    final publicUrl = '$rawUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+
+    // Clear local image cache in Flutter
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
 
     // Update profiles table
     await _client
@@ -95,6 +101,9 @@ final class SupabaseProfileRepository implements ProfileRepository {
   @override
   Future<void> removeAvatar(String profileId) async {
     await _removeExistingAvatar(profileId);
+
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
 
     await _client
         .from('profiles')

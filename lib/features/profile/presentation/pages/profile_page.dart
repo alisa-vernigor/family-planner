@@ -11,6 +11,7 @@ import 'package:family_planner/features/profile/domain/entities/profile_stats.da
 import 'package:family_planner/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_state.dart';
 import 'package:family_planner/features/profile/presentation/widgets/avatar_widget.dart';
+import 'package:family_planner/features/profile/presentation/pages/profile_settings_page.dart';
 
 /// Публичная страница профиля пользователя.
 /// Показывает аватар, имя, био и статистику задач.
@@ -92,12 +93,27 @@ final class _ProfileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final cubitState = context.read<ProfileCubit>().state;
+    final cubitState = context.watch<ProfileCubit>().state;
     final isOwn = cubitState is ProfileLoaded && cubitState.profile.id == profileId;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(displayName),
+        actions: [
+          if (isOwn)
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              tooltip: 'Редактировать',
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ProfileSettingsPage(profileId: profileId),
+                  ),
+                );
+                onRefresh();
+              },
+            ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: onRefresh,
