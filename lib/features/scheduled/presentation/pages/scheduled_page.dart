@@ -22,6 +22,7 @@ import 'package:family_planner/features/tasks/domain/repositories/task_repositor
 import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/domain/services/ai_task_service.dart';
 
 final class ScheduledPage extends StatelessWidget {
   const ScheduledPage({
@@ -157,11 +158,12 @@ final class _ScheduledViewState extends State<_ScheduledView> {
     }
   }
 
-  Future<void> _openCreateTaskSheet() async {
+  Future<void> _openCreateTaskSheet({AITaskResult? aiResult}) async {
     final wasCreated = await showCreateTaskSheet(
       context: context,
       householdId: widget.householdId,
       plannedFor: DateTime.now(),
+      aiInitialData: aiResult,
     );
 
     if (wasCreated == true && mounted) {
@@ -328,7 +330,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                     title: 'Запланированных задач нет',
                     subtitle:
                         'Создайте повторяющуюся задачу или запланируйте на другой день',
-                    onCreate: _openCreateTaskSheet,
+                    onCreate: () => _openCreateTaskSheet(),
                   );
                 }
 
@@ -344,7 +346,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                     icon: Icons.calendar_month_outlined,
                     title: 'Нет задач по выбранному фильтру',
                     subtitle: 'Попробуйте другой фильтр',
-                    onCreate: _openCreateTaskSheet,
+                    onCreate: () => _openCreateTaskSheet(),
                   );
                 }
 
@@ -381,7 +383,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                       child: RefreshIndicator(
                         onRefresh: () async => _reloadTasks(),
                         child: ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
                           children: [
                             for (final date in dates) ...[
                               Padding(
@@ -424,8 +426,8 @@ final class _ScheduledViewState extends State<_ScheduledView> {
           bottom: 16,
           child: FloatingActionButton(
             heroTag: 'create_task_scheduled_fab',
-            onPressed: _openCreateTaskSheet,
-            tooltip: 'Создать задачу',
+            onPressed: () => _openCreateTaskSheet(),
+            tooltip: 'Создать задачу вручную',
             child: const Icon(Icons.add),
           ),
         ),

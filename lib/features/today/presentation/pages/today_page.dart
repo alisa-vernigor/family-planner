@@ -25,6 +25,7 @@ import 'package:family_planner/features/tasks/domain/services/task_schedule.dart
 import 'package:family_planner/features/tasks/presentation/widgets/task_card.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
+import 'package:family_planner/features/tasks/domain/services/ai_task_service.dart';
 
 final class TodayPage extends StatelessWidget {
   const TodayPage({
@@ -198,11 +199,12 @@ final class _TodayViewState extends State<_TodayView> {
     );
   }
 
-  Future<void> _openCreateTaskSheet() async {
+  Future<void> _openCreateTaskSheet({AITaskResult? aiResult}) async {
     final wasCreated = await showCreateTaskSheet(
       context: context,
       householdId: widget.householdId,
       plannedFor: widget.day,
+      aiInitialData: aiResult,
     );
 
     if (wasCreated == true && mounted) {
@@ -595,29 +597,42 @@ final class _TodayViewState extends State<_TodayView> {
                 ),
               ),
             ),
-          // ── Distribute FAB ──────────────────────────────
+          // ── Action FABs ──────────────────────────────
           if (!_isSelectionMode)
             Positioned(
               right: 16,
               bottom: 16,
               child: BlocBuilder<TodayTasksCubit, TodayTasksState>(
-              builder: (context, state) {
-                final isLoading = state is TodayTasksLoading;
-                return FloatingActionButton(
-                  heroTag: 'distribute_tasks_fab',
-                  tooltip: 'Автораспределить задачи',
-                  onPressed: isLoading ? null : _distributeTasks,
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.auto_awesome_outlined),
-                );
-              },
+                builder: (context, state) {
+                  final isLoading = state is TodayTasksLoading;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'distribute_tasks_fab',
+                        tooltip: 'Автораспределить задачи',
+                        onPressed: isLoading ? null : _distributeTasks,
+                        mini: true,
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_awesome_outlined),
+                      ),
+                      const SizedBox(width: 12),
+                      FloatingActionButton(
+                        heroTag: 'create_task_fab',
+                        tooltip: 'Создать задачу вручную',
+                        onPressed: isLoading ? null : () => _openCreateTaskSheet(),
+                        child: const Icon(Icons.add),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -655,7 +670,7 @@ final class _TodayViewState extends State<_TodayView> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: _openCreateTaskSheet,
+              onPressed: () => _openCreateTaskSheet(),
               icon: const Icon(Icons.add),
               label: const Text('Создать задачу'),
             ),
@@ -723,7 +738,7 @@ final class _TaskListView extends StatelessWidget {
             .toList(growable: false);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
         if (myTasks.isNotEmpty) ...[
           _SectionHeader(title: 'Мои задачи', count: myTasks.length),

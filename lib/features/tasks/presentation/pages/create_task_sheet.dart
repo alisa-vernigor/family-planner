@@ -11,11 +11,13 @@ import 'package:family_planner/features/tasks/presentation/cubit/create_task_cub
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_state.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/domain/services/ai_task_service.dart';
 
 Future<bool?> showCreateTaskSheet({
   required BuildContext context,
   required String householdId,
   required DateTime plannedFor,
+  AITaskResult? aiInitialData,
 }) {
   final repository = context.read<TaskRepository>();
   final householdRepository = context.read<HouseholdRepository>();
@@ -32,6 +34,7 @@ Future<bool?> showCreateTaskSheet({
           householdId: householdId,
           plannedFor: plannedFor,
           householdRepository: householdRepository,
+          aiInitialData: aiInitialData,
         ),
       );
     },
@@ -43,12 +46,14 @@ final class CreateTaskSheet extends StatefulWidget {
     required this.householdId,
     required this.plannedFor,
     required this.householdRepository,
+    this.aiInitialData,
     super.key,
   });
 
   final String householdId;
   final DateTime plannedFor;
   final HouseholdRepository householdRepository;
+  final AITaskResult? aiInitialData;
 
   @override
   State<CreateTaskSheet> createState() => _CreateTaskSheetState();
@@ -56,10 +61,11 @@ final class CreateTaskSheet extends StatefulWidget {
 
 final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _durationController = TextEditingController(text: '30');
+  late final TextEditingController _titleController;
+  late final TextEditingController _descriptionController;
+  late final TextEditingController _durationController;
 
+  late DateTime _plannedFor;
   DateTime? _deadline;
   DateTime? _recurrenceStartDate;
   DateTime? _recurrenceEndDate;
@@ -78,6 +84,12 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   @override
   void initState() {
     super.initState();
+    _titleController = TextEditingController(text: widget.aiInitialData?.title ?? '');
+    _descriptionController = TextEditingController(text: widget.aiInitialData?.description ?? '');
+    _durationController = TextEditingController(text: (widget.aiInitialData?.durationMinutes ?? 30).toString());
+    
+    _plannedFor = widget.aiInitialData?.plannedFor ?? widget.plannedFor;
+    
     _loadMembers();
   }
 
@@ -113,9 +125,9 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   Future<void> _pickDeadline() async {
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: _deadline ?? widget.plannedFor,
-      firstDate: widget.plannedFor,
-      lastDate: DateTime(widget.plannedFor.year + 5),
+      initialDate: _deadline ?? _plannedFor,
+      firstDate: _plannedFor,
+      lastDate: DateTime(_plannedFor.year + 5),
     );
 
     if (selectedDate == null || !mounted) {
@@ -153,9 +165,9 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   Future<void> _pickRecurrenceStartDate() async {
     final selectedDate = await showDatePicker(
       context: context,
-      initialDate: _recurrenceStartDate ?? _deadline ?? widget.plannedFor,
-      firstDate: widget.plannedFor,
-      lastDate: DateTime(widget.plannedFor.year + 5),
+      initialDate: _recurrenceStartDate ?? _deadline ?? _plannedFor,
+      firstDate: _plannedFor,
+      lastDate: DateTime(_plannedFor.year + 5),
       helpText: 'Когда начать повторение',
     );
 
@@ -174,7 +186,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   }
 
   Future<void> _pickRecurrenceEndDate() async {
-    final startDate = _recurrenceStartDate ?? _deadline ?? widget.plannedFor;
+    final startDate = _recurrenceStartDate ?? _deadline ?? _plannedFor;
 
     final selectedDate = await showDatePicker(
       context: context,
@@ -300,7 +312,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         title: _titleController.text,
         description: _descriptionController.text,
         estimatedDurationMinutes: int.tryParse(_durationController.text) ?? 0,
-        plannedFor: widget.plannedFor,
+        plannedFor: _plannedFor,
         deadline: _deadline,
         assignedMemberId: _assignedMemberId,
         pinnedMemberId: _isPinned ? _assignedMemberId : null,

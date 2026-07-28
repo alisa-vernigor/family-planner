@@ -16,6 +16,9 @@ import 'package:family_planner/features/households/presentation/pages/household_
 import 'package:family_planner/features/households/presentation/pages/household_members_page.dart';
 import 'package:family_planner/features/households/presentation/pages/create_household_page.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:family_planner/features/tasks/domain/services/ai_task_service.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/voice_record_dialog.dart';
+import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
 
 final class HouseholdGate extends StatefulWidget {
   const HouseholdGate({required this.currentMemberId, super.key});
@@ -173,6 +176,27 @@ final class _AppShellState extends State<_AppShell> {
     context.read<HouseholdCubit>().refresh();
   }
 
+  Future<void> _openVoiceRecordDialog() async {
+    final result = await showDialog<AITaskResult>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const VoiceRecordDialog(),
+    );
+
+    if (result != null && mounted) {
+      final wasCreated = await showCreateTaskSheet(
+        context: context,
+        householdId: _selectedHousehold.id,
+        plannedFor: DateTime.now(),
+        aiInitialData: result,
+      );
+
+      if (wasCreated == true && mounted) {
+        _triggerRefresh();
+      }
+    }
+  }
+
   Future<void> _showRenameDialog(Household household) async {
     final controller = TextEditingController(text: household.name);
     final cubit = context.read<HouseholdCubit>();
@@ -252,6 +276,8 @@ final class _AppShellState extends State<_AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: DropdownButtonHideUnderline(
@@ -411,21 +437,73 @@ final class _AppShellState extends State<_AppShell> {
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: widget.currentTab,
-        onDestinationSelected: widget.onTabChanged,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.today_outlined),
-            selectedIcon: Icon(Icons.today),
-            label: 'Сегодня',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month),
-            label: 'Запланированные',
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        shape: const CircleBorder(),
+        elevation: 4,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
+        onPressed: _openVoiceRecordDialog,
+        child: const Icon(Icons.mic, size: 28),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => widget.onTabChanged(0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.currentTab == 0 ? Icons.today : Icons.today_outlined,
+                      color: widget.currentTab == 0 ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                    Text(
+                      'Сегодня',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: widget.currentTab == 0 ? FontWeight.w700 : FontWeight.w400,
+                        color: widget.currentTab == 0 ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 48), // Выемка под центральный микрофон
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => widget.onTabChanged(1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.currentTab == 1 ? Icons.calendar_month : Icons.calendar_month_outlined,
+                      color: widget.currentTab == 1 ? cs.primary : cs.onSurfaceVariant,
+                    ),
+                    Text(
+                      'Запланировано',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: widget.currentTab == 1 ? FontWeight.w700 : FontWeight.w400,
+                        color: widget.currentTab == 1 ? cs.primary : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
