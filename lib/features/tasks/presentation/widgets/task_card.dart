@@ -197,6 +197,11 @@ final class TaskCard extends StatelessWidget {
                       isMine: task.assignedMemberId == currentMemberId,
                       cs: cs,
                     ),
+                  _InfoChip(
+                    icon: Icons.calendar_today_outlined,
+                    label: '${task.createdAt.day.toString().padLeft(2, '0')}.${task.createdAt.month.toString().padLeft(2, '0')}',
+                    color: cs.outlineVariant,
+                  ),
                 ],
               ),
             ),
