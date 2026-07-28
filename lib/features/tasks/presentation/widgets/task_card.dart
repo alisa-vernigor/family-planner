@@ -55,6 +55,7 @@ final class TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isCompleted = task.isCompleted;
+    final canComplete = task.canBeCompletedBy(currentMemberId);
     final isOverdue = !isCompleted &&
         task.deadline != null &&
         task.deadline!.isBefore(DateTime.now());
@@ -78,17 +79,39 @@ final class TaskCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
+                IconButton(
+                  key: isCompleted
+                      ? Key('uncomplete_task_button_${task.id}')
+                      : Key('complete_task_button_${task.id}'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: isCompleted
+                      ? 'Отменить выполнение'
+                      : canComplete
+                          ? 'Отметить выполненной'
+                          : 'Вы не назначены исполнителем',
+                  onPressed: isCompleted
+                      ? onUncomplete
+                      : canComplete
+                          ? onComplete
+                          : null,
+                  icon: Icon(
                     isCompleted
                         ? Icons.check_circle
                         : Icons.radio_button_unchecked_outlined,
-                    size: 22,
-                    color: isCompleted ? cs.primary : cs.onSurfaceVariant,
+                    size: 32,
+                    color: isCompleted
+                        ? cs.primary
+                        : canComplete
+                            ? cs.onSurfaceVariant
+                            : cs.onSurfaceVariant.withValues(alpha: 0.38),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,6 +121,7 @@ final class TaskCard extends StatelessWidget {
                         style: Theme.of(
                           context,
                         ).textTheme.titleMedium?.copyWith(
+                          fontSize: 20,
                           fontWeight: FontWeight.w600,
                           decoration:
                               isCompleted ? TextDecoration.lineThrough : null,
@@ -181,7 +205,7 @@ final class TaskCard extends StatelessWidget {
             ),
             // ── Metadata chips ──────────────────────────────
             Padding(
-              padding: const EdgeInsets.only(left: 34, top: 12),
+              padding: const EdgeInsets.only(left: 36, top: 10),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -213,60 +237,6 @@ final class TaskCard extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-            // ── Action button ───────────────────────────────
-            Padding(
-              padding: const EdgeInsets.only(left: 34, top: 14),
-              child: isCompleted
-                  ? SizedBox(
-                      height: 36,
-                      child: OutlinedButton.icon(
-                        key: Key('uncomplete_task_button_${task.id}'),
-                        onPressed: onUncomplete,
-                        icon: const Icon(Icons.undo, size: 18),
-                        label: const Text(
-                          'Отменить',
-                          style: TextStyle(fontSize: 13),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                      ),
-                    )
-                  : SizedBox(
-                      height: 36,
-                      child: task.canBeCompletedBy(currentMemberId)
-                          ? FilledButton.icon(
-                              key: Key('complete_task_button_${task.id}'),
-                              onPressed: onComplete,
-                              icon: const Icon(Icons.check_circle_outline, size: 18),
-                              label: const Text(
-                                'Выполнить',
-                                style: TextStyle(fontSize: 13),
-                              ),
-                              style: FilledButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            )
-                          : Tooltip(
-                              message: 'Вы не назначены исполнителем',
-                              child: FilledButton.icon(
-                                key: Key('complete_task_button_${task.id}'),
-                                onPressed: null,
-                                icon: const Icon(Icons.check_circle_outline, size: 18),
-                                label: const Text(
-                                  'Выполнить',
-                                  style: TextStyle(fontSize: 13),
-                                ),
-                                style: FilledButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              ),
-                            ),
-                    ),
             ),
           ],
         ),
