@@ -9,7 +9,7 @@ import '../logging/app_logger.dart';
 
 const String _androidWidgetName = 'TasksWidgetProvider';
 
-// Этот метод вызывается в фоновом изоляте, когда пользователь нажимает на задачу в виджете.
+/// Вызывается в фоновом изоляте при нажатии на задачу в виджете.
 @pragma('vm:entry-point')
 Future<void> interactiveCallback(Uri? uri) async {
   if (uri == null) return;
@@ -22,29 +22,73 @@ Future<void> interactiveCallback(Uri? uri) async {
 
     if (taskId != null && memberId != null) {
       try {
-        // Инициализируем окружение в фоновом процессе
-        await dotenv.load(fileName: '.env');
+        // Конфигурация Supabase из SharedPreferences (надёжнее в фоне)
+        String? supabaseUrl =
+            await HomeWidget.getWidgetData<String>('supabase_url');
+        String? supabaseKey =
+            await HomeWidget.getWidgetData<String>('supabase_key');
+
+        // Резерв: dotenv (если SharedPreferences ещё не сохранили)
+        if (supabaseUrl == null || supabaseKey == null) {
+          try {
+            await dotenv.load(fileName: '.env');
+            supabaseUrl = SupabaseConfig.url;
+            supabaseKey = SupabaseConfig.publishableKey;
+          } catch (_) {
+            AppLogger.warning('widget bg: не удалось загрузить .env');
+          }
+        }
+
+        if (supabaseUrl == null ||
+            supabaseUrl.isEmpty ||
+            supabaseKey == null ||
+            supabaseKey.isEmpty) {
+          AppLogger.error('widget bg: нет конфигурации Supabase');
+          return;
+        }
+
         await Supabase.initialize(
-          url: SupabaseConfig.url,
-          publishableKey: SupabaseConfig.publishableKey,
+          url: supabaseUrl,
+          publishableKey: supabaseKey,
         );
 
         final client = Supabase.instance.client;
+
+        // Восстанавливаем сессию из сохранённого JSON
+        final sessionJson =
+            await HomeWidget.getWidgetData<String>('supabase_session_json');
+        if (sessionJson != null && sessionJson.isNotEmpty) {
+          try {
+            await client.auth.recoverSession(sessionJson);
+          } catch (e) {
+            AppLogger.warning('widget bg: не удалось восстановить сессию: $e');
+          }
+        }
+
         final isCompleted = currentStatus == 'completed';
-        final newStatus = isCompleted ? 'pending' : 'completed';
 
-        // Обновляем статус задачи
-        await client.from('task_occurrences').update({
-          'status': newStatus,
-          'completed_by_member_id': isCompleted ? null : memberId,
-          'completed_at': isCompleted ? null : DateTime.now().toUtc().toIso8601String(),
-          'assigned_member_id': memberId,
-        }).eq('id', taskId);
+        if (isCompleted) {
+          // Отмена выполнения — assigned_member_id не трогаем
+          await client.from('task_occurrences').update({
+            'status': 'pending',
+            'completed_by_member_id': null,
+            'completed_at': null,
+          }).eq('id', taskId);
+        } else {
+          // Выполнение задачи
+          await client.from('task_occurrences').update({
+            'status': 'completed',
+            'completed_by_member_id': memberId,
+            'completed_at': DateTime.now().toUtc().toIso8601String(),
+            'assigned_member_id': memberId,
+          }).eq('id', taskId);
+        }
 
-        // Получаем свежие данные для обновления виджета
+        // Обновляем данные виджета
         if (householdId != null) {
           final now = DateTime.now();
-          final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+          final dateStr =
+              '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
           final rows = await client
               .from('task_occurrences')
@@ -52,7 +96,9 @@ Future<void> interactiveCallback(Uri? uri) async {
               .eq('household_id', householdId)
               .eq('planned_for', dateStr);
 
-          final myTasks = rows.where((row) => row['assigned_member_id'] == memberId).map((row) {
+          final myTasks = rows
+              .where((row) => row['assigned_member_id'] == memberId)
+              .map((row) {
             return {
               'id': row['id'],
               'title': row['title'],
@@ -75,10 +121,27 @@ Future<void> interactiveCallback(Uri? uri) async {
 final class HomeWidgetService {
   static Future<void> initialize() async {
     await HomeWidget.registerInteractivityCallback(interactiveCallback);
+
+    // Сохраняем конфигурацию для фонового коллбэка
+    await HomeWidget.saveWidgetData('supabase_url', SupabaseConfig.url);
+    await HomeWidget.saveWidgetData('supabase_key', SupabaseConfig.publishableKey);
+
+    // Сохраняем сессию для фонового коллбэка
+    await _saveSession();
+
+    // Слушаем обновления сессии
+    Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
+      if (authState.session != null) {
+        _saveSessionFromSession(authState.session!);
+      }
+    });
   }
 
-  static Future<void> syncTasks(List<Task> tasks, String currentMemberId, String householdId) async {
-    // Выбираем только задачи назначенного пользователя на сегодня
+  static Future<void> syncTasks(
+    List<Task> tasks,
+    String currentMemberId,
+    String householdId,
+  ) async {
     final myTasks = tasks
         .where((t) => t.assignedMemberId == currentMemberId)
         .map((t) => {
@@ -91,6 +154,29 @@ final class HomeWidgetService {
         .toList();
 
     await HomeWidget.saveWidgetData('today_tasks', jsonEncode(myTasks));
+
+    // Освежаем сессию при каждой синхронизации
+    await _saveSession();
+
     await HomeWidget.updateWidget(androidName: _androidWidgetName);
+  }
+
+  static Future<void> _saveSession() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      await _saveSessionFromSession(session);
+    } else {
+      AppLogger.warning(
+        'widget: сессия ещё не восстановлена — '
+        'токен сохранится при первой синхронизации задач',
+      );
+    }
+  }
+
+  static Future<void> _saveSessionFromSession(Session session) async {
+    await HomeWidget.saveWidgetData(
+      'supabase_session_json',
+      jsonEncode(session.toJson()),
+    );
   }
 }

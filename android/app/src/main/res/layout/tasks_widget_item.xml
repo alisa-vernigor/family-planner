@@ -12,9 +12,9 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="20sp"
-        android:textColor="#6759A0"
         android:textStyle="bold"
-        android:text="☐" />
+        android:text="☐"
+        android:textColor="@color/checkbox_unchecked" />
 
     <TextView
         android:id="@+id/task_title"
@@ -22,6 +22,6 @@
         android:layout_weight="1"
         android:layout_height="wrap_content"
         android:textSize="15sp"
-        android:textColor="#1A1A1A"
-        android:paddingStart="12dp" />
+        android:paddingStart="12dp"
+        android:textColor="@color/task_title" />
 </LinearLayout>

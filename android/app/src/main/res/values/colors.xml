@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Material 3 цвета из seed #6759A0 — светлая тема.
+  Сгенерировано через Material Color Utilities.
+  Используется всеми элементами home виджета.
+-->
+<resources>
+    <!-- Surface & Background -->
+    <color name="widget_background">#FFFBFE</color>
+    <color name="widget_item_background">#F8F2FA</color>
+
+    <!-- Text -->
+    <color name="widget_header">#1C1B1F</color>
+    <color name="widget_empty_text">#7A7582</color>
+    <color name="task_title">#1C1B1F</color>
+    <color name="task_title_completed">#7A7582</color>
+
+    <!-- Checkbox -->
+    <color name="checkbox_unchecked">#6759A0</color>
+    <color name="checkbox_checked">#6759A0</color>
+</resources>

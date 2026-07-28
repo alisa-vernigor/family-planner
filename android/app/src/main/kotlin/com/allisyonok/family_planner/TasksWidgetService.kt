@@ -46,12 +46,12 @@ class TasksRemoteViewsFactory(private val context: Context) : RemoteViewsService
 
         if (isCompleted) {
             rv.setTextViewText(R.id.task_checkbox, "☑")
-            rv.setTextColor(R.id.task_checkbox, android.graphics.Color.parseColor("#4CAF50"))
-            rv.setTextColor(R.id.task_title, android.graphics.Color.parseColor("#888888"))
+            rv.setTextColor(R.id.task_checkbox, context.getColor(R.color.checkbox_checked))
+            rv.setTextColor(R.id.task_title, context.getColor(R.color.task_title_completed))
         } else {
             rv.setTextViewText(R.id.task_checkbox, "☐")
-            rv.setTextColor(R.id.task_checkbox, android.graphics.Color.parseColor("#6759A0"))
-            rv.setTextColor(R.id.task_title, android.graphics.Color.parseColor("#1A1A1A"))
+            rv.setTextColor(R.id.task_checkbox, context.getColor(R.color.checkbox_unchecked))
+            rv.setTextColor(R.id.task_title, context.getColor(R.color.task_title))
         }
 
         val fillInIntent = Intent().apply {

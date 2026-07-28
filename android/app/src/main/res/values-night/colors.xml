@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Material 3 цвета из seed #6759A0 — тёмная тема.
+  Автоматически применяется системой в ночном режиме.
+-->
+<resources>
+    <!-- Surface & Background -->
+    <color name="widget_background">#1C1B1F</color>
+    <color name="widget_item_background">#2B2930</color>
+
+    <!-- Text -->
+    <color name="widget_header">#E6E1E5</color>
+    <color name="widget_empty_text">#938F99</color>
+    <color name="task_title">#E6E1E5</color>
+    <color name="task_title_completed">#938F99</color>
+
+    <!-- Checkbox -->
+    <color name="checkbox_unchecked">#D0BCFF</color>
+    <color name="checkbox_checked">#D0BCFF</color>
+</resources>

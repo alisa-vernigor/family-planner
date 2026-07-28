@@ -11,8 +11,8 @@
         android:layout_height="wrap_content"
         android:text="Мои задачи"
         android:textStyle="bold"
-        android:textSize="18sp"
-        android:textColor="#333333"
+        android:textSize="16sp"
+        android:textColor="@color/widget_header"
         android:paddingBottom="12dp" />
 
     <ListView
@@ -29,5 +29,5 @@
         android:text="На сегодня нет задач"
         android:gravity="center"
         android:visibility="gone"
-        android:textColor="#888888" />
+        android:textColor="@color/widget_empty_text" />
 </LinearLayout>
