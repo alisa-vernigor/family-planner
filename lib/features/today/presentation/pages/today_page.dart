@@ -595,29 +595,30 @@ final class _TodayViewState extends State<_TodayView> {
                 ),
               ),
             ),
-          // ── Distribute FAB ──────────────────────────────
+          // ── Create task + Distribute FABs ───────────────
           if (!_isSelectionMode)
             Positioned(
               right: 16,
               bottom: 16,
-              child: BlocBuilder<TodayTasksCubit, TodayTasksState>(
-              builder: (context, state) {
-                final isLoading = state is TodayTasksLoading;
-                return FloatingActionButton(
-                  heroTag: 'distribute_tasks_fab',
-                  tooltip: 'Автораспределить задачи',
-                  onPressed: isLoading ? null : _distributeTasks,
-                  child: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.auto_awesome_outlined),
-                );
-              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton.small(
+                    heroTag: 'distribute_tasks_fab',
+                    tooltip: 'Автораспределить задачи',
+                    onPressed: _distributeTasks,
+                    child: const Icon(Icons.auto_awesome_outlined, size: 20),
+                  ),
+                  const SizedBox(height: 12),
+                  FloatingActionButton(
+                    heroTag: 'create_task_today_fab',
+                    tooltip: 'Создать задачу',
+                    onPressed: _openCreateTaskSheet,
+                    child: const Icon(Icons.add),
+                  ),
+                ],
+              ),
             ),
-          ),
         ],
       ),
     );
