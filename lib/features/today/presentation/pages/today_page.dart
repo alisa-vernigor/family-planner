@@ -678,6 +678,29 @@ final class _TaskListView extends StatelessWidget {
       children: [
         if (myTasks.isNotEmpty) ...[
           _SectionHeader(title: 'Мои задачи', count: myTasks.length),
+          if (myTasks.any((t) => !t.isCompleted))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    for (final task in myTasks) {
+                      if (!task.isCompleted) {
+                        context
+                            .read<TaskCompletionCubit>()
+                            .completeTask(
+                              task: task,
+                              memberId: currentMemberId,
+                            );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.checklist, size: 18),
+                  label: const Text('Выполнить все'),
+                ),
+              ),
+            ),
           ...myTasks.map((t) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: TaskCard(

@@ -20,6 +20,35 @@ final class _AuthPageState extends State<AuthPage> {
   bool _isRegistration = true;
   bool _obscurePassword = true;
 
+  double get _passwordStrength {
+    final p = _passwordController.text;
+    if (p.length < 4) return 0;
+    double score = 0;
+    if (p.length >= 8) score += 0.3;
+    if (p.length >= 12) score += 0.15;
+    if (RegExp(r'[A-Z]').hasMatch(p)) score += 0.15;
+    if (RegExp(r'[a-z]').hasMatch(p)) score += 0.15;
+    if (RegExp(r'[0-9]').hasMatch(p)) score += 0.15;
+    if (RegExp(r'[^A-Za-z0-9]').hasMatch(p)) score += 0.1;
+    return score.clamp(0, 1);
+  }
+
+  Color _passwordColor(double s) {
+    if (s == 0) return Colors.transparent;
+    if (s < 0.3) return const Color(0xFFE53935);
+    if (s < 0.6) return const Color(0xFFFB8C00);
+    if (s < 0.8) return const Color(0xFF43A047);
+    return const Color(0xFF1B5E20);
+  }
+
+  String _passwordLabel(double s) {
+    if (s == 0) return '';
+    if (s < 0.3) return 'Слабый';
+    if (s < 0.6) return 'Средний';
+    if (s < 0.8) return 'Хороший';
+    return 'Отличный';
+  }
+
   @override
   void dispose() {
     _displayNameController.dispose();
@@ -226,6 +255,32 @@ final class _AuthPageState extends State<AuthPage> {
                             if (!isLoading) _submit();
                           },
                         ),
+                        if (_isRegistration) ...[
+                          const SizedBox(height: 8),
+                          Builder(builder: (context) {
+                            final s = _passwordStrength;
+                            if (s == 0) return const SizedBox.shrink();
+                            final color = _passwordColor(s);
+                            return Column(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: s,
+                                    backgroundColor: color.withAlpha(30),
+                                    color: color,
+                                    minHeight: 4,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _passwordLabel(s),
+                                  style: TextStyle(fontSize: 12, color: color),
+                                ),
+                              ],
+                            );
+                          }),
+                        ],
                         const SizedBox(height: 28),
                         FilledButton(
                           onPressed: isLoading ? null : _submit,
