@@ -10,6 +10,8 @@ import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_sort_option.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/assign_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/unpin_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
@@ -245,26 +247,16 @@ final class _TodayViewState extends State<_TodayView>
 
     final tasksCubit = context.read<TodayTasksCubit>();
     final repository = context.read<TaskRepository>();
+    final useCase = AssignTaskUseCase(repository: repository);
 
     // Оптимистичное обновление
-    final updatedTask = task.copyWith(
+    final optimistic = task.copyWith(
       assignedMemberId: memberId.isEmpty ? null : memberId,
     );
-    tasksCubit.replaceTask(updatedTask);
+    tasksCubit.replaceTask(optimistic);
 
     try {
-      if (memberId.isEmpty) {
-        await repository.save(task.copyWith(assignedMemberId: null));
-      } else {
-        if (!task.allowedMemberIds.contains(memberId)) {
-          await repository.addAllowedMember(
-            taskId: task.id,
-            memberId: memberId,
-          );
-        }
-
-        await repository.save(task.copyWith(assignedMemberId: memberId));
-      }
+      await useCase(task: task, memberId: memberId.isEmpty ? null : memberId);
     } catch (exception, stackTrace) {
       // Откат — перезагружаем
       if (!mounted) return;
@@ -279,12 +271,13 @@ final class _TodayViewState extends State<_TodayView>
   Future<void> _togglePinTask(Task task) async {
     final tasksCubit = context.read<TodayTasksCubit>();
     final repository = context.read<TaskRepository>();
+    final useCase = UnpinTaskUseCase(repository: repository);
 
     // Оптимистичное обновление
     tasksCubit.replaceTask(task.copyWith(pinnedMemberId: null));
 
     try {
-      await repository.save(task.copyWith(pinnedMemberId: null));
+      await useCase(task: task);
     } catch (exception, stackTrace) {
       // Откат
       if (!mounted) return;
