@@ -15,6 +15,7 @@ final class TaskCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onAssign,
+    this.onDecompose,
     this.onTogglePin,
     this.isSelected = false,
     this.onLongPress,
@@ -32,6 +33,7 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onAssign;
+  final VoidCallback? onDecompose;
   final VoidCallback? onTogglePin;
   final bool isSelected;
   final VoidCallback? onLongPress;
@@ -159,6 +161,8 @@ final class TaskCard extends StatelessWidget {
                     switch (value) {
                       case 'edit':
                         onEdit();
+                      case 'decompose':
+                        onDecompose?.call();
                       case 'delete':
                         onDelete();
                       case 'assign':
@@ -175,6 +179,14 @@ final class TaskCard extends StatelessWidget {
                         label: 'Редактировать',
                       ),
                     ),
+                    if (onDecompose != null)
+                      const PopupMenuItem(
+                        value: 'decompose',
+                        child: _MenuRow(
+                          icon: Icons.auto_awesome_outlined,
+                          label: 'Разбить (ИИ)',
+                        ),
+                      ),
                     PopupMenuItem(
                       value: 'assign',
                       child: _MenuRow(

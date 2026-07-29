@@ -16,6 +16,7 @@ import 'package:family_planner/features/households/domain/repositories/household
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
@@ -168,6 +169,64 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
     if (wasCreated == true && mounted) {
       _silentReload();
+    }
+  }
+
+  Future<void> _decomposeTask(Task task) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(child: Text('ИИ разбивает задачу...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final aiService = AITaskService();
+      final subtasks = await aiService.decomposeTask(task.title, task.description);
+
+      final repository = context.read<TaskRepository>();
+      final count = subtasks.isNotEmpty ? subtasks.length : 1;
+
+      for (final subtask in subtasks) {
+        final duration = subtask.durationMinutes ?? (task.estimatedDurationMinutes ~/ count);
+        await repository.create(
+          params: CreateTaskParams(
+            householdId: task.householdId,
+            title: subtask.title,
+            description: subtask.description,
+            estimatedDurationMinutes: duration > 0 ? duration : 10,
+            plannedFor: task.plannedFor,
+            deadline: task.deadline,
+            assignedMemberId: task.assignedMemberId,
+            pinnedMemberId: task.pinnedMemberId,
+          ),
+        );
+      }
+
+      await repository.delete(taskId: task.id);
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Закрываем диалог
+        _silentReload();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Задача разбита на подзадачи!')),
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error('Ошибка декомпозиции', error: e, stackTrace: st);
+      if (mounted) {
+        Navigator.of(context).pop(); // Закрываем диалог
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось разбить задачу.')),
+        );
+      }
     }
   }
 
@@ -406,6 +465,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                                     currentMemberId: widget.currentMemberId,
                                     formatDate: _formatDate,
                                     onEdit: () => _openEditTaskSheet(task),
+                                    onDecompose: () => _decomposeTask(task),
                                     onAssign: () => _assignTask(task, members),
                                     onTogglePin: () => _togglePinTask(task),
                                     onDelete: () => _deleteTask(task),
@@ -489,6 +549,7 @@ final class _ScheduledTaskCard extends StatelessWidget {
     required this.currentMemberId,
     required this.formatDate,
     required this.onEdit,
+    required this.onDecompose,
     required this.onAssign,
     required this.onTogglePin,
     required this.onDelete,
@@ -499,6 +560,7 @@ final class _ScheduledTaskCard extends StatelessWidget {
   final String currentMemberId;
   final String Function(DateTime) formatDate;
   final VoidCallback onEdit;
+  final VoidCallback onDecompose;
   final VoidCallback onAssign;
   final VoidCallback onTogglePin;
   final VoidCallback onDelete;
@@ -546,6 +608,8 @@ final class _ScheduledTaskCard extends StatelessWidget {
                     switch (value) {
                       case 'edit':
                         onEdit();
+                      case 'decompose':
+                        onDecompose();
                       case 'assign':
                         onAssign();
                       case 'pin':
@@ -558,6 +622,10 @@ final class _ScheduledTaskCard extends StatelessWidget {
                     const PopupMenuItem(
                       value: 'edit',
                       child: Text('Редактировать'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'decompose',
+                      child: Text('Разбить (ИИ)'),
                     ),
                     PopupMenuItem(
                       value: 'assign',

@@ -11,6 +11,7 @@ import 'package:family_planner/features/households/domain/repositories/household
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
@@ -262,6 +263,64 @@ final class _TodayViewState extends State<_TodayView> {
     }
   }
 
+  Future<void> _decomposeTask(Task task) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Expanded(child: Text('ИИ разбивает задачу...')),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final aiService = AITaskService();
+      final subtasks = await aiService.decomposeTask(task.title, task.description);
+
+      final repository = context.read<TaskRepository>();
+      final count = subtasks.isNotEmpty ? subtasks.length : 1;
+
+      for (final subtask in subtasks) {
+        final duration = subtask.durationMinutes ?? (task.estimatedDurationMinutes ~/ count);
+        await repository.create(
+          params: CreateTaskParams(
+            householdId: task.householdId,
+            title: subtask.title,
+            description: subtask.description,
+            estimatedDurationMinutes: duration > 0 ? duration : 10,
+            plannedFor: task.plannedFor,
+            deadline: task.deadline,
+            assignedMemberId: task.assignedMemberId,
+            pinnedMemberId: task.pinnedMemberId,
+          ),
+        );
+      }
+
+      await repository.delete(taskId: task.id);
+
+      if (mounted) {
+        Navigator.of(context).pop(); // Закрываем диалог
+        _silentReload();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Задача разбита на подзадачи!')),
+        );
+      }
+    } catch (e, st) {
+      AppLogger.error('Ошибка декомпозиции', error: e, stackTrace: st);
+      if (mounted) {
+        Navigator.of(context).pop(); // Закрываем диалог
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось разбить задачу.')),
+        );
+      }
+    }
+  }
+
   Future<void> _distributeTasks() async {
     await context.read<TodayTasksCubit>().distribute(
       householdId: widget.householdId,
@@ -500,6 +559,7 @@ final class _TodayViewState extends State<_TodayView> {
                       isSelectionMode: _isSelectionMode,
                       selectedTaskIds: _selectedTaskIds,
                       onEdit: _openEditTaskSheet,
+                      onDecompose: _decomposeTask,
                       onDelete: _deleteTask,
                       onAssign: _assignTask,
                       onTogglePin: _togglePinTask,
@@ -689,6 +749,7 @@ final class _TaskListView extends StatelessWidget {
     required this.members,
     required this.currentMemberId,
     required this.onEdit,
+    required this.onDecompose,
     required this.onDelete,
     required this.onAssign,
     required this.onTogglePin,
@@ -708,6 +769,7 @@ final class _TaskListView extends StatelessWidget {
   final bool isSelectionMode;
   final Set<String> selectedTaskIds;
   final void Function(Task) onEdit;
+  final void Function(Task) onDecompose;
   final void Function(Task) onDelete;
   final void Function(Task, List<HouseholdMember>) onAssign;
   final void Function(Task) onTogglePin;
@@ -780,6 +842,7 @@ final class _TaskListView extends StatelessWidget {
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
+                  onDecompose: () => onDecompose(t),
                   onDelete: () => onDelete(t),
                   onAssign: () => onAssign(t, members),
                   onTogglePin: () => onTogglePin(t),
@@ -804,6 +867,7 @@ final class _TaskListView extends StatelessWidget {
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
+                  onDecompose: () => onDecompose(t),
                   onDelete: () => onDelete(t),
                   onAssign: () => onAssign(t, members),
                   onTogglePin: () => onTogglePin(t),
@@ -828,6 +892,7 @@ final class _TaskListView extends StatelessWidget {
                   onComplete: () => onComplete(t),
                   onUncomplete: () => onUncomplete(t),
                   onEdit: () => onEdit(t),
+                  onDecompose: () => onDecompose(t),
                   onDelete: () => onDelete(t),
                   onAssign: () => onAssign(t, members),
                   onTogglePin: () => onTogglePin(t),

@@ -108,4 +108,64 @@ final class AITaskService {
 
     return AITaskResult.fromJson(jsonDecode(rawText));
   }
+
+  /// 3. Разделяет сложную задачу на подзадачи с помощью Gemini API через ProxyAPI
+  Future<List<AITaskResult>> decomposeTask(String title, String? description) async {
+    final apiKey = ProxyApiConfig.apiKey;
+    if (apiKey.isEmpty) throw Exception('PROXYAPI_KEY не задан');
+
+    final prompt = '''
+Задача: "$title"
+${description != null && description.isNotEmpty ? 'Описание: "$description"' : ''}
+
+Твоя цель: разбить эту задачу на 3-5 логичных подзадач.
+Верни ТОЛЬКО валидный JSON-массив объектов (без маркдауна и лишних символов).
+
+Структура каждого объекта в массиве:
+{
+  "title": "Краткое название подзадачи",
+  "description": "Дополнительные детали или null",
+  "durationMinutes": 15
+}
+''';
+
+    final response = await http.post(
+      Uri.parse(_geminiUrl),
+      headers: {
+        'Authorization': 'Bearer $apiKey',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        "contents": [
+          {
+            "parts": [
+              {"text": prompt}
+            ]
+          }
+        ]
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Ошибка Gemini API: ${response.statusCode} ${response.body}');
+    }
+
+    final data = jsonDecode(utf8.decode(response.bodyBytes));
+    String rawText = data['candidates'][0]['content']['parts'][0]['text'];
+
+    rawText = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
+
+    final parsed = jsonDecode(rawText);
+    List<dynamic> jsonList;
+    
+    if (parsed is List) {
+      jsonList = parsed;
+    } else if (parsed is Map && parsed.containsKey('tasks')) {
+      jsonList = parsed['tasks'] as List<dynamic>;
+    } else {
+      throw Exception('Неожиданный формат ответа от ИИ: $parsed');
+    }
+
+    return jsonList.map((json) => AITaskResult.fromJson(json as Map<String, dynamic>)).toList();
+  }
 }
