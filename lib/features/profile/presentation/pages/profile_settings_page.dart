@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:family_planner/features/auth/presentation/cubit/auth_state.dart';
 import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_cubit.dart';
@@ -192,6 +194,156 @@ final class _ProfileSettingsViewState extends State<_ProfileSettingsView> {
       if (!mounted) return;
       setState(() => _isSaving = false);
     }
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
+    bool obscurePassword = true;
+    bool obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return BlocListener<AuthCubit, AuthState>(
+          listener: (context, state) {
+            switch (state) {
+              case AuthPasswordResetSuccess():
+                Navigator.of(dialogContext).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Пароль успешно изменён.'),
+                  ),
+                );
+              case AuthFailure(:final message):
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message)),
+                );
+              default:
+                break;
+            }
+          },
+          child: StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text('Сменить пароль'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Введите новый пароль для входа в приложение.',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: passwordController,
+                        obscureText: obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Новый пароль',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscurePassword = !obscurePassword;
+                              });
+                            },
+                          ),
+                        ),
+                        onChanged: (_) => setDialogState(() {}),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: confirmController,
+                        obscureText: obscureConfirm,
+                        decoration: InputDecoration(
+                          labelText: 'Подтвердите пароль',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirm
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureConfirm = !obscureConfirm;
+                              });
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Отмена'),
+                  ),
+                  BlocBuilder<AuthCubit, AuthState>(
+                    builder: (context, state) {
+                      final isLoading = state is AuthLoading;
+
+                      return FilledButton(
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                final password = passwordController.text;
+                                final confirm = confirmController.text;
+
+                                if (password.length < 8) {
+                                  setDialogState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Пароль должен содержать минимум 8 символов.',
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                if (password != confirm) {
+                                  setDialogState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Пароли не совпадают.'),
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                context
+                                    .read<AuthCubit>()
+                                    .updatePassword(newPassword: password);
+                              },
+                        child: isLoading
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Сохранить'),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -390,6 +542,37 @@ final class _ProfileSettingsViewState extends State<_ProfileSettingsView> {
                                   )
                                 : const Icon(Icons.save_outlined),
                             label: const Text('Сохранить изменения'),
+                          ),
+                        ),
+
+                        // ── Change password ──────────────────────
+                        const SizedBox(height: 32),
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              size: 20,
+                              color: cs.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Безопасность',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showChangePasswordDialog(context),
+                            icon: const Icon(Icons.password_outlined),
+                            label: const Text('Сменить пароль'),
                           ),
                         ),
                         const SizedBox(height: 32),
