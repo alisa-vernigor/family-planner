@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/auth/domain/entities/auth_event.dart';
@@ -116,8 +117,17 @@ final class AuthCubit extends Cubit<AuthState> {
   }
 
   void _emitFailure(Object exception, StackTrace stackTrace) {
-    const message = 'Произошла непредвиденная ошибка авторизации.';
-    AppLogger.error(message, error: exception, stackTrace: stackTrace);
-    emit(const AuthFailure(message: message));
+    if (exception is AuthException) {
+      final detail = exception.message;
+      final message = detail.isNotEmpty
+          ? detail
+          : 'Не удалось выполнить вход или регистрацию.';
+      AppLogger.warning('Ошибка входа: $message');
+      emit(AuthFailure(message: message));
+    } else {
+      const message = 'Произошла непредвиденная ошибка авторизации.';
+      AppLogger.error(message, error: exception, stackTrace: stackTrace);
+      emit(const AuthFailure(message: message));
+    }
   }
 }
