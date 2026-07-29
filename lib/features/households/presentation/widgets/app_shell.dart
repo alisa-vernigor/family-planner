@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:drift/drift.dart' hide Column;
 
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/profile/presentation/pages/profile_settings_page.dart';
@@ -13,6 +14,11 @@ import 'package:family_planner/features/households/presentation/pages/household_
 import 'package:family_planner/features/households/presentation/pages/household_members_page.dart';
 import 'package:family_planner/features/households/presentation/pages/create_household_page.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
+import 'package:family_planner/core/database/app_database.dart';
+import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/core/services/connectivity_service.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/core/widgets/offline_indicator.dart';
 
 /// Основной каркас приложения с навигацией (табы, выбор семьи, меню).
 ///
@@ -41,10 +47,59 @@ final class AppShell extends StatefulWidget {
 }
 
 final class _AppShellState extends State<AppShell> {
+  String? _lastSyncedHouseholdId;
+
   @override
   void initState() {
     super.initState();
     context.read<HouseholdInvitationsCubit>().load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncIfNeeded());
+  }
+
+  @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedHouseholdId != widget.selectedHouseholdId) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncIfNeeded());
+    }
+  }
+
+  Future<void> _syncIfNeeded() async {
+    if (_lastSyncedHouseholdId == widget.selectedHouseholdId) return;
+    _lastSyncedHouseholdId = widget.selectedHouseholdId;
+
+    final householdId = widget.selectedHouseholdId;
+    final connectivity = context.read<ConnectivityService>();
+    final householdRepo = context.read<HouseholdRepository>();
+
+    if (!connectivity.currentOnline) return;
+
+    // On web (no AppDatabase) skip member caching.
+    AppDatabase db;
+    try {
+      db = context.read<AppDatabase>();
+    } catch (_) {
+      return;
+    }
+
+    try {
+      // Sync members to local cache
+      final members = await householdRepo.getMembers(householdId: householdId);
+      final companions = members.map((m) => HouseholdMembersCompanion(
+        profileId: Value(m.profileId),
+        householdId: Value(householdId),
+        displayName: Value(m.displayName),
+        avatarUrl: Value(m.avatarUrl),
+        role: Value(m.role),
+      )).toList();
+      await db.householdMembersDao.clearHousehold(householdId);
+      if (companions.isNotEmpty) {
+        await db.householdMembersDao.upsertMembers(companions);
+      }
+      AppLogger.info('Cached ${members.length} members for $householdId');
+    } catch (e) {
+      AppLogger.debug('Member cache sync skipped: $e');
+    }
   }
 
   Household get _selectedHousehold {
@@ -280,19 +335,26 @@ final class _AppShellState extends State<AppShell> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: widget.currentTab,
+      body: Column(
         children: [
-          TodayPage(
-            key: ValueKey('today_${_selectedHousehold.id}'),
-            householdId: _selectedHousehold.id,
-            householdName: _selectedHousehold.name,
-            currentMemberId: widget.currentMemberId,
-          ),
-          ScheduledPage(
-            key: ValueKey('scheduled_${_selectedHousehold.id}'),
-            householdId: _selectedHousehold.id,
-            currentMemberId: widget.currentMemberId,
+          const OfflineIndicator(),
+          Expanded(
+            child: IndexedStack(
+              index: widget.currentTab,
+              children: [
+                TodayPage(
+                  key: ValueKey('today_${_selectedHousehold.id}'),
+                  householdId: _selectedHousehold.id,
+                  householdName: _selectedHousehold.name,
+                  currentMemberId: widget.currentMemberId,
+                ),
+                ScheduledPage(
+                  key: ValueKey('scheduled_${_selectedHousehold.id}'),
+                  householdId: _selectedHousehold.id,
+                  currentMemberId: widget.currentMemberId,
+                ),
+              ],
+            ),
           ),
         ],
       ),

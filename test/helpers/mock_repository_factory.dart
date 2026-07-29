@@ -1,5 +1,6 @@
 import 'package:mocktail/mocktail.dart';
 
+import 'package:family_planner/core/services/connectivity_service.dart';
 import 'package:family_planner/features/auth/domain/repositories/auth_repository.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
@@ -11,6 +12,7 @@ final class MockAuthRepository extends Mock implements AuthRepository {}
 final class MockHouseholdRepository extends Mock implements HouseholdRepository {}
 final class MockProfileRepository extends Mock implements ProfileRepository {}
 final class MockTaskRepository extends Mock implements TaskRepository {}
+final class MockConnectivityService extends Mock implements ConnectivityService {}
 
 // ── Factory ─────────────────────────────────────────────────
 
@@ -30,10 +32,12 @@ final class MockRepositoryFactory {
     household = MockHouseholdRepository();
     profile = MockProfileRepository();
     task = MockTaskRepository();
+    connectivity = MockConnectivityService();
   }
 
   late final MockAuthRepository auth;
   late final MockHouseholdRepository household;
   late final MockProfileRepository profile;
   late final MockTaskRepository task;
+  late final MockConnectivityService connectivity;
 }

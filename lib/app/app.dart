@@ -12,20 +12,50 @@ import 'package:family_planner/features/auth/presentation/pages/auth_gate.dart';
 import 'package:family_planner/features/households/data/repositories/supabase_household_repository.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
+import 'package:family_planner/features/tasks/data/repositories/drift_task_repository.dart';
 import 'package:family_planner/features/tasks/data/repositories/supabase_task_repository.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
+import 'package:family_planner/core/database/app_database.dart';
+import 'package:family_planner/core/services/connectivity_service.dart';
+import 'package:family_planner/core/sync/sync_cubit.dart';
+import 'package:family_planner/core/sync/sync_processor.dart';
 
 import 'package:family_planner/app/theme.dart';
 
 final class FamilyPlannerApp extends StatelessWidget {
-  const FamilyPlannerApp({super.key});
+  const FamilyPlannerApp({
+    this.database,
+    required this.connectivityService,
+    this.syncProcessor,
+    super.key,
+  });
+
+  /// null на web (online-only), инициализирован на нативных платформах.
+  final AppDatabase? database;
+  final ConnectivityService connectivityService;
+  final SyncProcessor? syncProcessor;
 
   @override
   Widget build(BuildContext context) {
     final client = Supabase.instance.client;
+
+    // ── Repositories ──
     final authRepository = SupabaseAuthRepository(client: client);
     final householdRepository = SupabaseHouseholdRepository(client: client);
-    final taskRepository = SupabaseTaskRepository(client: client);
+
+    // Если есть SQLite — используем DriftTaskRepository (offline-first),
+    // иначе — SupabaseTaskRepository (online-only, как было раньше).
+    final TaskRepository taskRepository;
+    if (database != null) {
+      taskRepository = DriftTaskRepository(
+        database: database!,
+        supabaseClient: client,
+        connectivityService: connectivityService,
+      );
+    } else {
+      taskRepository = SupabaseTaskRepository(client: client);
+    }
+
     final profileRepository = SupabaseProfileRepository(client: client);
 
     return MultiRepositoryProvider(
@@ -37,13 +67,18 @@ final class FamilyPlannerApp extends StatelessWidget {
         RepositoryProvider<ProfileRepository>.value(
           value: profileRepository,
         ),
+        RepositoryProvider<ConnectivityService>.value(
+          value: connectivityService,
+        ),
+        if (database != null)
+          RepositoryProvider<AppDatabase>.value(value: database!),
+        if (syncProcessor != null)
+          RepositoryProvider<SyncProcessor>.value(value: syncProcessor!),
       ],
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (_) => AuthCubit(
-              authRepository: authRepository,
-            ),
+            create: (_) => AuthCubit(authRepository: authRepository),
           ),
           BlocProvider(
             create: (_) => HouseholdCubit(
@@ -53,6 +88,11 @@ final class FamilyPlannerApp extends StatelessWidget {
           BlocProvider(
             create: (_) => HouseholdInvitationsCubit(
               householdRepository: householdRepository,
+            ),
+          ),
+          BlocProvider(
+            create: (_) => SyncCubit(
+              connectivityService: connectivityService,
             ),
           ),
         ],

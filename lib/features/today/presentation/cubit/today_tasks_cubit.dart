@@ -63,10 +63,10 @@ final class TodayTasksCubit extends Cubit<TodayTasksState>
       final tasksFuture = taskRepository.getForDay(
         householdId: householdId,
         day: day,
-      ).timeout(const Duration(seconds: 15));
+      );
       final membersFuture = householdRepository.getMembers(
         householdId: householdId,
-      ).timeout(const Duration(seconds: 15));
+      );
 
       final results = await Future.wait([tasksFuture, membersFuture]);
       var tasks = results[0] as List<Task>;
