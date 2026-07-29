@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import '../entities/app_user.dart';
+import '../entities/auth_event.dart';
 
 abstract interface class AuthRepository {
   AppUser? get currentUser;
+
+  /// Стрим событий аутентификации (signedOut, tokenRefreshed).
+  Stream<AuthStateEvent> get authStateEvents;
 
   Future<AppUser?> signUp({
     required String email,

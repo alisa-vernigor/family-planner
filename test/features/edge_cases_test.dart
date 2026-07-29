@@ -1,12 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:family_planner/core/logging/app_logger.dart';
-import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/services/task_schedule.dart';
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_case.dart';
-import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 
 void main() {
   group('AppLogger', () {

@@ -1,12 +1,36 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:family_planner/core/logging/app_logger.dart';
 import '../../domain/entities/app_user.dart';
+import '../../domain/entities/auth_event.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 final class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository({required this._client});
+  SupabaseAuthRepository({required SupabaseClient client})
+    : _client = client,
+      _authStateController = StreamController<AuthStateEvent>.broadcast() {
+    _client.auth.onAuthStateChange.listen(
+      (data) {
+        switch (data.event) {
+          case AuthChangeEvent.signedOut:
+            _authStateController.add(AuthStateEvent.signedOut);
+          case AuthChangeEvent.tokenRefreshed:
+            _authStateController.add(AuthStateEvent.tokenRefreshed);
+          default:
+            break;
+        }
+      },
+      onError: (error) => AppLogger.error('Auth listener error', error: error),
+    );
+  }
 
   final SupabaseClient _client;
+  final StreamController<AuthStateEvent> _authStateController;
+
+  @override
+  Stream<AuthStateEvent> get authStateEvents => _authStateController.stream;
 
   @override
   AppUser? get currentUser {

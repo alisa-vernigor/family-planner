@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/features/auth/domain/entities/auth_event.dart';
 import 'package:family_planner/features/auth/domain/repositories/auth_repository.dart';
 
 import 'auth_state.dart';
@@ -19,15 +19,16 @@ final class AuthCubit extends Cubit<AuthState> {
   final AuthRepository authRepository;
   final bool enableAuthListener;
 
-  StreamSubscription? _authSubscription;
+  StreamSubscription<AuthStateEvent>? _authSubscription;
 
   void _initAuthListener() {
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-      (data) {
-        if (data.event == AuthChangeEvent.signedOut) {
-          emit(const AuthUnauthenticated());
-        } else if (data.event == AuthChangeEvent.tokenRefreshed) {
-          AppLogger.info('Токен обновлён');
+    _authSubscription = authRepository.authStateEvents.listen(
+      (event) {
+        switch (event) {
+          case AuthStateEvent.signedOut:
+            emit(const AuthUnauthenticated());
+          case AuthStateEvent.tokenRefreshed:
+            AppLogger.info('Токен обновлён');
         }
       },
       onError: (error) {
@@ -75,10 +76,8 @@ final class AuthCubit extends Cubit<AuthState> {
 
       AppLogger.info('Пользователь зарегистрирован: userId=${user.id}');
       emit(AuthAuthenticated(user: user));
-    } on AuthException catch (exception, stackTrace) {
-      _emitAuthFailure(exception, stackTrace);
     } catch (exception, stackTrace) {
-      _emitUnexpectedFailure(exception, stackTrace);
+      _emitFailure(exception, stackTrace);
     }
   }
 
@@ -93,10 +92,8 @@ final class AuthCubit extends Cubit<AuthState> {
 
       AppLogger.info('Пользователь вошёл: userId=${user.id}');
       emit(AuthAuthenticated(user: user));
-    } on AuthException catch (exception, stackTrace) {
-      _emitAuthFailure(exception, stackTrace);
     } catch (exception, stackTrace) {
-      _emitUnexpectedFailure(exception, stackTrace);
+      _emitFailure(exception, stackTrace);
     }
   }
 
@@ -118,22 +115,9 @@ final class AuthCubit extends Cubit<AuthState> {
     }
   }
 
-  void _emitAuthFailure(AuthException exception, StackTrace stackTrace) {
-    final detail = exception.message;
-    final message = detail != null && detail.isNotEmpty
-        ? detail
-        : 'Не удалось выполнить вход или регистрацию.';
-
-    AppLogger.warning('Ошибка входа: $message');
-
-    emit(AuthFailure(message: message));
-  }
-
-  void _emitUnexpectedFailure(Object exception, StackTrace stackTrace) {
+  void _emitFailure(Object exception, StackTrace stackTrace) {
     const message = 'Произошла непредвиденная ошибка авторизации.';
-
     AppLogger.error(message, error: exception, stackTrace: stackTrace);
-
     emit(const AuthFailure(message: message));
   }
 }
