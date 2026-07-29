@@ -7,20 +7,20 @@ final class AITaskResult {
   const AITaskResult({
     required this.title,
     this.description,
-    this.plannedFor,
+    this.deadline,
     this.durationMinutes,
   });
 
   final String title;
   final String? description;
-  final DateTime? plannedFor;
+  final DateTime? deadline;
   final int? durationMinutes;
 
   factory AITaskResult.fromJson(Map<String, dynamic> json) {
     return AITaskResult(
       title: json['title'] as String? ?? 'Новая задача',
       description: json['description'] as String?,
-      plannedFor: json['plannedFor'] != null ? DateTime.tryParse(json['plannedFor'] as String) : null,
+      deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline'] as String)?.toLocal() : null,
       durationMinutes: json['durationMinutes'] as int?,
     );
   }
@@ -63,12 +63,19 @@ final class AITaskService {
 Пользователь продиктовал задачу: "$text"
 
 Твоя цель: извлечь детали задачи и вернуть ТОЛЬКО валидный JSON (без маркдауна и лишних символов).
+
+Правила заполнения полей:
+1. title: Очень краткое и понятное действие. Суть задачи без лишней воды (например, "Помыть ковёр", "Продать наушники", "Постричь газон").
+2. description: Сюда отправляй все дополнительные детали, адреса, уточнения (например, "Адрес: Вареники, д. 22"). Если деталей нет - null.
+3. deadline: Если пользователь назвал время или день (например, "завтра в 12:00" или "завтра"), вычисли точную дату и время в формате ISO 8601 и запиши сюда. Если время не указано, но указан день, ставь 12:00 этого дня. Если дата вообще не указана - null.
+4. durationMinutes: Число в минутах (если сказано "на 2 часа", то 120), иначе null.
+
 Структура JSON:
 {
-  "title": "Краткое название задачи",
-  "description": "Дополнительные детали, если есть (иначе null)",
-  "plannedFor": "Дата в формате ISO 8601, на которую запланирована задача (вычисли относительно текущей даты, например 'завтра' = дата завтрашнего дня. Если время не указано, поставь текущее время или 12:00)",
-  "durationMinutes": 30 (число в минутах, если пользователь сказал 'на 2 часа', верни 120, иначе null)
+  "title": "Краткое название",
+  "description": "Дополнительные детали или null",
+  "deadline": "2026-07-30T12:00:00.000",
+  "durationMinutes": 30
 }
 ''';
 

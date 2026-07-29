@@ -88,7 +88,15 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     _descriptionController = TextEditingController(text: widget.aiInitialData?.description ?? '');
     _durationController = TextEditingController(text: (widget.aiInitialData?.durationMinutes ?? 30).toString());
     
-    _plannedFor = widget.aiInitialData?.plannedFor ?? widget.plannedFor;
+    _deadline = widget.aiInitialData?.deadline;
+    
+    // Если ИИ вернул дедлайн, привязываем запланированную дату (plannedFor) к дате дедлайна,
+    // чтобы задача отобразилась в правильный день.
+    if (_deadline != null) {
+      _plannedFor = DateTime(_deadline!.year, _deadline!.month, _deadline!.day);
+    } else {
+      _plannedFor = widget.plannedFor;
+    }
     
     _loadMembers();
   }
