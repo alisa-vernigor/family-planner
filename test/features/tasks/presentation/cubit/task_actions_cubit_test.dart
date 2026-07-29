@@ -89,8 +89,9 @@ void main() {
     test('возвращает объект Task при успешном выполнении', () async {
       final result = await cubit.uncompleteTask(task: task);
       expect(result, isA<Task>());
-      expect(result!.status, TaskStatus.pending);
-      expect(result!.id, task.id);
+      final completed = result!;
+      expect(completed.status, TaskStatus.pending);
+      expect(completed.id, task.id);
     });
 
     test('возвращает null при попытке отменить невыполненную задачу', () async {

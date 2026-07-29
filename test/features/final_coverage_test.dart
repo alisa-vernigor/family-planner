@@ -19,7 +19,6 @@ import 'package:family_planner/features/households/presentation/cubit/household_
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
-import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
 
 void main() {
   test('AppLogger._', () => expect(AppLogger, isA<Type>()));
@@ -27,7 +26,6 @@ void main() {
 
   // ── 1. HouseholdMembersCubit _currentMembers lines 121-122 ──
   group('_currentMembers Sending + Sent', () {
-    const m = HouseholdMember(profileId: 'p1', displayName: 'N', role: 'member');
 
     test('inviteByEmail from Loaded sets Sent, then fails from Sent', () async {
       var callCount = 0;

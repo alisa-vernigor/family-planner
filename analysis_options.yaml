@@ -12,7 +12,6 @@ include: package:flutter_lints/flutter.yaml
 linter:
   rules:
     - avoid_unnecessary_containers
-    - unnecessary_import
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

@@ -23,7 +23,6 @@ void main() {
     allowedMemberIds: const ['m1'], status: TaskStatus.pending,
     createdAt: DateTime.utc(2026, 7, 27),
   );
-  const member = HouseholdMember(profileId: 'm1', displayName: 'A', role: 'member');
 
   group('TodayTasksCubit — refresh', () {
     blocTest<TodayTasksCubit, TodayTasksState>(
