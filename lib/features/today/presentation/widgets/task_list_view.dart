@@ -26,6 +26,8 @@ final class TaskListView extends StatelessWidget {
     this.onSwipeDelete,
     this.sortOption,
     this.onSortChanged,
+    this.sortAscending = true,
+    this.onSortAscendingChanged,
     super.key,
   });
 
@@ -46,6 +48,8 @@ final class TaskListView extends StatelessWidget {
   final void Function(Task)? onSwipeDelete;
   final TaskSortOption? sortOption;
   final ValueChanged<TaskSortOption>? onSortChanged;
+  final bool sortAscending;
+  final ValueChanged<bool>? onSortAscendingChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +77,8 @@ final class TaskListView extends StatelessWidget {
           SortSelector(
             current: sortOption!,
             onChanged: onSortChanged!,
+            ascending: sortAscending,
+            onAscendingChanged: onSortAscendingChanged,
           ),
         if (myTasks.isNotEmpty) ...[
           SectionHeader(title: 'Мои задачи', count: myTasks.length),

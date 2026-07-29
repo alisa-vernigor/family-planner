@@ -56,6 +56,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
   String _taskFilter = 'all'; // all, mine, unassigned
   bool _showMatrix = false;
   TaskSortOption _sortOption = TaskSortOption.plannedFor;
+  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -377,7 +378,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
                 }
 
                 final grouped = <String, List<Task>>{};
-                final sortedTasks = TaskSortOption.apply(filteredTasks, _sortOption);
+                final sortedTasks = TaskSortOption.apply(filteredTasks, _sortOption, ascending: _sortAscending);
                 for (final task in sortedTasks) {
                   final key = _formatDate(task.plannedFor);
                   grouped.putIfAbsent(key, () => []).add(task);
@@ -420,6 +421,10 @@ final class _ScheduledViewState extends State<_ScheduledView>
                               current: _sortOption,
                               onChanged: (option) {
                                 setState(() => _sortOption = option);
+                              },
+                              ascending: _sortAscending,
+                              onAscendingChanged: (ascending) {
+                                setState(() => _sortAscending = ascending);
                               },
                             ),
                         ],

@@ -13,8 +13,12 @@ enum TaskSortOption {
 
   final String label;
 
-  /// Сортирует список задач согласно выбранному варианту.
-  static List<Task> apply(List<Task> tasks, TaskSortOption option) {
+  /// Сортирует список задач согласно выбранному варианту и направлению.
+  static List<Task> apply(
+    List<Task> tasks,
+    TaskSortOption option, {
+    bool ascending = true,
+  }) {
     final sorted = List<Task>.from(tasks);
     switch (option) {
       case TaskSortOption.deadline:
@@ -45,6 +49,9 @@ enum TaskSortOption {
         sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       case TaskSortOption.plannedFor:
         sorted.sort((a, b) => a.plannedFor.compareTo(b.plannedFor));
+    }
+    if (!ascending) {
+      return sorted.reversed.toList();
     }
     return sorted;
   }

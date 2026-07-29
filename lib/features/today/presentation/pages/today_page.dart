@@ -91,6 +91,7 @@ final class _TodayViewState extends State<_TodayView>
   final Set<String> _selectedTaskIds = {};
   bool _isSelectionMode = false;
   TaskSortOption _sortOption = TaskSortOption.deadline;
+  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -412,6 +413,7 @@ final class _TodayViewState extends State<_TodayView>
                       day: widget.day,
                     ),
                     _sortOption,
+                    ascending: _sortAscending,
                   );
 
                   if (todayTasks.isEmpty) {
@@ -433,6 +435,10 @@ final class _TodayViewState extends State<_TodayView>
                       sortOption: _sortOption,
                       onSortChanged: (option) {
                         setState(() => _sortOption = option);
+                      },
+                      sortAscending: _sortAscending,
+                      onSortAscendingChanged: (ascending) {
+                        setState(() => _sortAscending = ascending);
                       },
                       onEdit: _openEditTaskSheet,
                             onDelete: _deleteTask,
