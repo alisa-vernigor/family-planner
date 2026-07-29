@@ -4,28 +4,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 
 import 'package:family_planner/core/logging/app_logger.dart';
-import 'package:family_planner/features/auth/domain/use_cases/get_current_user_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_in_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_out_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_up_use_case.dart';
+import 'package:family_planner/features/auth/domain/repositories/auth_repository.dart';
 
 import 'auth_state.dart';
 
 final class AuthCubit extends Cubit<AuthState> {
   AuthCubit({
-    required this.getCurrentUserUseCase,
-    required this.signInUseCase,
-    required this.signOutUseCase,
-    required this.signUpUseCase,
+    required this.authRepository,
     this.enableAuthListener = true,
   }) : super(const AuthInitial()) {
     if (enableAuthListener) _initAuthListener();
   }
 
-  final GetCurrentUserUseCase getCurrentUserUseCase;
-  final SignInUseCase signInUseCase;
-  final SignOutUseCase signOutUseCase;
-  final SignUpUseCase signUpUseCase;
+  final AuthRepository authRepository;
   final bool enableAuthListener;
 
   StreamSubscription? _authSubscription;
@@ -52,7 +43,7 @@ final class AuthCubit extends Cubit<AuthState> {
   }
 
   void checkSession() {
-    final user = getCurrentUserUseCase();
+    final user = authRepository.currentUser;
 
     if (user == null) {
       emit(const AuthUnauthenticated());
@@ -71,7 +62,7 @@ final class AuthCubit extends Cubit<AuthState> {
     emit(const AuthLoading());
 
     try {
-      final user = await signUpUseCase(
+      final user = await authRepository.signUp(
         email: email.trim(),
         password: password,
         displayName: displayName.trim(),
@@ -95,7 +86,10 @@ final class AuthCubit extends Cubit<AuthState> {
     emit(const AuthLoading());
 
     try {
-      final user = await signInUseCase(email: email.trim(), password: password);
+      final user = await authRepository.signIn(
+        email: email.trim(),
+        password: password,
+      );
 
       AppLogger.info('Пользователь вошёл: userId=${user.id}');
       emit(AuthAuthenticated(user: user));
@@ -110,7 +104,7 @@ final class AuthCubit extends Cubit<AuthState> {
     emit(const AuthLoading());
 
     try {
-      await signOutUseCase();
+      await authRepository.signOut();
       AppLogger.info('Пользователь вышел из аккаунта');
       emit(const AuthUnauthenticated());
     } catch (exception, stackTrace) {

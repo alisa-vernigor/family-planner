@@ -6,11 +6,6 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
-import 'package:family_planner/features/profile/domain/use_cases/get_profile_stats_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/get_profile_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/update_profile_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/upload_avatar_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/remove_avatar_use_case.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_state.dart';
 import 'package:family_planner/features/profile/presentation/widgets/avatar_widget.dart';
@@ -31,11 +26,7 @@ final class ProfileSettingsPage extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => ProfileCubit(
-        getProfileUseCase: GetProfileUseCase(repository: repository),
-        updateProfileUseCase: UpdateProfileUseCase(repository: repository),
-        uploadAvatarUseCase: UploadAvatarUseCase(repository: repository),
-        removeAvatarUseCase: RemoveAvatarUseCase(repository: repository),
-        getProfileStatsUseCase: GetProfileStatsUseCase(repository: repository),
+        profileRepository: repository,
       )..load(profileId),
       child: _ProfileSettingsView(profileId: profileId),
     );

@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'
-    show Supabase, PostgresChangeEvent, RealtimeChannel, PostgresChangeFilter,
-         PostgresChangeFilterType, RealtimeSubscribeStatus;
 
+import 'package:family_planner/core/mixins/realtime_tasks_subscription.dart';
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
@@ -12,10 +10,8 @@ import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_sort_option.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_state.dart';
@@ -48,9 +44,7 @@ final class TodayPage extends StatelessWidget {
       providers: [
         BlocProvider(
           create: (_) => TodayTasksCubit(
-            getTasksForDayUseCase: GetTasksForDayUseCase(
-              repository: repository,
-            ),
+            taskRepository: repository,
             householdRepository: householdRepository,
             currentMemberId: currentMemberId,
             householdId: householdId,
@@ -73,9 +67,7 @@ final class TodayPage extends StatelessWidget {
             uncompleteTaskUseCase: UncompleteTaskUseCase(
               repository: repository,
             ),
-            deleteTaskUseCase: DeleteTaskUseCase(
-              repository: repository,
-            ),
+            taskRepository: repository,
           ),
         ),
       ],
@@ -106,18 +98,21 @@ final class _TodayView extends StatefulWidget {
   State<_TodayView> createState() => _TodayViewState();
 }
 
-final class _TodayViewState extends State<_TodayView> {
-  RealtimeChannel? _realtimeChannel;
+final class _TodayViewState extends State<_TodayView>
+    with RealtimeTasksSubscriptionMixin<_TodayView> {
   final Set<String> _selectedTaskIds = {};
   bool _isSelectionMode = false;
-  Timer? _realtimeDebounce;
   TaskSortOption _sortOption = TaskSortOption.deadline;
 
   @override
   void initState() {
     super.initState();
 
-    _subscribeToRealtime(widget.householdId);
+    subscribeToTaskChanges(
+      householdId: widget.householdId,
+      channelPrefix: 'task-occurrences',
+      onChanged: _silentReload,
+    );
     _loadTasks();
   }
 
@@ -125,57 +120,21 @@ final class _TodayViewState extends State<_TodayView> {
   void didUpdateWidget(covariant _TodayView oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    reattachTaskSubscription(
+      oldHouseholdId: oldWidget.householdId,
+      newHouseholdId: widget.householdId,
+      channelPrefix: 'task-occurrences',
+      onChanged: _silentReload,
+    );
     if (oldWidget.householdId != widget.householdId) {
-      _unsubscribeFromRealtime();
-      _subscribeToRealtime(widget.householdId);
       _loadTasks();
     }
   }
 
   @override
   void dispose() {
-    _realtimeDebounce?.cancel();
-    _unsubscribeFromRealtime();
+    unsubscribeFromTaskChanges();
     super.dispose();
-  }
-
-  void _subscribeToRealtime(String householdId) {
-    _realtimeChannel = Supabase.instance.client
-        .channel('task-occurrences-$householdId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'task_occurrences',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'household_id',
-            value: householdId,
-          ),
-          callback: (_) {
-            if (!mounted) return;
-
-            // Debounce — события realtime сыплются пачкой при батч-операциях
-            // Ждём тишины 1.5с перед релоадом
-            _realtimeDebounce?.cancel();
-            _realtimeDebounce = Timer(const Duration(milliseconds: 1500), () {
-              if (mounted) _silentReload();
-            });
-          },
-        )
-        .subscribe((status, error) {
-          if (error != null) {
-            AppLogger.error('Realtime error', error: error);
-          }
-
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            AppLogger.debug('Realtime канал подключён');
-          }
-        });
-  }
-
-  void _unsubscribeFromRealtime() {
-    _realtimeChannel?.unsubscribe();
-    _realtimeChannel = null;
   }
 
   void _loadTasks() {

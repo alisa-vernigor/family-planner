@@ -7,20 +7,9 @@ import 'package:family_planner/features/households/domain/repositories/household
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
 import 'package:family_planner/features/profile/data/repositories/supabase_profile_repository.dart';
 import 'package:family_planner/features/auth/data/repositories/supabase_auth_repository.dart';
-import 'package:family_planner/features/auth/domain/use_cases/get_current_user_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_in_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_out_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_up_use_case.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:family_planner/features/auth/presentation/pages/auth_gate.dart';
 import 'package:family_planner/features/households/data/repositories/supabase_household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/accept_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/decline_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_pending_household_invitations_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
 import 'package:family_planner/features/tasks/data/repositories/supabase_task_repository.dart';
@@ -53,44 +42,17 @@ final class FamilyPlannerApp extends StatelessWidget {
         providers: [
           BlocProvider(
             create: (_) => AuthCubit(
-              getCurrentUserUseCase: GetCurrentUserUseCase(
-                repository: authRepository,
-              ),
-              signInUseCase: SignInUseCase(repository: authRepository),
-              signOutUseCase: SignOutUseCase(repository: authRepository),
-              signUpUseCase: SignUpUseCase(repository: authRepository),
+              authRepository: authRepository,
             ),
           ),
           BlocProvider(
             create: (_) => HouseholdCubit(
-              createHouseholdUseCase: CreateHouseholdUseCase(
-                repository: householdRepository,
-              ),
-              getMyHouseholdsUseCase: GetMyHouseholdsUseCase(
-                repository: householdRepository,
-              ),
-              deleteHouseholdUseCase: DeleteHouseholdUseCase(
-                repository: householdRepository,
-              ),
-              updateHouseholdUseCase: UpdateHouseholdUseCase(
-                repository: householdRepository,
-              ),
+              householdRepository: householdRepository,
             ),
           ),
           BlocProvider(
             create: (_) => HouseholdInvitationsCubit(
-              getPendingHouseholdInvitationsUseCase:
-                  GetPendingHouseholdInvitationsUseCase(
-                    repository: householdRepository,
-                  ),
-              acceptHouseholdInvitationUseCase:
-                  AcceptHouseholdInvitationUseCase(
-                    repository: householdRepository,
-                  ),
-              declineHouseholdInvitationUseCase:
-                  DeclineHouseholdInvitationUseCase(
-                    repository: householdRepository,
-                  ),
+              householdRepository: householdRepository,
             ),
           ),
         ],

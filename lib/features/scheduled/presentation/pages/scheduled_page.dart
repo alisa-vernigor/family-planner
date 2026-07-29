@@ -1,15 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'
-    show
-        Supabase,
-        RealtimeChannel,
-        PostgresChangeEvent,
-        PostgresChangeFilter,
-        PostgresChangeFilterType,
-        RealtimeSubscribeStatus;
 
+import 'package:family_planner/core/mixins/realtime_tasks_subscription.dart';
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
@@ -21,8 +14,6 @@ import 'package:family_planner/features/tasks/domain/entities/task_sort_option.d
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
@@ -48,9 +39,7 @@ final class ScheduledPage extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => ScheduledTasksCubit(
-        getAllPendingTasksUseCase: GetAllPendingTasksUseCase(
-          repository: repository,
-        ),
+        taskRepository: repository,
         householdRepository: householdRepository,
       ),
       child: _ScheduledView(
@@ -74,8 +63,8 @@ final class _ScheduledView extends StatefulWidget {
   State<_ScheduledView> createState() => _ScheduledViewState();
 }
 
-final class _ScheduledViewState extends State<_ScheduledView> {
-  RealtimeChannel? _realtimeChannel;
+final class _ScheduledViewState extends State<_ScheduledView>
+    with RealtimeTasksSubscriptionMixin<_ScheduledView> {
   String _taskFilter = 'all'; // all, mine, unassigned
   bool _showMatrix = false;
   Timer? _realtimeDebounce;
@@ -84,69 +73,38 @@ final class _ScheduledViewState extends State<_ScheduledView> {
   @override
   void initState() {
     super.initState();
-    _subscribeToRealtime(widget.householdId);
+    subscribeToTaskChanges(
+      householdId: widget.householdId,
+      channelPrefix: 'scheduled-tasks',
+      onChanged: _silentReload,
+    );
     _reloadTasks();
   }
 
   @override
   void didUpdateWidget(covariant _ScheduledView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    reattachTaskSubscription(
+      oldHouseholdId: oldWidget.householdId,
+      newHouseholdId: widget.householdId,
+      channelPrefix: 'scheduled-tasks',
+      onChanged: _silentReload,
+    );
     if (oldWidget.householdId != widget.householdId) {
-      _unsubscribeFromRealtime();
-      _subscribeToRealtime(widget.householdId);
       _reloadTasks();
     }
   }
 
   @override
   void dispose() {
-    _realtimeDebounce?.cancel();
-    _unsubscribeFromRealtime();
+    unsubscribeFromTaskChanges();
     super.dispose();
-  }
-
-  void _subscribeToRealtime(String householdId) {
-    _realtimeChannel = Supabase.instance.client
-        .channel('scheduled-tasks-$householdId')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'task_occurrences',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'household_id',
-            value: householdId,
-          ),
-          callback: (_) {
-            if (!mounted) return;
-
-            // Debounce — пачка realtime-событий схлопывается в один релоад
-            _realtimeDebounce?.cancel();
-            _realtimeDebounce = Timer(const Duration(milliseconds: 1500), () {
-              if (mounted) _silentReload();
-            });
-          },
-        )
-        .subscribe((status, error) {
-          if (error != null) {
-            AppLogger.error('Realtime error', error: error);
-          }
-
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            AppLogger.debug('Realtime канал подключён');
-          }
-        });
   }
 
   void _silentReload() {
     context.read<ScheduledTasksCubit>().refresh(
       householdId: widget.householdId,
     );
-  }
-
-  void _unsubscribeFromRealtime() {
-    _realtimeChannel?.unsubscribe();
-    _realtimeChannel = null;
   }
 
   void _reloadTasks() {
@@ -325,13 +283,13 @@ final class _ScheduledViewState extends State<_ScheduledView> {
     if (confirmed != true || !mounted) return;
 
     final tasksCubit = context.read<ScheduledTasksCubit>();
+    final repository = context.read<TaskRepository>();
 
     // Оптимистичное удаление
     tasksCubit.removeTask(task.id);
 
-    final deleteUseCase = DeleteTaskUseCase(repository: context.read<TaskRepository>());
     try {
-      await deleteUseCase(taskId: task.id);
+      await repository.delete(taskId: task.id);
       tasksCubit.confirmDelete(task.id);
     } catch (exception, stackTrace) {
       // Откат — перезагружаем

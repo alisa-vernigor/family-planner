@@ -2,7 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 
 import 'task_completion_state.dart';
@@ -10,11 +10,11 @@ import 'task_completion_state.dart';
 final class TaskActionsCubit extends Cubit<TaskCompletionState> {
   TaskActionsCubit({
     required this.uncompleteTaskUseCase,
-    required this.deleteTaskUseCase,
+    required this.taskRepository,
   }) : super(const TaskCompletionInitial());
 
   final UncompleteTaskUseCase uncompleteTaskUseCase;
-  final DeleteTaskUseCase deleteTaskUseCase;
+  final TaskRepository taskRepository;
 
   Future<Task?> uncompleteTask({required Task task}) async {
     emit(const TaskCompletionInProgress());
@@ -42,7 +42,7 @@ final class TaskActionsCubit extends Cubit<TaskCompletionState> {
     emit(const TaskCompletionInProgress());
 
     try {
-      await deleteTaskUseCase(taskId: taskId);
+      await taskRepository.delete(taskId: taskId);
 
       AppLogger.info('Задача удалена: taskId=$taskId');
 

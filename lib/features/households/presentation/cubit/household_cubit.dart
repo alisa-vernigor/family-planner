@@ -2,32 +2,23 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
 
 import 'package:family_planner/core/logging/app_logger.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 
 import 'household_state.dart';
 
 final class HouseholdCubit extends Cubit<HouseholdState> {
   HouseholdCubit({
-    required this.createHouseholdUseCase,
-    required this.getMyHouseholdsUseCase,
-    required this.deleteHouseholdUseCase,
-    required this.updateHouseholdUseCase,
+    required this.householdRepository,
   }) : super(const HouseholdInitial());
 
-  final CreateHouseholdUseCase createHouseholdUseCase;
-  final GetMyHouseholdsUseCase getMyHouseholdsUseCase;
-  final DeleteHouseholdUseCase deleteHouseholdUseCase;
-  final UpdateHouseholdUseCase updateHouseholdUseCase;
+  final HouseholdRepository householdRepository;
 
   /// Полная загрузка — показывает спиннер (для первого входа / ошибки).
   Future<void> load() async {
     emit(const HouseholdLoading());
 
     try {
-      final households = await getMyHouseholdsUseCase();
+      final households = await householdRepository.getMyHouseholds();
 
       if (households.isEmpty) {
         emit(const HouseholdEmpty());
@@ -65,7 +56,7 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
     required void Function() onFailure,
   }) async {
     try {
-      final households = await getMyHouseholdsUseCase();
+      final households = await householdRepository.getMyHouseholds();
 
       if (households.isEmpty) {
         emit(const HouseholdEmpty());
@@ -88,7 +79,7 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
     emit(const HouseholdLoading());
 
     try {
-      await createHouseholdUseCase(name: name);
+      await householdRepository.create(name: name.trim());
 
       AppLogger.info('Создана семья');
 
@@ -102,7 +93,7 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
     final previousState = state;
 
     try {
-      await deleteHouseholdUseCase(householdId: householdId);
+      await householdRepository.deleteHousehold(householdId: householdId);
 
       AppLogger.info('Семья удалена: householdId=$householdId');
 
@@ -121,7 +112,7 @@ final class HouseholdCubit extends Cubit<HouseholdState> {
     required String name,
   }) async {
     try {
-      await updateHouseholdUseCase(householdId: householdId, name: name);
+      await householdRepository.updateHousehold(householdId: householdId, name: name);
 
       AppLogger.info('Семья переименована: householdId=$householdId');
 

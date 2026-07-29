@@ -4,21 +4,21 @@ import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'dart:async';
+import 'package:family_planner/core/mixins/optimistic_task_operations.dart';
+
 import 'scheduled_tasks_state.dart';
 
-final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
+final class ScheduledTasksCubit extends Cubit<ScheduledTasksState>
+    with OptimisticTaskOperationsMixin<ScheduledTasksState> {
   ScheduledTasksCubit({
-    required this.getAllPendingTasksUseCase,
+    required this.taskRepository,
     required this.householdRepository,
   }) : super(const ScheduledTasksInitial());
 
-  final GetAllPendingTasksUseCase getAllPendingTasksUseCase;
+  final TaskRepository taskRepository;
   final HouseholdRepository householdRepository;
-
-  /// ID задач, которые сейчас удаляются — не возвращать из refresh пока удаление не завершится.
-  final Set<String> _pendingDeleteIds = {};
 
   Future<void> load({
     required String householdId,
@@ -49,7 +49,7 @@ final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
     void Function()? onFailure,
   }) async {
     try {
-      final tasksFuture = getAllPendingTasksUseCase(
+      final tasksFuture = taskRepository.getAllPending(
         householdId: householdId,
       ).timeout(
         const Duration(seconds: 15),
@@ -66,9 +66,7 @@ final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
       final members = results[1] as List<HouseholdMember>;
 
       // Исключаем задачи, которые ещё удаляются
-      if (_pendingDeleteIds.isNotEmpty) {
-        tasks = tasks.where((t) => !_pendingDeleteIds.contains(t.id)).toList();
-      }
+      tasks = filterPendingDeletes(tasks);
 
       AppLogger.info(
         'Все невыполненные задачи загружены: '
@@ -94,37 +92,25 @@ final class ScheduledTasksCubit extends Cubit<ScheduledTasksState> {
   void replaceTask(Task updatedTask) {
     final current = state;
     if (current case ScheduledTasksLoaded(:final tasks, :final members)) {
-      emit(
-        ScheduledTasksLoaded(
-          tasks: tasks.map((t) => t.id == updatedTask.id ? updatedTask : t).toList(),
-          members: members,
-        ),
+      optimisticReplace(
+        updatedTask,
+        tasks,
+        members,
+        (t, m) => ScheduledTasksLoaded(tasks: t, members: m),
       );
     }
   }
 
   /// Оптимистично удаляет задачу из текущего списка.
   void removeTask(String taskId) {
-    _pendingDeleteIds.add(taskId);
-
     final current = state;
     if (current case ScheduledTasksLoaded(:final tasks, :final members)) {
-      emit(
-        ScheduledTasksLoaded(
-          tasks: tasks.where((t) => t.id != taskId).toList(),
-          members: members,
-        ),
+      optimisticRemove(
+        taskId,
+        tasks,
+        members,
+        (t, m) => ScheduledTasksLoaded(tasks: t, members: m),
       );
     }
-  }
-
-  /// Подтверждает удаление — убирает ID из pending-списка.
-  void confirmDelete(String taskId) {
-    _pendingDeleteIds.remove(taskId);
-  }
-
-  /// Отменяет удаление — убирает ID из pending и перезагружает.
-  void cancelDelete(String taskId) {
-    _pendingDeleteIds.remove(taskId);
   }
 }

@@ -3,10 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/leave_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/remove_household_member_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_state.dart';
@@ -30,18 +26,7 @@ final class HouseholdMembersPage extends StatelessWidget {
 
     return BlocProvider(
       create: (_) => HouseholdMembersCubit(
-        getHouseholdMembersUseCase: GetHouseholdMembersUseCase(
-          repository: repository,
-        ),
-        createHouseholdInvitationUseCase: CreateHouseholdInvitationUseCase(
-          repository: repository,
-        ),
-        leaveHouseholdUseCase: LeaveHouseholdUseCase(
-          repository: repository,
-        ),
-        removeHouseholdMemberUseCase: RemoveHouseholdMemberUseCase(
-          repository: repository,
-        ),
+        householdRepository: repository,
       )..load(householdId: householdId),
       child: _HouseholdMembersView(
         householdId: householdId,

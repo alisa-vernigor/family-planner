@@ -2,29 +2,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
-import 'package:family_planner/features/households/domain/use_cases/accept_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/decline_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_pending_household_invitations_use_case.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 
 import 'household_invitations_state.dart';
 
 final class HouseholdInvitationsCubit extends Cubit<HouseholdInvitationsState> {
   HouseholdInvitationsCubit({
-    required this.getPendingHouseholdInvitationsUseCase,
-    required this.acceptHouseholdInvitationUseCase,
-    required this.declineHouseholdInvitationUseCase,
+    required this.householdRepository,
   }) : super(const HouseholdInvitationsInitial());
 
-  final GetPendingHouseholdInvitationsUseCase
-  getPendingHouseholdInvitationsUseCase;
-  final AcceptHouseholdInvitationUseCase acceptHouseholdInvitationUseCase;
-  final DeclineHouseholdInvitationUseCase declineHouseholdInvitationUseCase;
+  final HouseholdRepository householdRepository;
 
   Future<void> load() async {
     emit(const HouseholdInvitationsLoading());
 
     try {
-      final invitations = await getPendingHouseholdInvitationsUseCase();
+      final invitations = await householdRepository.getPendingInvitations();
 
       emit(HouseholdInvitationsLoaded(invitations: invitations));
     } catch (exception, stackTrace) {
@@ -47,7 +40,7 @@ final class HouseholdInvitationsCubit extends Cubit<HouseholdInvitationsState> {
     );
 
     try {
-      final householdId = await acceptHouseholdInvitationUseCase(
+      final householdId = await householdRepository.acceptInvitation(
         invitationId: invitation.id,
       );
 
@@ -85,7 +78,7 @@ final class HouseholdInvitationsCubit extends Cubit<HouseholdInvitationsState> {
     );
 
     try {
-      await declineHouseholdInvitationUseCase(invitationId: invitation.id);
+      await householdRepository.declineInvitation(invitationId: invitation.id);
 
       final updatedInvitations = invitations
           .where((item) => item.id != invitation.id)

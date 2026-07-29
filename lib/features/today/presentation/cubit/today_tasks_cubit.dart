@@ -6,29 +6,29 @@ import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/core/services/home_widget_service.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
+
+import 'package:family_planner/core/mixins/optimistic_task_operations.dart';
 
 import 'today_tasks_state.dart';
 
-final class TodayTasksCubit extends Cubit<TodayTasksState> {
+final class TodayTasksCubit extends Cubit<TodayTasksState>
+    with OptimisticTaskOperationsMixin<TodayTasksState> {
   TodayTasksCubit({
-    required this.getTasksForDayUseCase,
+    required this.taskRepository,
     required this.householdRepository,
     required this.currentMemberId,
     required this.householdId,
     this.distributeTasksUseCase,
   }) : super(const TodayTasksInitial());
 
-  final GetTasksForDayUseCase getTasksForDayUseCase;
+  final TaskRepository taskRepository;
   final HouseholdRepository householdRepository;
   final DistributeTasksUseCase? distributeTasksUseCase;
   final String currentMemberId;
   final String householdId;
-
-  /// ID задач, которые сейчас удаляются — не возвращать из refresh пока удаление не завершится.
-  final Set<String> _pendingDeleteIds = {};
 
   Future<void> load({
     required String householdId,
@@ -63,7 +63,7 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
     void Function()? onFailure,
   }) async {
     try {
-      final tasksFuture = getTasksForDayUseCase(
+      final tasksFuture = taskRepository.getForDay(
         householdId: householdId,
         day: day,
       ).timeout(const Duration(seconds: 15));
@@ -76,9 +76,7 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
       final members = results[1] as List<HouseholdMember>;
 
       // Исключаем задачи, которые ещё удаляются
-      if (_pendingDeleteIds.isNotEmpty) {
-        tasks = tasks.where((t) => !_pendingDeleteIds.contains(t.id)).toList();
-      }
+      tasks = filterPendingDeletes(tasks);
 
       AppLogger.info(
         'Задачи на день загружены: '
@@ -142,37 +140,25 @@ final class TodayTasksCubit extends Cubit<TodayTasksState> {
   void replaceTask(Task updatedTask) {
     final current = state;
     if (current case TodayTasksLoaded(:final tasks, :final members)) {
-      emit(
-        TodayTasksLoaded(
-          tasks: tasks.map((t) => t.id == updatedTask.id ? updatedTask : t).toList(),
-          members: members,
-        ),
+      optimisticReplace(
+        updatedTask,
+        tasks,
+        members,
+        (t, m) => TodayTasksLoaded(tasks: t, members: m),
       );
     }
   }
 
   /// Оптимистично удаляет задачу из текущего списка.
   void removeTask(String taskId) {
-    _pendingDeleteIds.add(taskId);
-
     final current = state;
     if (current case TodayTasksLoaded(:final tasks, :final members)) {
-      emit(
-        TodayTasksLoaded(
-          tasks: tasks.where((t) => t.id != taskId).toList(),
-          members: members,
-        ),
+      optimisticRemove(
+        taskId,
+        tasks,
+        members,
+        (t, m) => TodayTasksLoaded(tasks: t, members: m),
       );
     }
-  }
-
-  /// Подтверждает удаление — убирает ID из pending-списка.
-  void confirmDelete(String taskId) {
-    _pendingDeleteIds.remove(taskId);
-  }
-
-  /// Отменяет удаление — убирает ID из pending и перезагружает.
-  void cancelDelete(String taskId) {
-    _pendingDeleteIds.remove(taskId);
   }
 }

@@ -2,11 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
-import 'package:family_planner/features/profile/domain/use_cases/get_profile_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/update_profile_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/upload_avatar_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/remove_avatar_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/get_profile_stats_use_case.dart';
 import 'package:family_planner/features/profile/domain/entities/profile_stats.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_state.dart';
@@ -42,8 +37,7 @@ final class _ProfilePageState extends State<ProfilePage> {
   Future<void> _loadStats() async {
     try {
       final repository = context.read<ProfileRepository>();
-      final getStats = GetProfileStatsUseCase(repository: repository);
-      final stats = await getStats(widget.profileId);
+      final stats = await repository.getStats(widget.profileId);
       if (mounted) setState(() => _stats = stats);
     } catch (_) {}
   }
@@ -61,11 +55,7 @@ final class _ProfilePageState extends State<ProfilePage> {
 
     return BlocProvider(
       create: (_) => ProfileCubit(
-        getProfileUseCase: GetProfileUseCase(repository: repository),
-        updateProfileUseCase: UpdateProfileUseCase(repository: repository),
-        uploadAvatarUseCase: UploadAvatarUseCase(repository: repository),
-        removeAvatarUseCase: RemoveAvatarUseCase(repository: repository),
-        getProfileStatsUseCase: GetProfileStatsUseCase(repository: repository),
+        profileRepository: repository,
       )..load(widget.profileId),
       child: _ProfileScaffold(
         profileId: widget.profileId,

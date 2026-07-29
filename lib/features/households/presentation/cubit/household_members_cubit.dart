@@ -2,31 +2,22 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/leave_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/remove_household_member_use_case.dart';
+import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 
 import 'household_members_state.dart';
 
 final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
   HouseholdMembersCubit({
-    required this.getHouseholdMembersUseCase,
-    required this.createHouseholdInvitationUseCase,
-    required this.leaveHouseholdUseCase,
-    required this.removeHouseholdMemberUseCase,
+    required this.householdRepository,
   }) : super(const HouseholdMembersInitial());
 
-  final GetHouseholdMembersUseCase getHouseholdMembersUseCase;
-  final CreateHouseholdInvitationUseCase createHouseholdInvitationUseCase;
-  final LeaveHouseholdUseCase leaveHouseholdUseCase;
-  final RemoveHouseholdMemberUseCase removeHouseholdMemberUseCase;
+  final HouseholdRepository householdRepository;
 
   Future<void> load({required String householdId}) async {
     emit(const HouseholdMembersLoading());
 
     try {
-      final members = await getHouseholdMembersUseCase(
+      final members = await householdRepository.getMembers(
         householdId: householdId,
       );
 
@@ -49,7 +40,7 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
     emit(HouseholdInvitationSending(members: members));
 
     try {
-      await createHouseholdInvitationUseCase(
+      await householdRepository.createInvitation(
         householdId: householdId,
         email: email,
       );
@@ -70,7 +61,7 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
 
   Future<bool> leaveHousehold({required String householdId}) async {
     try {
-      await leaveHouseholdUseCase(householdId: householdId);
+      await householdRepository.leaveHousehold(householdId: householdId);
 
       AppLogger.info('Выход из семьи: householdId=$householdId');
 
@@ -93,7 +84,7 @@ final class HouseholdMembersCubit extends Cubit<HouseholdMembersState> {
     final members = _currentMembers;
 
     try {
-      await removeHouseholdMemberUseCase(
+      await householdRepository.removeMember(
         householdId: householdId,
         profileId: profileId,
       );
