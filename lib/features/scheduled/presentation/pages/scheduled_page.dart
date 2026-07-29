@@ -28,6 +28,8 @@ import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_u
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/eisenhower_matrix_view.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/sort_selector.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/filter_chip.dart';
+import 'package:family_planner/features/scheduled/presentation/widgets/scheduled_task_card.dart';
 
 final class ScheduledPage extends StatelessWidget {
   const ScheduledPage({
@@ -453,17 +455,17 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                       child: Column(
                         children: [
                           Row(children: [
-                            _FilterChip(
+                            FilterChipWidget(
                               label: 'Все', selected: _taskFilter == 'all',
                               onSelected: () => setState(() => _taskFilter = 'all'),
                             ),
                             const SizedBox(width: 8),
-                            _FilterChip(
+                            FilterChipWidget(
                               label: 'Мои', selected: _taskFilter == 'mine',
                               onSelected: () => setState(() => _taskFilter = 'mine'),
                             ),
                             const SizedBox(width: 8),
-                            _FilterChip(
+                            FilterChipWidget(
                               label: 'Без назначения', selected: _taskFilter == 'unassigned',
                               onSelected: () => setState(() => _taskFilter = 'unassigned'),
                             ),
@@ -525,7 +527,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                               for (final task in grouped[date]!)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 8),
-                                  child: _ScheduledTaskCard(
+                                  child: ScheduledTaskCard(
                                     key: ValueKey(task.id),
                                     task: task,
                                     members: members,
@@ -600,223 +602,6 @@ final class _ScheduledViewState extends State<_ScheduledView> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ── Scheduled task card ───────────────────────────────────────────
-
-final class _ScheduledTaskCard extends StatelessWidget {
-  const _ScheduledTaskCard({
-    super.key,
-    required this.task,
-    required this.members,
-    required this.currentMemberId,
-    required this.formatDate,
-    required this.onEdit,
-    required this.onAssign,
-    required this.onTogglePin,
-    required this.onDelete,
-  });
-
-  final Task task;
-  final List<HouseholdMember> members;
-  final String currentMemberId;
-  final String Function(DateTime) formatDate;
-  final VoidCallback onEdit;
-  final VoidCallback onAssign;
-  final VoidCallback onTogglePin;
-  final VoidCallback onDelete;
-
-  String? _assigneeName() {
-    if (task.assignedMemberId == null) return null;
-    final nameMap = {for (final m in members) m.profileId: m.displayName};
-    return nameMap[task.assignedMemberId];
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Icon(
-                    Icons.schedule_outlined,
-                    size: 22,
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    task.title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                PopupMenuButton<String>(
-                  key: Key('task_menu_${task.id}'),
-                  tooltip: 'Действия с задачей',
-                  onSelected: (value) {
-                    switch (value) {
-                      case 'edit':
-                        onEdit();
-                      case 'assign':
-                        onAssign();
-                      case 'pin':
-                        onTogglePin();
-                      case 'delete':
-                        onDelete();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Редактировать'),
-                    ),
-                    PopupMenuItem(
-                      value: 'assign',
-                      child: Text(
-                        task.isPinned
-                            ? 'Изменить ответственного'
-                            : 'Назначить',
-                      ),
-                    ),
-                    if (task.isPinned)
-                      const PopupMenuItem(
-                        value: 'pin',
-                        child: Text('Открепить'),
-                      ),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Удалить'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            if (task.description != null && task.description!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                task.description!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _ScheduledInfoChip(
-                  icon: Icons.calendar_today_outlined,
-                  label: formatDate(task.plannedFor),
-                  color: cs.tertiary,
-                ),
-                _ScheduledInfoChip(
-                  icon: Icons.timer_outlined,
-                  label: '${task.estimatedDurationMinutes} мин',
-                  color: cs.tertiary,
-                ),
-                if (task.isPinned)
-                  _ScheduledInfoChip(
-                    icon: Icons.push_pin,
-                    label: 'Закреплено',
-                    color: cs.tertiary,
-                  ),
-                if (task.assignedMemberId != null)
-                  _ScheduledInfoChip(
-                    icon: Icons.person_outline,
-                    label: _assigneeName() ?? 'Участник',
-                    color: cs.primary,
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-final class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: onSelected,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? cs.primaryContainer : cs.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-            color: selected ? cs.onPrimaryContainer : cs.onSurfaceVariant,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-final class _ScheduledInfoChip extends StatelessWidget {
-  const _ScheduledInfoChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
-          ),
-        ],
       ),
     );
   }

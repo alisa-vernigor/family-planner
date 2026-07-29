@@ -5,6 +5,7 @@ import 'package:family_planner/features/households/domain/entities/household_mem
 import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/filter_chip.dart';
 
 final class TaskCard extends StatelessWidget {
   const TaskCard({
@@ -214,13 +215,13 @@ final class TaskCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
-                  _InfoChip(
+                  InfoChip(
                     icon: Icons.timer_outlined,
                     label: '${task.estimatedDurationMinutes} мин',
                     color: cs.tertiary,
                   ),
                   if (task.isPinned)
-                    _InfoChip(
+                    InfoChip(
                       icon: Icons.push_pin,
                       label: 'Закреплено',
                       color: cs.tertiary,
@@ -236,7 +237,7 @@ final class TaskCard extends StatelessWidget {
                       isMine: task.assignedMemberId == currentMemberId,
                       cs: cs,
                     ),
-                  _InfoChip(
+                  InfoChip(
                     icon: Icons.calendar_today_outlined,
                     label: '${task.createdAt.day.toString().padLeft(2, '0')}.${task.createdAt.month.toString().padLeft(2, '0')}',
                     color: cs.outlineVariant,
@@ -342,36 +343,6 @@ final class _MenuRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-final class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label, required this.color});
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500),
-          ),
-        ],
-      ),
     );
   }
 }
