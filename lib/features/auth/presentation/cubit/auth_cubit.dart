@@ -30,6 +30,13 @@ final class AuthCubit extends Cubit<AuthState> {
             emit(const AuthUnauthenticated());
           case AuthStateEvent.tokenRefreshed:
             AppLogger.info('Токен обновлён');
+          case AuthStateEvent.passwordRecovery:
+            AppLogger.info('Получен запрос на восстановление пароля');
+            emit(
+              AuthPasswordResetReady(
+                email: authRepository.currentUser?.email ?? '',
+              ),
+            );
         }
       },
       onError: (error) {
@@ -116,13 +123,53 @@ final class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  Future<void> sendPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    emit(const AuthLoading());
+
+    try {
+      await authRepository.sendPasswordReset(
+        email: email.trim(),
+        redirectTo: redirectTo,
+      );
+
+      AppLogger.info('Отправлена ссылка для сброса пароля: email=$email');
+      emit(AuthPasswordResetSent(email: email.trim()));
+    } catch (exception, stackTrace) {
+      _emitFailure(exception, stackTrace);
+    }
+  }
+
+  Future<void> updatePassword({required String newPassword}) async {
+    emit(const AuthLoading());
+
+    try {
+      await authRepository.updatePassword(newPassword: newPassword);
+
+      AppLogger.info('Пароль успешно обновлён');
+      emit(const AuthPasswordResetSuccess());
+    } catch (exception, stackTrace) {
+      _emitFailure(exception, stackTrace);
+    }
+  }
+
+  void showForgotPassword() {
+    emit(const AuthForgotPassword());
+  }
+
+  void showSignIn() {
+    emit(const AuthUnauthenticated());
+  }
+
   void _emitFailure(Object exception, StackTrace stackTrace) {
     if (exception is AuthException) {
       final detail = exception.message;
       final message = detail.isNotEmpty
           ? detail
           : 'Не удалось выполнить вход или регистрацию.';
-      AppLogger.warning('Ошибка входа: $message');
+      AppLogger.warning('Ошибка авторизации: $message');
       emit(AuthFailure(message: message));
     } else {
       const message = 'Произошла непредвиденная ошибка авторизации.';

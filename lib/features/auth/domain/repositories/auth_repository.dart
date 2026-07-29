@@ -18,4 +18,11 @@ abstract interface class AuthRepository {
   Future<AppUser> signIn({required String email, required String password});
 
   Future<void> signOut();
+
+  Future<void> sendPasswordReset({
+    required String email,
+    String? redirectTo,
+  });
+
+  Future<void> updatePassword({required String newPassword});
 }

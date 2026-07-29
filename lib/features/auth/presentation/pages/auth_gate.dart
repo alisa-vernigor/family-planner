@@ -7,6 +7,10 @@ import 'package:family_planner/features/auth/presentation/cubit/auth_state.dart'
 
 import 'auth_page.dart';
 import 'email_confirmation_page.dart';
+import 'forgot_password_page.dart';
+import 'password_reset_sent_page.dart';
+import 'password_reset_success_page.dart';
+import 'reset_password_page.dart';
 
 final class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -37,6 +41,18 @@ final class _AuthGateState extends State<AuthGate> {
           case AuthUnauthenticated():
           case AuthFailure():
             return const AuthPage();
+
+          case AuthForgotPassword():
+            return const ForgotPasswordPage();
+
+          case AuthPasswordResetSent(:final email):
+            return PasswordResetSentPage(email: email);
+
+          case AuthPasswordResetReady(:final email):
+            return ResetPasswordPage(email: email);
+
+          case AuthPasswordResetSuccess():
+            return const PasswordResetSuccessPage();
 
           case AuthEmailConfirmationRequired(:final email):
             return EmailConfirmationPage(email: email);

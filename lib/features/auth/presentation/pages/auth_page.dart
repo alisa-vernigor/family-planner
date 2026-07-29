@@ -301,6 +301,17 @@ final class _AuthPageState extends State<AuthPage> {
                                   ),
                           ),
                         ),
+                        if (!_isRegistration) ...[
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: isLoading
+                                ? null
+                                : () {
+                                    context.read<AuthCubit>().showForgotPassword();
+                                  },
+                            child: const Text('Забыли пароль?'),
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         TextButton(
                           onPressed: isLoading ? null : _toggleMode,

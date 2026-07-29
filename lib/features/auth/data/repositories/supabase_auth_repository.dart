@@ -18,6 +18,8 @@ final class SupabaseAuthRepository implements AuthRepository {
             _authStateController.add(AuthStateEvent.signedOut);
           case AuthChangeEvent.tokenRefreshed:
             _authStateController.add(AuthStateEvent.tokenRefreshed);
+          case AuthChangeEvent.passwordRecovery:
+            _authStateController.add(AuthStateEvent.passwordRecovery);
           default:
             break;
         }
@@ -86,6 +88,24 @@ final class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() {
     return _client.auth.signOut();
+  }
+
+  @override
+  Future<void> sendPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: redirectTo,
+    );
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {
+    await _client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
   }
 
   AppUser _toAppUser(User user) {

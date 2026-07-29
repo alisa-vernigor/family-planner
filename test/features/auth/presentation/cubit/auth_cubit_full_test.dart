@@ -77,6 +77,19 @@ final class FakeAuthRepository implements AuthRepository {
     }
     return signUpResult;
   }
+
+  @override
+  Future<void> sendPasswordReset({
+    required String email,
+    String? redirectTo,
+  }) async {
+    // no-op for tests
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {
+    // no-op for tests
+  }
 }
 
 void main() {
