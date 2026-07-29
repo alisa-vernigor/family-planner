@@ -73,15 +73,45 @@ final class TaskListView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
       children: [
-        if (sortOption != null && onSortChanged != null)
-          SortSelector(
-            current: sortOption!,
-            onChanged: onSortChanged!,
-            ascending: sortAscending,
-            onAscendingChanged: onSortAscendingChanged,
-          ),
         if (myTasks.isNotEmpty) ...[
-          SectionHeader(title: 'Мои задачи', count: myTasks.length),
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8, left: 4),
+            child: Row(
+              children: [
+                Text(
+                  'Мои задачи',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${myTasks.length}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (sortOption != null && onSortChanged != null)
+                  SortSelector(
+                    current: sortOption!,
+                    onChanged: onSortChanged!,
+                    ascending: sortAscending,
+                    onAscendingChanged: onSortAscendingChanged,
+                  ),
+              ],
+            ),
+          ),
           ...myTasks.map(
             (t) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -113,7 +143,36 @@ final class TaskListView extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         if (othersTasks.isNotEmpty) ...[
-          SectionHeader(title: 'Задачи семьи', count: othersTasks.length),
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8, left: 4),
+            child: Row(
+              children: [
+                Text(
+                  'Задачи семьи',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${othersTasks.length}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           ...othersTasks.map(
             (t) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -145,7 +204,36 @@ final class TaskListView extends StatelessWidget {
           const SizedBox(height: 8),
         ],
         if (unassigned.isNotEmpty) ...[
-          SectionHeader(title: 'Неназначенные', count: unassigned.length),
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 8, left: 4),
+            child: Row(
+              children: [
+                Text(
+                  'Неназначенные',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '${unassigned.length}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           ...unassigned.map(
             (t) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -176,50 +264,6 @@ final class TaskListView extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Заголовок секции в списке задач с отображением количества.
-final class SectionHeader extends StatelessWidget {
-  const SectionHeader({required this.title, required this.count, super.key});
-
-  final String title;
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 12, bottom: 8, left: 4),
-      child: Row(
-        children: [
-          Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

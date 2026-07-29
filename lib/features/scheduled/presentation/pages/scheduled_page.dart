@@ -408,6 +408,17 @@ final class _ScheduledViewState extends State<_ScheduledView>
                               onSelected: () => setState(() => _taskFilter = 'unassigned'),
                             ),
                             const Spacer(),
+                            if (!_showMatrix)
+                              SortSelector(
+                                current: _sortOption,
+                                onChanged: (option) {
+                                  setState(() => _sortOption = option);
+                                },
+                                ascending: _sortAscending,
+                                onAscendingChanged: (ascending) {
+                                  setState(() => _sortAscending = ascending);
+                                },
+                              ),
                             IconButton(
                               icon: Icon(
                                 _showMatrix ? Icons.list_alt : Icons.grid_view_outlined,
@@ -416,17 +427,6 @@ final class _ScheduledViewState extends State<_ScheduledView>
                               onPressed: () => setState(() => _showMatrix = !_showMatrix),
                             ),
                           ]),
-                          if (!_showMatrix)
-                            SortSelector(
-                              current: _sortOption,
-                              onChanged: (option) {
-                                setState(() => _sortOption = option);
-                              },
-                              ascending: _sortAscending,
-                              onAscendingChanged: (ascending) {
-                                setState(() => _sortAscending = ascending);
-                              },
-                            ),
                         ],
                       ),
                     ),
