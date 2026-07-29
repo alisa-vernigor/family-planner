@@ -10,7 +10,9 @@ import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_c
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_state.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
+import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
 
 Future<bool?> showCreateTaskSheet({
   required BuildContext context,
@@ -74,6 +76,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   String? _assignedMemberId;
   bool _isPinned = false;
   bool _isSubmitting = false;
+  EisenhowerPriority? _priority;
 
   @override
   void initState() {
@@ -307,6 +310,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         recurrence: _buildRecurrence(),
         recurrenceStartDate: _recurrenceStartDate,
         recurrenceEndDate: _recurrenceEndDate,
+        priority: _priority,
       ),
     );
   }
@@ -671,6 +675,11 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                           ),
                         ],
                         const SizedBox(height: 16),
+                      PrioritySelector(
+                        value: _priority,
+                        onChanged: (p) => setState(() => _priority = p),
+                      ),
+                      const SizedBox(height: 16),
                       OutlinedButton.icon(
                         onPressed: isLoading ? null : _pickDeadline,
                         icon: const Icon(Icons.schedule_outlined),

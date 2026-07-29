@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import 'eisenhower_priority.dart';
 import 'task_recurrence.dart';
 
 final class CreateTaskParams extends Equatable {
@@ -15,6 +16,7 @@ final class CreateTaskParams extends Equatable {
     this.recurrence,
     this.recurrenceStartDate,
     this.recurrenceEndDate,
+    this.priority,
   });
 
   final String householdId;
@@ -25,6 +27,7 @@ final class CreateTaskParams extends Equatable {
   final DateTime? deadline;
   final String? assignedMemberId;
   final String? pinnedMemberId;
+  final EisenhowerPriority? priority;
 
   /// `null` означает обычную одноразовую задачу.
   final TaskRecurrence? recurrence;
@@ -51,5 +54,6 @@ final class CreateTaskParams extends Equatable {
     recurrence,
     recurrenceStartDate,
     recurrenceEndDate,
+    priority,
   ];
 }

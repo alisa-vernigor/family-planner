@@ -5,11 +5,13 @@ import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_state.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
 
 Future<bool?> showEditTaskSheet({
   required BuildContext context,
@@ -59,6 +61,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   String? _assignedMemberId;
   bool _isPinned = false;
   bool _isSubmitting = false;
+  EisenhowerPriority? _priority;
   List<HouseholdMember> _members = [];
 
   @override
@@ -76,6 +79,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
     _deadline = widget.task.deadline;
     _assignedMemberId = widget.task.assignedMemberId;
     _isPinned = widget.task.isPinned;
+    _priority = widget.task.priority;
 
     _loadMembers();
   }
@@ -207,6 +211,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       createdAt: widget.task.createdAt,
       completedAt: widget.task.completedAt,
       updatedAt: widget.task.updatedAt,
+      priority: _priority,
     );
 
     context.read<UpdateTaskCubit>().update(task: updatedTask);
@@ -390,6 +395,11 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                           ],
                         ),
                       ],
+                      const SizedBox(height: 16),
+                      PrioritySelector(
+                        value: _priority,
+                        onChanged: (p) => setState(() => _priority = p),
+                      ),
                       const SizedBox(height: 8),
                       FilledButton(
                         key: const Key('save_task_button'),

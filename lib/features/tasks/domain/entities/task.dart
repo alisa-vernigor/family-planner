@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import 'eisenhower_priority.dart';
 import 'task_status.dart';
 
 final class Task extends Equatable {
@@ -18,6 +19,7 @@ final class Task extends Equatable {
     this.deadline,
     this.completedAt,
     this.updatedAt,
+    this.priority,
   });
 
   final String id;
@@ -34,6 +36,7 @@ final class Task extends Equatable {
   final DateTime createdAt;
   final DateTime? completedAt;
   final DateTime? updatedAt;
+  final EisenhowerPriority? priority;
 
   bool get isCompleted => status == TaskStatus.completed;
 
@@ -42,6 +45,9 @@ final class Task extends Equatable {
   bool canBeCompletedBy(String memberId) {
     return allowedMemberIds.contains(memberId);
   }
+
+  /// Приоритет по умолчанию для задач без приоритета (4 — не срочно и не важно).
+  EisenhowerPriority get effectivePriority => priority ?? EisenhowerPriority.notUrgentNotImportant;
 
   Task copyWith({
     String? id,
@@ -57,6 +63,7 @@ final class Task extends Equatable {
     TaskStatus? status,
     DateTime? createdAt,
     Object? completedAt = _sentinel,
+    Object? priority = _sentinel,
   }) {
     return Task(
       id: id ?? this.id,
@@ -78,6 +85,7 @@ final class Task extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       completedAt: identical(completedAt, _sentinel) ? this.completedAt : completedAt as DateTime?,
       updatedAt: this.updatedAt,
+      priority: identical(priority, _sentinel) ? this.priority : priority as EisenhowerPriority?,
     );
   }
 
@@ -102,6 +110,7 @@ final class Task extends Equatable {
       createdAt,
       completedAt,
       updatedAt,
+      priority,
     ];
   }
 }

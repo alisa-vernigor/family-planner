@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 
 final class TaskCard extends StatelessWidget {
   const TaskCard({
@@ -226,6 +227,8 @@ final class TaskCard extends StatelessWidget {
                     ),
                   if (task.deadline != null)
                     DeadlineChip(deadline: task.deadline!, cs: cs),
+                  if (task.priority != null)
+                    _PriorityChip(priority: task.priority!, cs: cs),
                   if (task.assignedMemberId != null)
                     _AssigneeChip(
                       info: _assigneeInfo(),
@@ -483,6 +486,52 @@ final class _AssigneeChip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Priority chip ────────────────────────────────────────────────
+
+final class _PriorityChip extends StatelessWidget {
+  const _PriorityChip({required this.priority, required this.cs});
+
+  final EisenhowerPriority priority;
+  final ColorScheme cs;
+
+  @override
+  Widget build(BuildContext context) {
+    final (Color bg, Color fg, IconData icon) = switch (priority) {
+      EisenhowerPriority.urgentImportant =>
+        (cs.error.withValues(alpha: 0.15), cs.error, Icons.bolt),
+      EisenhowerPriority.notUrgentImportant =>
+        (cs.primary.withValues(alpha: 0.15), cs.primary, Icons.flag_circle_outlined),
+      EisenhowerPriority.urgentNotImportant =>
+        (cs.tertiary.withValues(alpha: 0.15), cs.tertiary, Icons.schedule_outlined),
+      EisenhowerPriority.notUrgentNotImportant =>
+        (cs.outlineVariant.withValues(alpha: 0.15), cs.onSurfaceVariant, Icons.more_horiz_outlined),
+    };
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            priority.label,
+            style: TextStyle(
+              fontSize: 12,
+              color: fg,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -21,7 +21,10 @@ import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/delete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/eisenhower_matrix_view.dart';
 
 final class ScheduledPage extends StatelessWidget {
   const ScheduledPage({
@@ -69,6 +72,7 @@ final class _ScheduledView extends StatefulWidget {
 final class _ScheduledViewState extends State<_ScheduledView> {
   RealtimeChannel? _realtimeChannel;
   String _taskFilter = 'all'; // all, mine, unassigned
+  bool _showMatrix = false;
   Timer? _realtimeDebounce;
 
   @override
@@ -230,6 +234,65 @@ final class _ScheduledViewState extends State<_ScheduledView> {
     }
   }
 
+  Future<void> _completeTask(
+    Task task,
+    List<HouseholdMember> members,
+    BuildContext context,
+  ) async {
+    if (task.isCompleted || !mounted) return;
+
+    final useCase = CompleteTaskUseCase(
+      repository: context.read<TaskRepository>(),
+      now: DateTime.now,
+    );
+    try {
+      final completed = await useCase(task: task, memberId: widget.currentMemberId);
+      context.read<ScheduledTasksCubit>().replaceTask(completed);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 6),
+            content: const Text('Задача выполнена. Отличная работа!'),
+            action: SnackBarAction(
+              label: 'Отменить',
+              onPressed: () => _uncompleteTask(completed, members, context),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось выполнить задачу.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uncompleteTask(
+    Task task,
+    List<HouseholdMember> members,
+    BuildContext context,
+  ) async {
+    if (!task.isCompleted || !mounted) return;
+
+    final useCase = UncompleteTaskUseCase(
+      repository: context.read<TaskRepository>(),
+    );
+    try {
+      final result = await useCase(task: task);
+      if (result != null) {
+        context.read<ScheduledTasksCubit>().replaceTask(result);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось отменить выполнение.')),
+        );
+      }
+    }
+  }
+
   Future<void> _deleteTask(Task task) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -357,7 +420,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
                 return Column(
                   children: [
-                    // Фильтр
+                    // Фильтр + переключатель вида
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: Row(children: [
@@ -375,9 +438,35 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                           label: 'Без назначения', selected: _taskFilter == 'unassigned',
                           onSelected: () => setState(() => _taskFilter = 'unassigned'),
                         ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(
+                            _showMatrix ? Icons.list_alt : Icons.grid_view_outlined,
+                          ),
+                          tooltip: _showMatrix ? 'Список' : 'Матрица Эйзенхауэра',
+                          onPressed: () => setState(() => _showMatrix = !_showMatrix),
+                        ),
                       ]),
                     ),
-                    Expanded(
+                    if (_showMatrix)
+                      Expanded(
+                        child: EisenhowerMatrixView(
+                          tasks: filteredTasks,
+                          members: members,
+                          currentMemberId: widget.currentMemberId,
+                          onEdit: _openEditTaskSheet,
+                          onDelete: _deleteTask,
+                          onAssign: _assignTask,
+                          onTogglePin: _togglePinTask,
+                          onComplete: (task) => _completeTask(task, members, context),
+                          onUncomplete: (task) => _uncompleteTask(task, members, context),
+                          onSwipeComplete: (task) => _completeTask(task, members, context),
+                          onSwipeUncomplete: (task) => _uncompleteTask(task, members, context),
+                          onSwipeDelete: (task) => _deleteTask(task),
+                        ),
+                      )
+                    else
+                      Expanded(
                       child: RefreshIndicator(
                         onRefresh: () async => _reloadTasks(),
                         child: ListView(

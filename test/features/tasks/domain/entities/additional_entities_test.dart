@@ -148,6 +148,7 @@ void main() {
         const TaskRecurrence.daily(),
         DateTime.utc(2026, 7, 28),
         DateTime.utc(2026, 8, 28),
+        null, // priority
       ]);
     });
   });

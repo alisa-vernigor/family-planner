@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/logging/app_logger.dart';
 import '../../domain/entities/create_task_params.dart';
+import '../../domain/entities/eisenhower_priority.dart';
 import '../../domain/entities/task.dart';
 import '../../domain/entities/task_status.dart';
 import '../../domain/repositories/task_repository.dart';
@@ -28,7 +29,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -59,7 +60,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -89,7 +90,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         .select(
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
-          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, '
+          'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
           'task_occurrence_allowed_members(profile_id)',
         )
         .eq('household_id', householdId)
@@ -128,6 +129,7 @@ final class SupabaseTaskRepository implements TaskRepository {
                   'p_estimated_duration_minutes': params.estimatedDurationMinutes,
                   'p_planned_for': _dateOnly(params.plannedFor),
                   'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
+                  'p_priority': params.priority?.value,
                 },
               )
               as Map<String, dynamic>;
@@ -184,6 +186,7 @@ final class SupabaseTaskRepository implements TaskRepository {
                 'p_end_date': params.recurrenceEndDate == null
                     ? null
                     : _dateOnly(params.recurrenceEndDate!),
+                'p_priority': params.priority?.value,
               },
             )
             as Map<String, dynamic>;
@@ -209,6 +212,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           'assigned_member_id': task.assignedMemberId,
           'pinned_member_id': task.pinnedMemberId,
           'status': task.status.name,
+          'priority': task.priority?.value,
           'completed_by_member_id': task.isCompleted
               ? task.assignedMemberId
               : null,
@@ -313,6 +317,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       createdAt: DateTime.parse(row['created_at'] as String),
       completedAt: _parseNullableDateTime(row['completed_at']),
       updatedAt: _parseNullableDateTime(row['updated_at']),
+      priority: EisenhowerPriority.fromValue(row['priority'] as int?),
     );
   }
 
@@ -337,6 +342,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       createdAt: DateTime.parse(row['created_at'] as String),
       completedAt: _parseNullableDateTime(row['completed_at']),
       updatedAt: _parseNullableDateTime(row['updated_at']),
+      priority: EisenhowerPriority.fromValue(row['priority'] as int?),
     );
   }
 
