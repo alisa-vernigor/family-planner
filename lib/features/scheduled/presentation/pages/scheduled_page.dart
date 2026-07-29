@@ -179,7 +179,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
     final useCase = UnpinTaskUseCase(repository: repository);
 
     // Оптимистичное обновление
-    tasksCubit.replaceTask(task.copyWith(pinnedMemberId: null));
+    tasksCubit.replaceTask(task.unpin());
 
     try {
       await useCase(task: task);
@@ -317,7 +317,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
     final useCase = UpdateTaskPriorityUseCase(repository: repository);
 
     // Оптимистичное обновление
-    tasksCubit.replaceTask(task.copyWith(priority: newPriority));
+    tasksCubit.replaceTask(task.withPriority(newPriority));
 
     try {
       await useCase(task: task, newPriority: newPriority);

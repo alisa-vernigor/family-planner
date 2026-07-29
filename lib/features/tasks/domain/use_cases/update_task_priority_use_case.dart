@@ -11,7 +11,7 @@ final class UpdateTaskPriorityUseCase {
   Future<Task> call({required Task task, required EisenhowerPriority newPriority}) async {
     if (task.priority == newPriority) return task;
 
-    final updated = task.copyWith(priority: newPriority);
+    final updated = task.withPriority(newPriority);
     await repository.save(updated);
     return updated;
   }

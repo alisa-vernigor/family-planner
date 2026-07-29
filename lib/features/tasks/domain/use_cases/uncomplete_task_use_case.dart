@@ -21,10 +21,10 @@ final class UncompleteTaskUseCase {
       completedAt: null,
     );
 
-    final pendingTask = task.copyWith(
-      assignedMemberId: null,
+    final pendingTask = task.patchStatus(
       status: TaskStatus.pending,
       completedAt: null,
+      assignedMemberId: null,
     );
 
     return pendingTask;

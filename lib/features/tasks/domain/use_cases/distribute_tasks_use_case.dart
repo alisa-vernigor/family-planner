@@ -118,7 +118,7 @@ final class DistributeTasksUseCase {
     final updatedTasks = tasks.map((task) {
       final assignedMemberId = assignments[task.id];
       if (assignedMemberId != null) {
-        return task.copyWith(assignedMemberId: assignedMemberId);
+        return task.assignTo(assignedMemberId);
       }
       return task;
     }).toList(growable: false);

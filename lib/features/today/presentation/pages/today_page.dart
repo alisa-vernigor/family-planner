@@ -17,6 +17,7 @@ import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_u
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_completion_state.dart';
+import 'package:family_planner/features/tasks/presentation/cubit/task_action_state.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_actions_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
@@ -274,7 +275,7 @@ final class _TodayViewState extends State<_TodayView>
     final useCase = UnpinTaskUseCase(repository: repository);
 
     // Оптимистичное обновление
-    tasksCubit.replaceTask(task.copyWith(pinnedMemberId: null));
+    tasksCubit.replaceTask(task.unpin());
 
     try {
       await useCase(task: task);
@@ -377,9 +378,9 @@ final class _TodayViewState extends State<_TodayView>
             }
           },
         ),
-        BlocListener<TaskActionsCubit, TaskCompletionState>(
+        BlocListener<TaskActionsCubit, TaskActionState>(
           listener: (context, state) {
-            if (state case TaskCompletionFailure(:final message)) {
+            if (state case TaskActionFailure(:final message)) {
               ScaffoldMessenger.of(context)
                   .showSnackBar(SnackBar(content: Text(message)));
             }

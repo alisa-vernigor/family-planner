@@ -31,10 +31,10 @@ final class CompleteTaskUseCase {
       assignedMemberId: memberId,
     );
 
-    final completedTask = task.copyWith(
-      assignedMemberId: memberId,
+    final completedTask = task.patchStatus(
       status: TaskStatus.completed,
       completedAt: completedAt,
+      assignedMemberId: memberId,
     );
 
     return completedTask;

@@ -8,7 +8,7 @@ final class UnpinTaskUseCase {
   final TaskRepository repository;
 
   Future<Task> call({required Task task}) async {
-    final updated = task.copyWith(pinnedMemberId: null);
+    final updated = task.unpin();
     await repository.save(updated);
     return updated;
   }

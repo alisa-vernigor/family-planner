@@ -42,6 +42,29 @@ final class Task extends Equatable {
 
   bool get isPinned => pinnedMemberId != null;
 
+  /// Снимает назначение с задачи.
+  Task unpin() => copyWith(pinnedMemberId: null);
+
+  /// Меняет приоритет.
+  Task withPriority(EisenhowerPriority? priority) => copyWith(priority: priority);
+
+  /// Назначает ответственного (null — снять назначение).
+  Task assignTo(String? memberId) => copyWith(assignedMemberId: memberId);
+
+  /// Быстрая смена статуса — для complete/uncomplete/delete операций.
+  /// Заменяет [copyWith] для 3 самых частых полей без sentinel-шума.
+  Task patchStatus({
+    TaskStatus? status,
+    DateTime? completedAt,
+    String? assignedMemberId,
+  }) {
+    return copyWith(
+      status: status,
+      completedAt: completedAt,
+      assignedMemberId: assignedMemberId,
+    );
+  }
+
   bool canBeCompletedBy(String memberId) {
     return allowedMemberIds.contains(memberId);
   }
@@ -90,8 +113,6 @@ final class Task extends Equatable {
   }
 
   static const _sentinel = _Sentinel();
-
-  @override
 
   @override
   List<Object?> get props {
