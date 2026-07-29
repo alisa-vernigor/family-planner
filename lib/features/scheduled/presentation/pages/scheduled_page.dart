@@ -16,6 +16,8 @@ import 'package:family_planner/features/households/domain/repositories/household
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_sort_option.dart';
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
@@ -25,6 +27,7 @@ import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/eisenhower_matrix_view.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/sort_selector.dart';
 
 final class ScheduledPage extends StatelessWidget {
   const ScheduledPage({
@@ -74,6 +77,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
   String _taskFilter = 'all'; // all, mine, unassigned
   bool _showMatrix = false;
   Timer? _realtimeDebounce;
+  TaskSortOption _sortOption = TaskSortOption.plannedFor;
 
   @override
   void initState() {
@@ -349,6 +353,28 @@ final class _ScheduledViewState extends State<_ScheduledView> {
     return '$day.$month.$year, $hour:$minute';
   }
 
+  Future<void> _updateTaskPriority(Task task, EisenhowerPriority newPriority) async {
+    if (task.priority == newPriority) return;
+
+    final tasksCubit = context.read<ScheduledTasksCubit>();
+    final repository = context.read<TaskRepository>();
+
+    // Оптимистичное обновление
+    tasksCubit.replaceTask(task.copyWith(priority: newPriority));
+
+    try {
+      await repository.save(task.copyWith(priority: newPriority));
+    } catch (exception, stackTrace) {
+      // Откат
+      if (!mounted) return;
+      tasksCubit.replaceTask(task);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось изменить приоритет задачи.')),
+      );
+      AppLogger.error('Ошибка смены приоритета', error: exception, stackTrace: stackTrace);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -412,7 +438,8 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                 }
 
                 final grouped = <String, List<Task>>{};
-                for (final task in filteredTasks) {
+                final sortedTasks = TaskSortOption.apply(filteredTasks, _sortOption);
+                for (final task in sortedTasks) {
                   final key = _formatDate(task.plannedFor);
                   grouped.putIfAbsent(key, () => []).add(task);
                 }
@@ -420,38 +447,49 @@ final class _ScheduledViewState extends State<_ScheduledView> {
 
                 return Column(
                   children: [
-                    // Фильтр + переключатель вида
+                    // Фильтр + сортировка + переключатель вида
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                      child: Row(children: [
-                        _FilterChip(
-                          label: 'Все', selected: _taskFilter == 'all',
-                          onSelected: () => setState(() => _taskFilter = 'all'),
-                        ),
-                        const SizedBox(width: 8),
-                        _FilterChip(
-                          label: 'Мои', selected: _taskFilter == 'mine',
-                          onSelected: () => setState(() => _taskFilter = 'mine'),
-                        ),
-                        const SizedBox(width: 8),
-                        _FilterChip(
-                          label: 'Без назначения', selected: _taskFilter == 'unassigned',
-                          onSelected: () => setState(() => _taskFilter = 'unassigned'),
-                        ),
-                        const Spacer(),
-                        IconButton(
-                          icon: Icon(
-                            _showMatrix ? Icons.list_alt : Icons.grid_view_outlined,
-                          ),
-                          tooltip: _showMatrix ? 'Список' : 'Матрица Эйзенхауэра',
-                          onPressed: () => setState(() => _showMatrix = !_showMatrix),
-                        ),
-                      ]),
+                      child: Column(
+                        children: [
+                          Row(children: [
+                            _FilterChip(
+                              label: 'Все', selected: _taskFilter == 'all',
+                              onSelected: () => setState(() => _taskFilter = 'all'),
+                            ),
+                            const SizedBox(width: 8),
+                            _FilterChip(
+                              label: 'Мои', selected: _taskFilter == 'mine',
+                              onSelected: () => setState(() => _taskFilter = 'mine'),
+                            ),
+                            const SizedBox(width: 8),
+                            _FilterChip(
+                              label: 'Без назначения', selected: _taskFilter == 'unassigned',
+                              onSelected: () => setState(() => _taskFilter = 'unassigned'),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: Icon(
+                                _showMatrix ? Icons.list_alt : Icons.grid_view_outlined,
+                              ),
+                              tooltip: _showMatrix ? 'Список' : 'Матрица Эйзенхауэра',
+                              onPressed: () => setState(() => _showMatrix = !_showMatrix),
+                            ),
+                          ]),
+                          if (!_showMatrix)
+                            SortSelector(
+                              current: _sortOption,
+                              onChanged: (option) {
+                                setState(() => _sortOption = option);
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                     if (_showMatrix)
                       Expanded(
                         child: EisenhowerMatrixView(
-                          tasks: filteredTasks,
+                          tasks: sortedTasks,
                           members: members,
                           currentMemberId: widget.currentMemberId,
                           onEdit: _openEditTaskSheet,
@@ -463,6 +501,7 @@ final class _ScheduledViewState extends State<_ScheduledView> {
                           onSwipeComplete: (task) => _completeTask(task, members, context),
                           onSwipeUncomplete: (task) => _uncompleteTask(task, members, context),
                           onSwipeDelete: (task) => _deleteTask(task),
+                          onUpdatePriority: _updateTaskPriority,
                         ),
                       )
                     else

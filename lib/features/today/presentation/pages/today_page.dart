@@ -11,6 +11,7 @@ import 'package:family_planner/features/households/domain/repositories/household
 import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_sort_option.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
@@ -24,6 +25,7 @@ import 'package:family_planner/features/today/presentation/cubit/today_tasks_sta
 import 'package:family_planner/features/tasks/domain/services/task_schedule.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/task_card.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/sort_selector.dart';
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
 
 final class TodayPage extends StatelessWidget {
@@ -110,6 +112,7 @@ final class _TodayViewState extends State<_TodayView> {
   final Set<String> _selectedTaskIds = {};
   bool _isSelectionMode = false;
   Timer? _realtimeDebounce;
+  TaskSortOption _sortOption = TaskSortOption.deadline;
 
   @override
   void initState() {
@@ -466,20 +469,13 @@ final class _TodayViewState extends State<_TodayView> {
                   );
 
                 case TodayTasksLoaded(:final tasks, :final members):
-                  final todayTasks = TaskSchedule.forDay(
-                    tasks: tasks,
-                    day: widget.day,
-                  )..sort((a, b) {
-                    // Просроченные сверху, потом с дедлайном, потом без
-                    final aOverdue = a.deadline != null && a.deadline!.isBefore(DateTime.now());
-                    final bOverdue = b.deadline != null && b.deadline!.isBefore(DateTime.now());
-                    if (aOverdue && !bOverdue) return -1;
-                    if (!aOverdue && bOverdue) return 1;
-                    if (a.deadline != null && b.deadline != null) return a.deadline!.compareTo(b.deadline!);
-                    if (a.deadline != null) return -1;
-                    if (b.deadline != null) return 1;
-                    return 0;
-                  });
+                  final todayTasks = TaskSortOption.apply(
+                    TaskSchedule.forDay(
+                      tasks: tasks,
+                      day: widget.day,
+                    ),
+                    _sortOption,
+                  );
 
                   if (todayTasks.isEmpty) {
                     return _emptyState(
@@ -497,11 +493,15 @@ final class _TodayViewState extends State<_TodayView> {
                       currentMemberId: widget.currentMemberId,
                       isSelectionMode: _isSelectionMode,
                       selectedTaskIds: _selectedTaskIds,
+                      sortOption: _sortOption,
+                      onSortChanged: (option) {
+                        setState(() => _sortOption = option);
+                      },
                       onEdit: _openEditTaskSheet,
-                      onDelete: _deleteTask,
-                      onAssign: _assignTask,
-                      onTogglePin: _togglePinTask,
-                      onComplete: (task) {
+                            onDelete: _deleteTask,
+                            onAssign: _assignTask,
+                            onTogglePin: _togglePinTask,
+                            onComplete: (task) {
                         if (_isSelectionMode) {
                           _toggleTaskSelection(task.id);
                         } else {
@@ -686,6 +686,8 @@ final class _TaskListView extends StatelessWidget {
     this.onSwipeComplete,
     this.onSwipeUncomplete,
     this.onSwipeDelete,
+    this.sortOption,
+    this.onSortChanged,
   });
 
   final List<Task> tasks;
@@ -703,6 +705,8 @@ final class _TaskListView extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final TaskSortOption? sortOption;
+  final ValueChanged<TaskSortOption>? onSortChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -726,6 +730,11 @@ final class _TaskListView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
       children: [
+        if (sortOption != null && onSortChanged != null)
+          SortSelector(
+            current: sortOption!,
+            onChanged: onSortChanged!,
+          ),
         if (myTasks.isNotEmpty) ...[
           _SectionHeader(title: 'Мои задачи', count: myTasks.length),
           if (myTasks.any((t) => !t.isCompleted))

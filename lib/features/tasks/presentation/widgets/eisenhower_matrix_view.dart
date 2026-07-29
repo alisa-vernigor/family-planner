@@ -6,6 +6,9 @@ import 'package:family_planner/features/tasks/domain/entities/eisenhower_priorit
 import 'package:family_planner/features/tasks/presentation/widgets/task_card.dart';
 
 /// Представление задач в виде матрицы Эйзенхауэра (4 квадранта).
+///
+/// Поддерживает drag & drop: длинное нажатие на карточку задачи позволяет
+/// перетащить её в другой квадрант для смены приоритета.
 final class EisenhowerMatrixView extends StatelessWidget {
   const EisenhowerMatrixView({
     required this.tasks,
@@ -20,6 +23,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    this.onUpdatePriority,
     super.key,
   });
 
@@ -35,6 +39,9 @@ final class EisenhowerMatrixView extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+
+  /// Вызывается, когда пользователь перетащил задачу в другой квадрант.
+  final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +68,6 @@ final class EisenhowerMatrixView extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // На узких экранах — вертикальный список, на широких — сетка 2×2
         final isWide = constraints.maxWidth >= 600;
 
         if (isWide) {
@@ -82,6 +88,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
             onSwipeComplete: onSwipeComplete,
             onSwipeUncomplete: onSwipeUncomplete,
             onSwipeDelete: onSwipeDelete,
+            onUpdatePriority: onUpdatePriority,
           );
         }
 
@@ -96,6 +103,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 icon: Icons.bolt,
                 color: cs.error,
                 bgColor: cs.errorContainer.withValues(alpha: 0.2),
+                priority: EisenhowerPriority.urgentImportant,
                 tasks: urgentImportant,
                 members: members,
                 currentMemberId: currentMemberId,
@@ -108,6 +116,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onUpdatePriority: onUpdatePriority,
               ),
               const SizedBox(height: 12),
               _QuadrantSection(
@@ -116,6 +125,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 icon: Icons.flag_circle_outlined,
                 color: cs.primary,
                 bgColor: cs.primaryContainer.withValues(alpha: 0.2),
+                priority: EisenhowerPriority.notUrgentImportant,
                 tasks: notUrgentImportant,
                 members: members,
                 currentMemberId: currentMemberId,
@@ -128,6 +138,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onUpdatePriority: onUpdatePriority,
               ),
               const SizedBox(height: 12),
               _QuadrantSection(
@@ -136,6 +147,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 icon: Icons.schedule_outlined,
                 color: cs.tertiary,
                 bgColor: cs.tertiaryContainer.withValues(alpha: 0.2),
+                priority: EisenhowerPriority.urgentNotImportant,
                 tasks: urgentNotImportant,
                 members: members,
                 currentMemberId: currentMemberId,
@@ -148,6 +160,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onUpdatePriority: onUpdatePriority,
               ),
               const SizedBox(height: 12),
               _QuadrantSection(
@@ -156,6 +169,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 icon: Icons.more_horiz_outlined,
                 color: cs.outlineVariant,
                 bgColor: cs.surfaceContainerHighest.withValues(alpha: 0.3),
+                priority: EisenhowerPriority.notUrgentNotImportant,
                 tasks: notUrgentNotImportant,
                 members: members,
                 currentMemberId: currentMemberId,
@@ -168,6 +182,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onUpdatePriority: onUpdatePriority,
               ),
             ],
           ),
@@ -197,6 +212,7 @@ final class _QuadGrid extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    required this.onUpdatePriority,
   });
 
   final ColorScheme cs;
@@ -215,6 +231,7 @@ final class _QuadGrid extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
   Widget build(BuildContext context) {
@@ -231,6 +248,7 @@ final class _QuadGrid extends StatelessWidget {
                     icon: Icons.bolt,
                     color: cs.error,
                     accent: cs.errorContainer,
+                    priority: EisenhowerPriority.urgentImportant,
                     tasks: urgentImportant,
                     members: members,
                     currentMemberId: currentMemberId,
@@ -243,6 +261,7 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
+                    onUpdatePriority: onUpdatePriority,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -252,6 +271,7 @@ final class _QuadGrid extends StatelessWidget {
                     icon: Icons.flag_circle_outlined,
                     color: cs.primary,
                     accent: cs.primaryContainer,
+                    priority: EisenhowerPriority.notUrgentImportant,
                     tasks: notUrgentImportant,
                     members: members,
                     currentMemberId: currentMemberId,
@@ -264,6 +284,7 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
+                    onUpdatePriority: onUpdatePriority,
                   ),
                 ),
               ],
@@ -279,6 +300,7 @@ final class _QuadGrid extends StatelessWidget {
                     icon: Icons.schedule_outlined,
                     color: cs.tertiary,
                     accent: cs.tertiaryContainer,
+                    priority: EisenhowerPriority.urgentNotImportant,
                     tasks: urgentNotImportant,
                     members: members,
                     currentMemberId: currentMemberId,
@@ -291,6 +313,7 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
+                    onUpdatePriority: onUpdatePriority,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -300,6 +323,7 @@ final class _QuadGrid extends StatelessWidget {
                     icon: Icons.more_horiz_outlined,
                     color: cs.outlineVariant,
                     accent: cs.surfaceContainerHighest,
+                    priority: EisenhowerPriority.notUrgentNotImportant,
                     tasks: notUrgentNotImportant,
                     members: members,
                     currentMemberId: currentMemberId,
@@ -312,6 +336,7 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
+                    onUpdatePriority: onUpdatePriority,
                   ),
                 ),
               ],
@@ -331,6 +356,7 @@ final class _QuadrantGridCell extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.accent,
+    required this.priority,
     required this.tasks,
     required this.members,
     required this.currentMemberId,
@@ -343,12 +369,14 @@ final class _QuadrantGridCell extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    required this.onUpdatePriority,
   });
 
   final String title;
   final IconData icon;
   final Color color;
   final Color accent;
+  final EisenhowerPriority priority;
   final List<Task> tasks;
   final List<HouseholdMember> members;
   final String currentMemberId;
@@ -361,12 +389,16 @@ final class _QuadrantGridCell extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final cs = Theme.of(context).colorScheme;
+    final isDropTarget = onUpdatePriority != null;
+
+    final child = Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+        color: cs.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.5)),
       ),
@@ -433,13 +465,40 @@ final class _QuadrantGridCell extends StatelessWidget {
                     itemCount: tasks.length,
                     itemBuilder: (context, index) {
                       final task = tasks[index];
+                      final card = _MiniTaskCard(
+                        task: task,
+                        onComplete: () => onComplete(task),
+                        onUncomplete: () => onUncomplete(task),
+                        onEdit: () => onEdit(task),
+                      );
+                      if (!isDropTarget) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: card,
+                        );
+                      }
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 4),
-                        child: _MiniTaskCard(
-                          task: task,
-                          onComplete: () => onComplete(task),
-                          onUncomplete: () => onUncomplete(task),
-                          onEdit: () => onEdit(task),
+                        child: LongPressDraggable<Task>(
+                          data: task,
+                          feedback: Material(
+                            elevation: 4,
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 160,
+                              child: _MiniTaskCard(
+                                task: task,
+                                onComplete: () {},
+                                onUncomplete: () {},
+                                onEdit: () {},
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: card,
+                          ),
+                          child: card,
                         ),
                       );
                     },
@@ -447,6 +506,30 @@ final class _QuadrantGridCell extends StatelessWidget {
           ),
         ],
       ),
+    );
+
+    if (!isDropTarget) return child;
+
+    return DragTarget<Task>(
+      onAcceptWithDetails: (details) {
+        onUpdatePriority?.call(details.data, priority);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isHovering ? color : accent.withValues(alpha: 0.5),
+              width: isHovering ? 2 : 1,
+            ),
+            color: isHovering
+                ? color.withValues(alpha: 0.08)
+                : cs.surface,
+          ),
+          child: child,
+        );
+      },
     );
   }
 }
@@ -460,6 +543,7 @@ final class _QuadrantSection extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.bgColor,
+    required this.priority,
     required this.tasks,
     required this.members,
     required this.currentMemberId,
@@ -472,6 +556,7 @@ final class _QuadrantSection extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    required this.onUpdatePriority,
   });
 
   final String title;
@@ -479,6 +564,7 @@ final class _QuadrantSection extends StatelessWidget {
   final IconData icon;
   final Color color;
   final Color bgColor;
+  final EisenhowerPriority priority;
   final List<Task> tasks;
   final List<HouseholdMember> members;
   final String currentMemberId;
@@ -491,12 +577,14 @@ final class _QuadrantSection extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isDropTarget = onUpdatePriority != null;
 
-    return Container(
+    final child = Container(
       decoration: BoxDecoration(
         color: cs.surface,
         borderRadius: BorderRadius.circular(12),
@@ -572,27 +660,78 @@ final class _QuadrantSection extends StatelessWidget {
             )
           else
             ...tasks.map(
-              (task) => Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                child: TaskCard(
-                  key: ValueKey('matrix-${task.id}'),
-                  task: task,
-                  members: members,
-                  currentMemberId: currentMemberId,
-                  onComplete: () => onComplete(task),
-                  onUncomplete: () => onUncomplete(task),
-                  onEdit: () => onEdit(task),
-                  onDelete: () => onDelete(task),
-                  onAssign: () => onAssign(task, members),
-                  onTogglePin: () => onTogglePin(task),
-                  onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(task) : null,
-                  onSwipeUncomplete: onSwipeUncomplete != null ? () => onSwipeUncomplete!(task) : null,
-                  onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(task) : null,
-                ),
-              ),
+              (task) {
+                final card = Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                  child: TaskCard(
+                    key: ValueKey('matrix-${task.id}'),
+                    task: task,
+                    members: members,
+                    currentMemberId: currentMemberId,
+                    onComplete: () => onComplete(task),
+                    onUncomplete: () => onUncomplete(task),
+                    onEdit: () => onEdit(task),
+                    onDelete: () => onDelete(task),
+                    onAssign: () => onAssign(task, members),
+                    onTogglePin: () => onTogglePin(task),
+                    onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(task) : null,
+                    onSwipeUncomplete: onSwipeUncomplete != null ? () => onSwipeUncomplete!(task) : null,
+                    onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(task) : null,
+                  ),
+                );
+                if (!isDropTarget) return card;
+                return LongPressDraggable<Task>(
+                  data: task,
+                  feedback: Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 280,
+                      child: TaskCard(
+                        task: task,
+                        members: members,
+                        currentMemberId: currentMemberId,
+                        onComplete: () {},
+                        onUncomplete: () {},
+                        onEdit: () {},
+                        onDelete: () {},
+                        onAssign: () {},
+                      ),
+                    ),
+                  ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
+                    child: card,
+                  ),
+                  child: card,
+                );
+              },
             ),
         ],
       ),
+    );
+
+    if (!isDropTarget) return child;
+
+    return DragTarget<Task>(
+      onAcceptWithDetails: (details) {
+        onUpdatePriority?.call(details.data, priority);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovering = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: isHovering ? color.withValues(alpha: 0.06) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isHovering ? color : color.withValues(alpha: 0.3),
+              width: isHovering ? 2 : 1,
+            ),
+          ),
+          child: child,
+        );
+      },
     );
   }
 }
