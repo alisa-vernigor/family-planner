@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/features/households/households.dart';
 import 'package:family_planner/features/tasks/tasks.dart';
@@ -77,29 +76,6 @@ final class TaskListView extends StatelessWidget {
           ),
         if (myTasks.isNotEmpty) ...[
           SectionHeader(title: 'Мои задачи', count: myTasks.length),
-          if (myTasks.any((t) => !t.isCompleted))
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    for (final task in myTasks) {
-                      if (!task.isCompleted) {
-                        context
-                            .read<TaskCompletionCubit>()
-                            .completeTask(
-                              task: task,
-                              memberId: currentMemberId,
-                            );
-                      }
-                    }
-                  },
-                  icon: const Icon(Icons.checklist, size: 18),
-                  label: const Text('Выполнить все'),
-                ),
-              ),
-            ),
           ...myTasks.map(
             (t) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
