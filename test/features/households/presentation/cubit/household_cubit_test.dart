@@ -4,13 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/entities/household.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
-import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
-import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
+import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 
 void main() {
   const household = Household(id: 'household-1', name: 'Наша семья');
@@ -34,10 +30,7 @@ void main() {
     );
 
     return HouseholdCubit(
-      createHouseholdUseCase: CreateHouseholdUseCase(repository: repository),
-      getMyHouseholdsUseCase: GetMyHouseholdsUseCase(repository: repository),
-      deleteHouseholdUseCase: DeleteHouseholdUseCase(repository: repository),
-      updateHouseholdUseCase: UpdateHouseholdUseCase(repository: repository),
+      householdRepository: repository,
     );
   }
 

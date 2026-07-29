@@ -10,7 +10,6 @@ import 'package:family_planner/features/tasks/domain/entities/create_task_params
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 
 void main() {
   final task = Task(
@@ -36,7 +35,7 @@ void main() {
     final householdRepository = _FakeHouseholdRepository(members: [member]);
 
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      taskRepository: repository,
       householdRepository: householdRepository,
     );
     addTearDown(cubit.close);
@@ -49,9 +48,7 @@ void main() {
 
   test('показывает ошибку при неудачной загрузке', () async {
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(
-        repository: _FakeTaskRepository(shouldThrow: true),
-      ),
+      taskRepository: _FakeTaskRepository(shouldThrow: true),
       householdRepository: _FakeHouseholdRepository(),
     );
     addTearDown(cubit.close);
@@ -67,7 +64,7 @@ void main() {
   test('refresh не заменяет Loaded на Failure при ошибке', () async {
     final repository = _FakeTaskRepository(tasks: [task], shouldThrowOnSecondCall: true);
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      taskRepository: repository,
       householdRepository: _FakeHouseholdRepository(members: [member]),
     );
     addTearDown(cubit.close);
@@ -82,7 +79,7 @@ void main() {
   test('replaceTask заменяет задачу в списке', () async {
     final repository = _FakeTaskRepository(tasks: [task]);
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      taskRepository: repository,
       householdRepository: _FakeHouseholdRepository(members: [member]),
     );
     addTearDown(cubit.close);
@@ -97,7 +94,7 @@ void main() {
   test('removeTask убирает задачу из списка', () async {
     final repository = _FakeTaskRepository(tasks: [task]);
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      taskRepository: repository,
       householdRepository: _FakeHouseholdRepository(members: [member]),
     );
     addTearDown(cubit.close);
@@ -112,7 +109,7 @@ void main() {
   test('confirmDelete не вызывает ошибок', () async {
     final repository = _FakeTaskRepository(tasks: [task]);
     final cubit = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repository),
+      taskRepository: repository,
       householdRepository: _FakeHouseholdRepository(members: [member]),
     );
     addTearDown(cubit.close);

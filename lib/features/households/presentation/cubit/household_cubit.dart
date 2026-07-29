@@ -141,7 +141,7 @@ String? _postgrestMessage(Object error) {
   if (error is! PostgrestException) return null;
 
   final msg = error.message;
-  if (msg == null || msg.isEmpty) return null;
+  if (msg.isEmpty) return null;
 
   if (msg.contains('row-level security') || msg.contains('violates policy')) {
     return 'Недостаточно прав. Только владелец может выполнить это действие.';

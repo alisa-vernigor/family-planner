@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
-import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/profile/profile.dart';
+import 'package:family_planner/features/households/households.dart';
 
 /// A reusable avatar widget that shows either the profile image or initials.
 final class AvatarWidget extends StatelessWidget {

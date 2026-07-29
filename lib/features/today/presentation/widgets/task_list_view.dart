@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:family_planner/features/households/domain/entities/household_member.dart';
-import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/entities/task_sort_option.dart';
-import 'package:family_planner/features/tasks/presentation/cubit/task_completion_cubit.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/task_card.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/sort_selector.dart';
+import 'package:family_planner/features/households/households.dart';
+import 'package:family_planner/features/tasks/tasks.dart';
 
 /// Группированный список задач на сегодняшнем экране.
 ///

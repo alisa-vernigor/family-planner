@@ -21,7 +21,7 @@ final class ProfileCubit extends Cubit<ProfileState> {
 
     try {
       final profile = await profileRepository.getProfile(profileId);
-      emit(ProfileLoaded(profile: profile as UserProfile));
+      emit(ProfileLoaded(profile: profile));
     } catch (exception, stackTrace) {
       const message = 'Не удалось загрузить профиль.';
       AppLogger.error(message, error: exception, stackTrace: stackTrace);
@@ -52,7 +52,7 @@ final class ProfileCubit extends Cubit<ProfileState> {
       );
       // Reload fresh data
       final profile = await profileRepository.getProfile(profileId);
-      emit(ProfileLoaded(profile: profile as UserProfile));
+      emit(ProfileLoaded(profile: profile));
     } catch (exception, stackTrace) {
       const message = 'Не удалось обновить профиль.';
       AppLogger.error(message, error: exception, stackTrace: stackTrace);

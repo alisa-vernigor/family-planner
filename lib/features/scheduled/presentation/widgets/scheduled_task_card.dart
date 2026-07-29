@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:family_planner/features/households/domain/entities/household_member.dart';
-import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/filter_chip.dart';
+import 'package:family_planner/features/households/households.dart';
+import 'package:family_planner/features/tasks/tasks.dart';
 
 /// Карточка запланированной задачи в списке.
 ///

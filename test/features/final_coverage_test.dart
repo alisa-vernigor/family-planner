@@ -14,21 +14,12 @@ import 'package:family_planner/features/households/domain/entities/household.dar
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/leave_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/remove_household_member_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 
 void main() {
   test('AppLogger._', () => expect(AppLogger, isA<Type>()));
@@ -45,10 +36,7 @@ void main() {
         if (callCount > 1) throw Exception('fail');
       });
       final c = HouseholdMembersCubit(
-        getHouseholdMembersUseCase: GetHouseholdMembersUseCase(repository: repo),
-        createHouseholdInvitationUseCase: CreateHouseholdInvitationUseCase(repository: repo),
-        leaveHouseholdUseCase: LeaveHouseholdUseCase(repository: repo),
-        removeHouseholdMemberUseCase: RemoveHouseholdMemberUseCase(repository: repo),
+        householdRepository: repo,
       );
       // Load → Loaded
       await c.load(householdId: 'h1');
@@ -66,10 +54,7 @@ void main() {
   test('HouseholdCubit delete from Loaded restores prev then fails (covers line 113 emit+Failure)', () async {
     final repo = _ThrowsOnDeleteRepo();
     final c = HouseholdCubit(
-      createHouseholdUseCase: CreateHouseholdUseCase(repository: repo),
-      getMyHouseholdsUseCase: GetMyHouseholdsUseCase(repository: repo),
-      deleteHouseholdUseCase: DeleteHouseholdUseCase(repository: repo),
-      updateHouseholdUseCase: UpdateHouseholdUseCase(repository: repo),
+      householdRepository: repo,
     );
     await c.load();
     await c.delete(householdId: 'h1');
@@ -80,10 +65,7 @@ void main() {
   test('HouseholdCubit update with Exception covers _postgrestMessage null fallback', () async {
     final repo = _ThrowsOnUpdateRepo();
     final c = HouseholdCubit(
-      createHouseholdUseCase: CreateHouseholdUseCase(repository: repo),
-      getMyHouseholdsUseCase: GetMyHouseholdsUseCase(repository: repo),
-      deleteHouseholdUseCase: DeleteHouseholdUseCase(repository: repo),
-      updateHouseholdUseCase: UpdateHouseholdUseCase(repository: repo),
+      householdRepository: repo,
     );
     c.update(householdId: 'h1', name: 'x');
     await Future<void>.delayed(Duration.zero);
@@ -95,7 +77,7 @@ void main() {
   test('ScheduledTasksCubit load + pending delete + refresh (covers lines 56-57 timeout, 70 pending filter)', () async {
     final repo = _SlowTaskRepo();
     final c = ScheduledTasksCubit(
-      getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repo),
+      taskRepository: repo,
       householdRepository: _EmptyHouseholdRepo(),
     );
     await c.load(householdId: 'h1');
@@ -252,10 +234,7 @@ class _KeepTaskRepo implements TaskRepository {
 }
 
 HouseholdCubit _makeHC(HouseholdRepository repo) => HouseholdCubit(
-  createHouseholdUseCase: CreateHouseholdUseCase(repository: repo),
-  getMyHouseholdsUseCase: GetMyHouseholdsUseCase(repository: repo),
-  deleteHouseholdUseCase: DeleteHouseholdUseCase(repository: repo),
-  updateHouseholdUseCase: UpdateHouseholdUseCase(repository: repo),
+  householdRepository: repo,
 );
 
 class _MakeRepo implements HouseholdRepository {

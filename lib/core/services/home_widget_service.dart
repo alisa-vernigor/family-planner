@@ -7,7 +7,7 @@ import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/supabase_config.dart';
-import '../../features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/tasks.dart';
 import '../logging/app_logger.dart';
 
 const String _androidWidgetName = 'TasksWidgetProvider';

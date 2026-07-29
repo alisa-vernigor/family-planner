@@ -10,8 +10,6 @@ import 'package:family_planner/features/households/domain/entities/household.dar
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
@@ -33,7 +31,7 @@ void main() {
       build: () {
         final repo = _FakeTaskRepo(tasks: [task]);
         return TodayTasksCubit(
-          getTasksForDayUseCase: GetTasksForDayUseCase(repository: repo),
+          taskRepository: repo,
           householdRepository: _FakeHouseholdRepo(),
           currentMemberId: 'm1',
           householdId: 'h1',
@@ -61,7 +59,7 @@ void main() {
       build: () {
         final repo = _FakeTaskRepo(tasks: [task]);
         return ScheduledTasksCubit(
-          getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: repo),
+          taskRepository: repo,
           householdRepository: _FakeHouseholdRepo(),
         );
       },

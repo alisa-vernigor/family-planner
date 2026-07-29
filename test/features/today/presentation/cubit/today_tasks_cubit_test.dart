@@ -10,7 +10,6 @@ import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
 
@@ -39,7 +38,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -57,7 +56,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository();
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -75,7 +74,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(exceptionToThrow: Exception('Нет подключения'));
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -96,7 +95,7 @@ void main() {
         exceptionOnSecondCall: true,
       );
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -116,7 +115,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -137,7 +136,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -158,7 +157,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -180,7 +179,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -195,7 +194,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(tasksToReturn: [task]);
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(members: [member]),
         currentMemberId: 'member-1',
         householdId: 'household-1',
@@ -217,7 +216,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(exceptionToThrow: Exception('Ошибка БД'));
       return TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: repository),
+        taskRepository: repository,
         householdRepository: _FakeHouseholdRepository(),
         currentMemberId: 'member-1',
         householdId: 'household-1',

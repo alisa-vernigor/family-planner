@@ -4,25 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/mixins/realtime_tasks_subscription.dart';
 import 'package:family_planner/core/logging/app_logger.dart';
-import 'package:family_planner/features/households/domain/entities/household_member.dart';
-import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/tasks/tasks.dart';
+import 'package:family_planner/features/households/households.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
-import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
-import 'package:family_planner/features/tasks/domain/entities/task_sort_option.dart';
-import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
-import 'package:family_planner/features/tasks/presentation/pages/edit_task_sheet.dart';
-import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/assign_task_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/unpin_task_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/update_task_priority_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/eisenhower_matrix_view.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/sort_selector.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/filter_chip.dart';
 import 'package:family_planner/features/scheduled/presentation/widgets/scheduled_task_card.dart';
 
 final class ScheduledPage extends StatelessWidget {
@@ -70,7 +55,6 @@ final class _ScheduledViewState extends State<_ScheduledView>
     with RealtimeTasksSubscriptionMixin<_ScheduledView> {
   String _taskFilter = 'all'; // all, mine, unassigned
   bool _showMatrix = false;
-  Timer? _realtimeDebounce;
   TaskSortOption _sortOption = TaskSortOption.plannedFor;
 
   @override
@@ -241,9 +225,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
     );
     try {
       final result = await useCase(task: task);
-      if (result != null) {
-        context.read<ScheduledTasksCubit>().replaceTask(result);
-      }
+      context.read<ScheduledTasksCubit>().replaceTask(result);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

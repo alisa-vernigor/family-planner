@@ -1,13 +1,12 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import 'package:family_planner/features/auth/domain/entities/app_user.dart';
+import 'package:family_planner/features/auth/domain/entities/auth_event.dart';
 import 'package:family_planner/features/auth/domain/repositories/auth_repository.dart';
-import 'package:family_planner/features/auth/domain/use_cases/get_current_user_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_in_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_out_use_case.dart';
-import 'package:family_planner/features/auth/domain/use_cases/sign_up_use_case.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_state.dart';
 
@@ -34,10 +33,7 @@ void main() {
     );
 
     return AuthCubit(
-      getCurrentUserUseCase: GetCurrentUserUseCase(repository: repository),
-      signInUseCase: SignInUseCase(repository: repository),
-      signOutUseCase: SignOutUseCase(repository: repository),
-      signUpUseCase: SignUpUseCase(repository: repository),
+      authRepository: repository,
       enableAuthListener: false,
     );
   }
@@ -193,6 +189,10 @@ final class FakeAuthRepository implements AuthRepository {
 
   @override
   final AppUser? currentUser;
+
+  @override
+  Stream<AuthStateEvent> get authStateEvents => _authController.stream;
+  final _authController = StreamController<AuthStateEvent>.broadcast();
 
   final AppUser? signInResult;
   final AppUser? signUpResult;

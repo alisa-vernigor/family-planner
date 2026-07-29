@@ -8,24 +8,12 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:family_planner/features/profile/domain/entities/profile_stats.dart';
 import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
-import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
-import 'package:family_planner/features/profile/domain/use_cases/get_profile_stats_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/get_profile_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/remove_avatar_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/update_profile_use_case.dart';
-import 'package:family_planner/features/profile/domain/use_cases/upload_avatar_use_case.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_cubit.dart';
 import 'package:family_planner/features/profile/presentation/cubit/profile_state.dart';
-
-class _MockProfileRepository extends Mock implements ProfileRepository {}
+import '../../../../helpers/mock_repository_factory.dart';
 
 void main() {
-  late _MockProfileRepository repository;
-  late GetProfileUseCase getProfileUseCase;
-  late UpdateProfileUseCase updateProfileUseCase;
-  late UploadAvatarUseCase uploadAvatarUseCase;
-  late RemoveAvatarUseCase removeAvatarUseCase;
-  late GetProfileStatsUseCase getProfileStatsUseCase;
+  late MockRepositoryFactory mocks;
 
   const profileId = 'profile-1';
   final profile = UserProfile(
@@ -39,22 +27,13 @@ void main() {
   const contentType = 'image/png';
 
   setUp(() {
-    repository = _MockProfileRepository();
-    getProfileUseCase = GetProfileUseCase(repository: repository);
-    updateProfileUseCase = UpdateProfileUseCase(repository: repository);
-    uploadAvatarUseCase = UploadAvatarUseCase(repository: repository);
-    removeAvatarUseCase = RemoveAvatarUseCase(repository: repository);
-    getProfileStatsUseCase = GetProfileStatsUseCase(repository: repository);
+    mocks = MockRepositoryFactory();
     registerFallbackValue(Uint8List(0));
   });
 
   ProfileCubit createCubit() {
     return ProfileCubit(
-      getProfileUseCase: getProfileUseCase,
-      updateProfileUseCase: updateProfileUseCase,
-      uploadAvatarUseCase: uploadAvatarUseCase,
-      removeAvatarUseCase: removeAvatarUseCase,
-      getProfileStatsUseCase: getProfileStatsUseCase,
+      profileRepository: mocks.profile,
     );
   }
 
@@ -68,7 +47,7 @@ void main() {
       blocTest<ProfileCubit, ProfileState>(
         'emits [ProfileLoading, ProfileLoaded] with user',
         build: () {
-          when(() => repository.getProfile(profileId))
+          when(() => mocks.profile.getProfile(profileId))
               .thenAnswer((_) async => profile);
           return createCubit();
         },
@@ -82,7 +61,7 @@ void main() {
       blocTest<ProfileCubit, ProfileState>(
         'emits [ProfileLoading, ProfileFailure] on throw',
         build: () {
-          when(() => repository.getProfile(profileId))
+          when(() => mocks.profile.getProfile(profileId))
               .thenThrow(Exception('error'));
           return createCubit();
         },
@@ -99,14 +78,14 @@ void main() {
         'emits [ProfileUpdateSuccess, ProfileLoaded] on success',
         build: () {
           when(
-            () => repository.updateProfile(
+            () => mocks.profile.updateProfile(
               profileId: profileId,
               displayName: any(named: 'displayName'),
               bio: any(named: 'bio'),
               timezone: any(named: 'timezone'),
             ),
           ).thenAnswer((_) async {});
-          when(() => repository.getProfile(profileId))
+          when(() => mocks.profile.getProfile(profileId))
               .thenAnswer((_) async => profile);
           return createCubit();
         },
@@ -122,7 +101,7 @@ void main() {
         'emits ProfileFailure on update throw',
         build: () {
           when(
-            () => repository.updateProfile(
+            () => mocks.profile.updateProfile(
               profileId: profileId,
               displayName: any(named: 'displayName'),
               bio: any(named: 'bio'),
@@ -143,14 +122,14 @@ void main() {
         'does optimistic update from ProfileLoaded',
         build: () {
           when(
-            () => repository.updateProfile(
+            () => mocks.profile.updateProfile(
               profileId: profileId,
               displayName: 'Bob',
               bio: any(named: 'bio'),
               timezone: any(named: 'timezone'),
             ),
           ).thenAnswer((_) async {});
-          when(() => repository.getProfile(profileId))
+          when(() => mocks.profile.getProfile(profileId))
               .thenThrow(Exception('error'));
           return createCubit();
         },
@@ -173,7 +152,7 @@ void main() {
         'emits [AvatarUploading, ProfileUpdateSuccess] on success',
         build: () {
           when(
-            () => repository.uploadAvatar(
+            () => mocks.profile.uploadAvatar(
               profileId: profileId,
               bytes: any(named: 'bytes'),
               contentType: any(named: 'contentType'),
@@ -201,7 +180,7 @@ void main() {
         'emits ProfileFailure on failure',
         build: () {
           when(
-            () => repository.uploadAvatar(
+            () => mocks.profile.uploadAvatar(
               profileId: profileId,
               bytes: any(named: 'bytes'),
               contentType: any(named: 'contentType'),
@@ -225,7 +204,7 @@ void main() {
         'works when state is ProfileUpdateSuccess',
         build: () {
           when(
-            () => repository.uploadAvatar(
+            () => mocks.profile.uploadAvatar(
               profileId: profileId,
               bytes: any(named: 'bytes'),
               contentType: any(named: 'contentType'),
@@ -254,7 +233,7 @@ void main() {
       blocTest<ProfileCubit, ProfileState>(
         'emits [AvatarUploading, ProfileUpdateSuccess] from ProfileLoaded',
         build: () {
-          when(() => repository.removeAvatar(profileId))
+          when(() => mocks.profile.removeAvatar(profileId))
               .thenAnswer((_) async {});
           return createCubit();
         },
@@ -271,7 +250,7 @@ void main() {
       blocTest<ProfileCubit, ProfileState>(
         'removeAvatar from ProfileUpdateSuccess state (else branch)',
         build: () {
-          when(() => repository.removeAvatar(profileId))
+          when(() => mocks.profile.removeAvatar(profileId))
               .thenAnswer((_) async {});
           return createCubit();
         },
@@ -288,7 +267,7 @@ void main() {
       blocTest<ProfileCubit, ProfileState>(
         'removeAvatar emits failure on exception',
         build: () {
-          when(() => repository.removeAvatar(profileId))
+          when(() => mocks.profile.removeAvatar(profileId))
               .thenThrow(Exception('error'));
           return createCubit();
         },
@@ -309,14 +288,14 @@ void main() {
           completedThisMonth: 3,
           completedThisWeek: 1,
         );
-        when(() => repository.getStats(profileId))
+        when(() => mocks.profile.getStats(profileId))
             .thenAnswer((_) async => stats);
 
         final cubit = createCubit();
         final result = await cubit.getStats(profileId);
 
         expect(result, stats);
-        verify(() => repository.getStats(profileId)).called(1);
+        verify(() => mocks.profile.getStats(profileId)).called(1);
       });
     });
 
@@ -324,7 +303,7 @@ void main() {
       blocTest<ProfileCubit, ProfileState>(
         'removeAvatar works after upload changes avatarUrl',
         build: () {
-          when(() => repository.removeAvatar(profileId))
+          when(() => mocks.profile.removeAvatar(profileId))
               .thenAnswer((_) async {});
           return createCubit();
         },
@@ -343,7 +322,7 @@ void main() {
       final cubit = createCubit();
       // state is ProfileInitial — no profile to remove
       await cubit.removeAvatar(profileId);
-      verifyNever(() => repository.removeAvatar(any()));
+      verifyNever(() => mocks.profile.removeAvatar(any()));
     });
   });
 }

@@ -9,17 +9,6 @@ import 'package:family_planner/features/households/domain/entities/household.dar
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_my_households_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/delete_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/update_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/leave_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/remove_household_member_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/accept_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/decline_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_pending_household_invitations_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_state.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
@@ -33,8 +22,6 @@ import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/services/task_schedule.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_tasks_for_day_use_case.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/get_all_pending_tasks_use_case.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
@@ -50,15 +37,7 @@ void main() {
   test('TaskSchedule._()', () => expect(TaskSchedule, isA<Type>()));
   test('ScheduledTasksState base props', () => expect(const ScheduledTasksInitial().props, []));
 
-  // ── 2. HouseholdInvitationEmailInvalidException ─────────
-  test('HouseholdInvitationEmailInvalidException toString', () {
-    expect(
-      const HouseholdInvitationEmailInvalidException().toString(),
-      contains('корректный email'),
-    );
-  });
-
-  // ── 3. HouseholdCubit — edge branches ─────────────────
+  // ── 2. HouseholdCubit — edge branches ─────────────────
   group('HouseholdCubit branches', () {
     blocTest<HouseholdCubit, HouseholdState>(
       'refresh from Empty handles empty result (no re-emission filter)',
@@ -95,9 +74,7 @@ void main() {
   // ── 4. HouseholdInvitationsCubit _currentInvitations ─
   test('_currentInvitations default branch', () {
     final cubit = HouseholdInvitationsCubit(
-      getPendingHouseholdInvitationsUseCase: GetPendingHouseholdInvitationsUseCase(repository: _EmptyHHRepo()),
-      acceptHouseholdInvitationUseCase: AcceptHouseholdInvitationUseCase(repository: _EmptyHHRepo()),
-      declineHouseholdInvitationUseCase: DeclineHouseholdInvitationUseCase(repository: _EmptyHHRepo()),
+      householdRepository: _EmptyHHRepo(),
     );
     expect(cubit.state, const HouseholdInvitationsInitial());
     cubit.close();
@@ -106,10 +83,7 @@ void main() {
   // ── 5. HouseholdMembersCubit _currentMembers ─────────
   test('_currentMembers default branch', () {
     final cubit = HouseholdMembersCubit(
-      getHouseholdMembersUseCase: GetHouseholdMembersUseCase(repository: _EmptyHHRepo()),
-      createHouseholdInvitationUseCase: CreateHouseholdInvitationUseCase(repository: _EmptyHHRepo()),
-      leaveHouseholdUseCase: LeaveHouseholdUseCase(repository: _EmptyHHRepo()),
-      removeHouseholdMemberUseCase: RemoveHouseholdMemberUseCase(repository: _EmptyHHRepo()),
+      householdRepository: _EmptyHHRepo(),
     );
     expect(cubit.state, const HouseholdMembersInitial());
     cubit.close();
@@ -124,7 +98,7 @@ void main() {
     blocTest<TodayTasksCubit, TodayTasksState>(
       'pending delete ids filtered',
       build: () => TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: _FakeTaskRepo(tasks: [task])),
+        taskRepository: _FakeTaskRepo(tasks: [task]),
         householdRepository: _EmptyHHRepo(),
         currentMemberId: 'm1',
         householdId: 'h1',
@@ -140,7 +114,7 @@ void main() {
     blocTest<TodayTasksCubit, TodayTasksState>(
       'refresh preserves Loaded on error',
       build: () => TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: _FakeTaskRepo()),
+        taskRepository: _FakeTaskRepo(),
         householdRepository: _FailGetMembers(),
         currentMemberId: 'm1',
         householdId: 'h1',
@@ -153,7 +127,7 @@ void main() {
     blocTest<TodayTasksCubit, TodayTasksState>(
       'load failure',
       build: () => TodayTasksCubit(
-        getTasksForDayUseCase: GetTasksForDayUseCase(repository: _FakeTaskRepo()),
+        taskRepository: _FakeTaskRepo(),
         householdRepository: _FailGetMembers(),
         currentMemberId: 'm1',
         householdId: 'h1',
@@ -171,7 +145,7 @@ void main() {
 
     test('pending delete filtered from refresh', () async {
       final cubit = ScheduledTasksCubit(
-        getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: _FakeTaskRepo(tasks: [task])),
+        taskRepository: _FakeTaskRepo(tasks: [task]),
         householdRepository: _EmptyHHRepo(),
       );
       await cubit.load(householdId: 'h1');
@@ -183,7 +157,7 @@ void main() {
 
     test('confirmDelete/cancelDelete safe', () {
       final cubit = ScheduledTasksCubit(
-        getAllPendingTasksUseCase: GetAllPendingTasksUseCase(repository: _FakeTaskRepo()),
+        taskRepository: _FakeTaskRepo(),
         householdRepository: _EmptyHHRepo(),
       );
       cubit.confirmDelete('t1');
@@ -210,10 +184,7 @@ void main() {
 
 // ── Helpers ──────────────────────────────────────────────
 HouseholdCubit _householdCubit(HouseholdRepository repo) => HouseholdCubit(
-  createHouseholdUseCase: CreateHouseholdUseCase(repository: repo),
-  getMyHouseholdsUseCase: GetMyHouseholdsUseCase(repository: repo),
-  deleteHouseholdUseCase: DeleteHouseholdUseCase(repository: repo),
-  updateHouseholdUseCase: UpdateHouseholdUseCase(repository: repo),
+  householdRepository: repo,
 );
 
 class _EmptyHHRepo implements HouseholdRepository {

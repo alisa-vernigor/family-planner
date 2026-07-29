@@ -45,9 +45,10 @@ final class RecurrenceSummary extends StatelessWidget {
 
     // Считаем количество итераций
     int? count;
-    if (startDate != null && endDate != null) {
-      final start = startDate;
-      final days = endDate.difference(start).inDays + 1;
+    final start = startDate;
+    final end = endDate;
+    if (start != null && end != null) {
+      final days = end.difference(start).inDays + 1;
       switch (type) {
         case TaskRecurrenceType.daily:
           count = days;
@@ -63,16 +64,15 @@ final class RecurrenceSummary extends StatelessWidget {
           count = days ~/ intervalDays + 1;
       }
     }
-    if (endDate == null) {
+    if (end == null) {
       count = null;
     }
 
     // Генерируем первые 5 дат для предпросмотра
     final previewDates = <DateTime>[];
-    if (startDate != null) {
-      final start = startDate;
-      final end = endDate ?? start.add(const Duration(days: 60));
-      final totalDays = end.difference(start).inDays + 1;
+    if (start != null) {
+      final previewEnd = end ?? start.add(const Duration(days: 60));
+      final totalDays = previewEnd.difference(start).inDays + 1;
       for (var d = 0; d < totalDays && previewDates.length < 5; d++) {
         final date = start.add(Duration(days: d));
         bool matches;
@@ -88,15 +88,13 @@ final class RecurrenceSummary extends StatelessWidget {
       }
     }
 
-    if (startDate != null) {
-      final start = startDate;
+    if (start != null) {
       final startStr = '${start.day}.${start.month}.${start.year}';
-      if (endDate != null) {
-        final end = endDate;
+      if (end != null) {
         final endStr = '${end.day}.${end.month}.${end.year}';
         summary += ', с $startStr по $endStr';
       } else {
-        summary += ', с $start';
+        summary += ', с $startStr';
       }
     }
 
@@ -181,11 +179,11 @@ final class RecurrenceSummary extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (count != null && count! > previewDates.length)
+                if (count != null && count > previewDates.length)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      '…и ещё ${count! - previewDates.length}',
+                      '…и ещё ${count - previewDates.length}',
                       style: TextStyle(
                         fontSize: 12,
                         color: cs.onSurfaceVariant,

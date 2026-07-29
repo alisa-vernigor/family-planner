@@ -4,11 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/core/services/home_widget_service.dart';
-import 'package:family_planner/features/households/domain/entities/household_member.dart';
-import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
-import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
+import 'package:family_planner/features/households/households.dart';
+import 'package:family_planner/features/tasks/tasks.dart';
 
 import 'package:family_planner/core/mixins/optimistic_task_operations.dart';
 

@@ -3,14 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
-import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/accept_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/decline_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_pending_household_invitations_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_state.dart';
-
-class _MockHouseholdRepository extends Mock implements HouseholdRepository {}
+import '../../../../helpers/mock_repository_factory.dart';
 
 void main() {
   final invitation = HouseholdInvitation(
@@ -24,30 +19,16 @@ void main() {
 
   const householdId = 'household-1';
 
-  late _MockHouseholdRepository repository;
-  late GetPendingHouseholdInvitationsUseCase getPendingUseCase;
-  late AcceptHouseholdInvitationUseCase acceptUseCase;
-  late DeclineHouseholdInvitationUseCase declineUseCase;
+  late MockRepositoryFactory mocks;
 
   HouseholdInvitationsCubit createCubit() {
     return HouseholdInvitationsCubit(
-      getPendingHouseholdInvitationsUseCase: getPendingUseCase,
-      acceptHouseholdInvitationUseCase: acceptUseCase,
-      declineHouseholdInvitationUseCase: declineUseCase,
+      householdRepository: mocks.household,
     );
   }
 
   setUp(() {
-    repository = _MockHouseholdRepository();
-    getPendingUseCase = GetPendingHouseholdInvitationsUseCase(
-      repository: repository,
-    );
-    acceptUseCase = AcceptHouseholdInvitationUseCase(
-      repository: repository,
-    );
-    declineUseCase = DeclineHouseholdInvitationUseCase(
-      repository: repository,
-    );
+    mocks = MockRepositoryFactory();
   });
 
   group('HouseholdInvitationsCubit', () {
@@ -62,7 +43,7 @@ void main() {
     blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
       '2) load() emits [HouseholdInvitationsLoading, HouseholdInvitationsLoaded]',
       setUp: () {
-        when(() => repository.getPendingInvitations())
+        when(() => mocks.household.getPendingInvitations())
             .thenAnswer((_) async => [invitation]);
       },
       build: createCubit,
@@ -76,7 +57,7 @@ void main() {
     blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
       '3) load() emits HouseholdInvitationsFailure on error',
       setUp: () {
-        when(() => repository.getPendingInvitations())
+        when(() => mocks.household.getPendingInvitations())
             .thenThrow(Exception('Network error'));
       },
       build: createCubit,
@@ -93,7 +74,7 @@ void main() {
       '4) accept() emits [ActionInProgress, Loaded] and returns household ID',
       setUp: () {
         when(
-          () => repository.acceptInvitation(invitationId: any(named: 'invitationId')),
+          () => mocks.household.acceptInvitation(invitationId: any(named: 'invitationId')),
         ).thenAnswer((_) async => householdId);
       },
       seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
@@ -115,7 +96,7 @@ void main() {
       '5) accept() emits HouseholdInvitationsFailure on error',
       setUp: () {
         when(
-          () => repository.acceptInvitation(invitationId: any(named: 'invitationId')),
+          () => mocks.household.acceptInvitation(invitationId: any(named: 'invitationId')),
         ).thenThrow(Exception('DB error'));
       },
       seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
@@ -139,7 +120,7 @@ void main() {
       '6) decline() emits [ActionInProgress, Loaded] on success',
       setUp: () {
         when(
-          () => repository.declineInvitation(invitationId: any(named: 'invitationId')),
+          () => mocks.household.declineInvitation(invitationId: any(named: 'invitationId')),
         ).thenAnswer((_) async {});
       },
       seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),
@@ -158,7 +139,7 @@ void main() {
       '7) decline() emits HouseholdInvitationsFailure on error',
       setUp: () {
         when(
-          () => repository.declineInvitation(invitationId: any(named: 'invitationId')),
+          () => mocks.household.declineInvitation(invitationId: any(named: 'invitationId')),
         ).thenThrow(Exception('DB error'));
       },
       seed: () => HouseholdInvitationsLoaded(invitations: [invitation]),

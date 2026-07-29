@@ -3,15 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
-import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
-import 'package:family_planner/features/households/domain/use_cases/create_household_invitation_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/get_household_members_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/leave_household_use_case.dart';
-import 'package:family_planner/features/households/domain/use_cases/remove_household_member_use_case.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_state.dart';
-
-class MockHouseholdRepository extends Mock implements HouseholdRepository {}
+import '../../../../helpers/mock_repository_factory.dart';
 
 void main() {
   const member1 = HouseholdMember(
@@ -29,20 +23,13 @@ void main() {
   const members = [member1, member2];
   const householdId = 'household-1';
 
-  late MockHouseholdRepository repository;
+  late MockRepositoryFactory mocks;
   late HouseholdMembersCubit cubit;
 
   setUp(() {
-    repository = MockHouseholdRepository();
+    mocks = MockRepositoryFactory();
     cubit = HouseholdMembersCubit(
-      getHouseholdMembersUseCase:
-          GetHouseholdMembersUseCase(repository: repository),
-      createHouseholdInvitationUseCase:
-          CreateHouseholdInvitationUseCase(repository: repository),
-      leaveHouseholdUseCase:
-          LeaveHouseholdUseCase(repository: repository),
-      removeHouseholdMemberUseCase:
-          RemoveHouseholdMemberUseCase(repository: repository),
+      householdRepository: mocks.household,
     );
   });
 
@@ -59,7 +46,7 @@ void main() {
       'load() emits [HouseholdMembersLoading, HouseholdMembersLoaded] on success',
       setUp: () {
         when(
-          () => repository.getMembers(householdId: any(named: 'householdId')),
+          () => mocks.household.getMembers(householdId: any(named: 'householdId')),
         ).thenAnswer((_) async => members);
       },
       build: () => cubit,
@@ -74,7 +61,7 @@ void main() {
       'load() emits [HouseholdMembersLoading, HouseholdMembersFailure] on error',
       setUp: () {
         when(
-          () => repository.getMembers(householdId: any(named: 'householdId')),
+          () => mocks.household.getMembers(householdId: any(named: 'householdId')),
         ).thenThrow(Exception('error'));
       },
       build: () => cubit,
@@ -89,10 +76,10 @@ void main() {
       'inviteByEmail() emits [HouseholdInvitationSending, HouseholdInvitationSent] on success',
       setUp: () {
         when(
-          () => repository.getMembers(householdId: any(named: 'householdId')),
+          () => mocks.household.getMembers(householdId: any(named: 'householdId')),
         ).thenAnswer((_) async => members);
         when(
-          () => repository.createInvitation(
+          () => mocks.household.createInvitation(
             householdId: any(named: 'householdId'),
             email: any(named: 'email'),
           ),
@@ -118,10 +105,10 @@ void main() {
       'inviteByEmail() emits failure on error',
       setUp: () {
         when(
-          () => repository.getMembers(householdId: any(named: 'householdId')),
+          () => mocks.household.getMembers(householdId: any(named: 'householdId')),
         ).thenAnswer((_) async => members);
         when(
-          () => repository.createInvitation(
+          () => mocks.household.createInvitation(
             householdId: any(named: 'householdId'),
             email: any(named: 'email'),
           ),
@@ -143,9 +130,9 @@ void main() {
       ],
     );
 
-    test('leaveHousehold() calls repository.leaveHousehold and returns true', () async {
+    test('leaveHousehold() calls mocks.household.leaveHousehold and returns true', () async {
       when(
-        () => repository.leaveHousehold(
+        () => mocks.household.leaveHousehold(
           householdId: any(named: 'householdId'),
         ),
       ).thenAnswer((_) async {});
@@ -154,13 +141,13 @@ void main() {
 
       expect(result, true);
       verify(
-        () => repository.leaveHousehold(householdId: householdId),
+        () => mocks.household.leaveHousehold(householdId: householdId),
       ).called(1);
     });
 
     test('leaveHousehold() returns false on exception', () async {
       when(
-        () => repository.leaveHousehold(
+        () => mocks.household.leaveHousehold(
           householdId: any(named: 'householdId'),
         ),
       ).thenThrow(Exception('error'));
@@ -174,12 +161,12 @@ void main() {
       );
     });
 
-    test('removeMember() calls repository.removeMember and returns true', () async {
+    test('removeMember() calls mocks.household.removeMember and returns true', () async {
       when(
-        () => repository.getMembers(householdId: any(named: 'householdId')),
+        () => mocks.household.getMembers(householdId: any(named: 'householdId')),
       ).thenAnswer((_) async => members);
       when(
-        () => repository.removeMember(
+        () => mocks.household.removeMember(
           householdId: any(named: 'householdId'),
           profileId: any(named: 'profileId'),
         ),
@@ -194,7 +181,7 @@ void main() {
 
       expect(result, true);
       verify(
-        () => repository.removeMember(
+        () => mocks.household.removeMember(
           householdId: householdId,
           profileId: 'member-1',
         ),
@@ -203,10 +190,10 @@ void main() {
 
     test('removeMember() returns false on exception', () async {
       when(
-        () => repository.getMembers(householdId: any(named: 'householdId')),
+        () => mocks.household.getMembers(householdId: any(named: 'householdId')),
       ).thenAnswer((_) async => members);
       when(
-        () => repository.removeMember(
+        () => mocks.household.removeMember(
           householdId: any(named: 'householdId'),
           profileId: any(named: 'profileId'),
         ),
