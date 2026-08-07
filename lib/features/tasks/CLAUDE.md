@@ -6,11 +6,15 @@
 
 ### domain/entities/
 
-- **task.dart** — `Task` (Equatable). Поля: id, householdId, title, description, estimatedDurationMinutes, plannedFor, deadline, allowedMemberIds, assignedMemberId, pinnedMemberId, status, createdAt, completedAt, updatedAt, priority, **templateId**, **recurrence**, **recurrenceStartDate**, **recurrenceEndDate**. Методы: `isCompleted`, `isPinned`, **`isRecurring`** (templateId != null && recurrence != null), `canBeCompletedBy(memberId)`, `effectivePriority` (default 4), `copyWith` (с `_Sentinel` для nullable).
+- **task.dart** — `Task` (Equatable). Поля: id, householdId, title, description, estimatedDurationMinutes, plannedFor, deadline, allowedMemberIds, assignedMemberId, pinnedMemberId, status, createdAt, completedAt, updatedAt, priority, **templateId**, **recurrence**, **recurrenceStartDate**, **recurrenceEndDate**, **reminderMinutesBefore**, **categoryId**. Методы: `isCompleted`, `isPinned`, **`isRecurring`** (templateId != null && recurrence != null), `canBeCompletedBy(memberId)`, `effectivePriority` (default 4), `copyWith` (с `_Sentinel` для nullable).
 - **task_status.dart** — enum `TaskStatus.pending | completed | skipped`.
 - **eisenhower_priority.dart** — enum `EisenhowerPriority` (1–4): `urgentImportant`, `notUrgentImportant`, `urgentNotImportant`, `notUrgentNotImportant`. `fromValue(int?)`, `value`, `label`.
 - **task_recurrence.dart** — `TaskRecurrenceType` (daily, weekly, intervalDays) + `TaskRecurrence` (type, intervalDays?, weekdays[]).
-- **create_task_params.dart** — `CreateTaskParams`: входные данные для создания задачи (включая опциональные recurrence, priority).
+- **create_task_params.dart** — `CreateTaskParams`: входные данные для создания задачи (включая опциональные recurrence, priority, reminderMinutesBefore, categoryId).
+- **task_category.dart** — `TaskCategory` (id, householdId, name, colorHex, iconName).
+- **task_subtask.dart** — `TaskSubtask` (id, taskId, title, position, isCompleted, createdAt, completedAt?). `copyWith` с `_Sentinel`, `toggle()`.
+- **create_task_category_params.dart** — `CreateTaskCategoryParams` (householdId, name, colorHex, iconName).
+- **create_task_subtask_params.dart** — `CreateTaskSubtaskParams` (taskId, title).
 - **update_recurring_task_params.dart** — `RecurrenceEditScope` (onlyThis / thisAndFollowing / all, как в Google Calendar) + `UpdateRecurringTaskParams` (task, recurrence, scope, recurrenceStartDate?, recurrenceEndDate?).
 - **task_sort_option.dart** — enum `TaskSortOption` (deadline, priority, duration, title, createdAt, plannedFor). Статический метод `apply(List<Task>, TaskSortOption)` — сортировка.
 
@@ -18,10 +22,13 @@
 
 - **task_repository.dart** — абстрактный контракт: `getForDay`, `getScheduledAfter`, `getAllPending`, `create`, `save`, **`updateTemplate`**, `patchStatus`, `delete`, `addAllowedMember`, `removeAllowedMember`.
   - **ВАЖНО:** при изменении интерфейса обновляй ВСЕ тестовые фейки — они перечислены в корневом CLAUDE.md в разделе «Тестирование».
+- **task_category_repository.dart** — `getForHousehold`, `create`, `update`, `delete`.
+- **task_subtask_repository.dart** — `getForTask`, `create`, `toggle`, `updateTitle`, `reorder`, `delete`.
 
 ### domain/services/
 
 - **task_schedule.dart** — утилита `TaskSchedule`: статические методы `forDay`, `scheduledAfter`, `overdueBefore`, `forDateRange`.
+- **category_color.dart** — палитра `kCategoryColorHexes`, `colorFromHex(String?, {fallback})`, `categoryBackground(Color)`.
 
 ### domain/use_cases/
 
@@ -45,6 +52,11 @@
   - `patchStatus`: обновляет 3 поля (status, completed_by_member_id, completed_at).
   - `_toTask`, `_taskFromCreatedRow`, `_recurrenceFromRow`, `_parseNullableDateTime`, `_dateOnly`.
   - `TaskUserNotAuthenticatedException`.
+- **drift_task_repository.dart** — offline-first имплементация `TaskRepository` через Drift/SQLite: читает из кэша, при онлайне фетчит с Supabase; пишет в SQLite + очередь `SyncQueueDao`. Обрабатывает `CREATE`, `UPDATE`, `DELETE`, `PATCH_STATUS`, `ADD_ALLOWED`, `REMOVE_ALLOWED`, `UPDATE_TEMPLATE`. `category_id` и `reminder_minutes_before` маппятся в/из Drift-колонок.
+- **supabase_task_category_repository.dart** — `TaskCategoryRepository` напрямую через Supabase (RLS).
+- **drift_task_category_repository.dart** — кэш категорий в SQLite; чтение из кэша с фетчем на сервер при онлайне, записи напрямую в Supabase (без offline-очереди). **Доменный `TaskCategory` алиасится `as domain`** из-за конфликта с Drift row.
+- **supabase_task_subtask_repository.dart** — `TaskSubtaskRepository` напрямую через Supabase (RLS).
+- **drift_task_subtask_repository.dart** — offline-first: чтение из кэша + фетч на сервер, записи в SQLite + sync-очередь (`SUBTASK_CREATE/UPDATE/DELETE`). **Доменный `TaskSubtask` алиасится `as domain`** из-за конфликта с Drift row; DAO-метод удаления — `deleteSubtask`.
 
 ## Повторяющиеся задачи (recurring) — архитектура
 
@@ -62,26 +74,31 @@
 
 ### presentation/cubit/
 
-- **create_task_cubit.dart** — `CreateTaskCubit`: `create(CreateTaskParams)`, состояния `CreateTaskState`.
+- **create_task_cubit.dart** — `CreateTaskCubit`: `create(CreateTaskParams)`, состояния `CreateTaskState`. После успешного создания планирует push-напоминание (`_scheduleReminder`, если `reminderMinutesBefore != null`).
 - **create_task_state.dart** — `Initial`, `InProgress`, `Success`, `Failure`.
-- **update_task_cubit.dart** — `UpdateTaskCubit`: `update(Task)`, состояния `UpdateTaskState`.
+- **update_task_cubit.dart** — `UpdateTaskCubit`: `update(Task)` / `updateTemplate(...)`, состояния `UpdateTaskState`. Синхронизирует напоминание (`_syncReminder` — cancel + reschedule).
 - **update_task_state.dart** — `Initial`, `InProgress`, `Success`, `Failure`.
-- **task_completion_cubit.dart** — `TaskCompletionCubit`: `completeTask(task, memberId)`, обработка `TaskAlreadyCompletedException`, `TaskCompletionNotAllowedException`.
+- **task_completion_cubit.dart** — `TaskCompletionCubit`: `completeTask(task, memberId)`, обработка `TaskAlreadyCompletedException`, `TaskCompletionNotAllowedException`. При выполнении отменяет напоминание.
 - **task_completion_state.dart** — `Initial`, `InProgress`, `Success`, `Failure`. Используется также `TaskActionsCubit`.
-- **task_actions_cubit.dart** — `TaskActionsCubit`: `uncompleteTask(task)`, `deleteTask(taskId)`.
+- **task_actions_cubit.dart** — `TaskActionsCubit`: `uncompleteTask(task)` (пере-планирует напоминание), `deleteTask(taskId)` (отменяет напоминание).
 
 ### presentation/widgets/
 
-- **task_card.dart** — `TaskCard`: полноценная карточка задачи с чекбоксом, меню действий, информационными чипами (длительность, дедлайн, приоритет, исполнитель). Swipe-to-complete/uncomplete/delete через `Dismissible`. Чипы: `_InfoChip`, `DeadlineChip`, `_AssigneeChip`, `_PriorityChip`.
+- **task_card.dart** — `TaskCard`: полноценная карточка задачи с чекбоксом, меню действий, информационными чипами (длительность, дедлайн, приоритет, исполнитель, **категория** через `CategoryChip`). Swipe-to-complete/uncomplete/delete через `Dismissible`. Чипы: `_InfoChip`, `DeadlineChip`, `_AssigneeChip`, `_PriorityChip`. Принимает опциональный `category: TaskCategory?`.
 - **eisenhower_matrix_view.dart** — `EisenhowerMatrixView`: представление задач в 4 квадрантах (матрица Эйзенхауэра). Поддержка drag & drop для смены приоритета. Адаптивный layout: на широких экранах грид 2×2, на узких — вертикальный список. `_QuadGrid`, `_QuadrantSection`, `_MiniTaskCard`.
 - **priority_selector.dart** — `PrioritySelector`: горизонтальный выбор приоритета с визуальными стилями. Кнопка «Сбросить».
 - **sort_selector.dart** — `SortSelector`: горизонтальный выбор варианта сортировки задач.
 - **assignee_picker.dart** — `showAssigneePicker`: bottom sheet выбора ответственного.
+- **reminder_selector.dart** — `ReminderSelector`: выпадающий выбор напоминания (`null`, 5/15/30/60 мин, 1440 = за день).
+- **category_chip.dart** — `CategoryChip`: цветной чип категории (цвет из `colorHex`).
+- **category_picker.dart** — `showCategoryPicker`: bottom sheet выбора категории + создание новой (диалог с палитрой).
+- **category_field.dart** — `CategoryField`: поле выбора категории для форм (само загружает список, поддерживает создание).
+- **subtask_editor.dart** — `SubtaskEditor`: инлайн-список подзадач (чекбоксы, добавление, удаление свайпом, drag&drop) для `EditTaskSheet`.
 
 ### presentation/pages/
 
-- **create_task_sheet.dart** — `showCreateTaskSheet`: модальный bottom sheet создания задачи. `CreateTaskSheet` (StatefulWidget): форма с полями (название, описание, длительность, ответственный, повторение, дедлайн, приоритет). Повторение — через `RecurrenceEditor`.
-- **edit_task_sheet.dart** — `showEditTaskSheet`: модальный bottom sheet редактирования задачи. Аналогично create, но предзаполнено из `Task`. Для повторяющейся задачи сначала показывает scope-диалог, при `thisAndFollowing`/`all` показывает `RecurrenceEditor` (без переключателя) и сохраняет через `updateTemplate`.
+- **create_task_sheet.dart** — `showCreateTaskSheet`: модальный bottom sheet создания задачи. `CreateTaskSheet` (StatefulWidget): форма с полями (название, описание, длительность, ответственный, повторение, дедлайн, приоритет, **напоминание** через `ReminderSelector`, **категория** через `CategoryField`). Повторение — через `RecurrenceEditor`.
+- **edit_task_sheet.dart** — `showEditTaskSheet`: модальный bottom sheet редактирования задачи. Аналогично create, но предзаполнено из `Task`. Для повторяющейся задачи сначала показывает scope-диалог, при `thisAndFollowing`/`all` показывает `RecurrenceEditor` (без переключателя) и сохраняет через `updateTemplate`. Для обычных задач показывает **`SubtaskEditor`** (подзадачи) и категорию через `CategoryField`.
 
 ## Связи
 
@@ -91,3 +108,5 @@
 - Использует `HouseholdMember` (из households) для виджетов назначения.
 - `SupabaseTaskRepository` зависит от `SupabaseClient`.
 - `DistributeTasksUseCase` зависит от `TaskRepository` + `HouseholdRepository`.
+- Категории: `CategoryField`/`CategoryPicker` используют `TaskCategoryRepository` (читают через `context.read`).
+- Подзадачи: `EditTaskSheet` использует `TaskSubtaskRepository` (загрузка + CRUD).

@@ -23,10 +23,11 @@
   - FAB: создание задачи + авто-распределение.
   - `_TaskListView` — список с разделами и `SortSelector`.
   - `_SectionHeader` — заголовок секции с счётчиком.
+  - Категории: страница загружает их (`TaskCategoryRepository.getForHousehold`) в `_categoriesById` и передаёт в `TaskListView` → `TaskCard.category` (чип).
 
 ## Связи
 
 - Вложена в `HouseholdGate` через `IndexedStack` (таб «Сегодня»).
-- Использует `TaskRepository` (через use cases), `HouseholdRepository`, `Supabase.instance.client` (realtime).
+- Использует `TaskRepository` (через use cases), `HouseholdRepository`, `Supabase.instance.client` (realtime), `TaskCategoryRepository` (для чипов категорий).
 - Использует `CreateTaskSheet`, `EditTaskSheet`, `TaskCard`, `AssigneePicker`, `SortSelector` из `tasks` feature.
 - `TodayTasksCubit` использует `TaskSchedule` (services).

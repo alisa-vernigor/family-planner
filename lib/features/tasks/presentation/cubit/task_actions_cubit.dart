@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
+import 'package:family_planner/core/services/reminder_service.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
@@ -21,6 +22,23 @@ final class TaskActionsCubit extends Cubit<TaskActionState> {
 
     try {
       final pendingTask = await uncompleteTaskUseCase(task: task);
+
+      // Задача снова в работе — перепланируем напоминание, если было настроено.
+      final minutesBefore = pendingTask.reminderMinutesBefore;
+      if (minutesBefore != null) {
+        try {
+          await ReminderService.instance.schedule(
+            taskId: pendingTask.id,
+            title: pendingTask.title,
+            scheduledFor: pendingTask.deadline ?? pendingTask.plannedFor,
+            minutesBefore: minutesBefore,
+          );
+        } catch (e) {
+          AppLogger.warning(
+            'Не удалось перепланировать напоминание: taskId=${pendingTask.id}: $e',
+          );
+        }
+      }
 
       AppLogger.info('Выполнение задачи отменено: taskId=${task.id}');
 
@@ -43,6 +61,9 @@ final class TaskActionsCubit extends Cubit<TaskActionState> {
 
     try {
       await taskRepository.delete(taskId: taskId);
+
+      // Задача удалена — напоминание больше не нужно.
+      await ReminderService.instance.cancel(taskId);
 
       AppLogger.info('Задача удалена: taskId=$taskId');
 

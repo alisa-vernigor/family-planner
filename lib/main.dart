@@ -11,6 +11,7 @@ import 'core/database/executor/database_executor.dart';
 import 'core/logging/app_logger.dart';
 import 'core/services/connectivity_service.dart';
 import 'core/services/home_widget_service.dart';
+import 'core/services/reminder_service.dart';
 import 'core/sync/sync_processor.dart';
 
 Future<void> main() async {
@@ -37,6 +38,9 @@ Future<void> main() async {
   );
 
   await HomeWidgetService.initialize();
+
+  // Локальные push-напоминания о задачах (Android/iOS).
+  await ReminderService.instance.initialize();
 
   // ── Offline-first infrastructure ─────────────────────
   // На нативных платформах (macOS/iOS/Android) создаём SQLite.

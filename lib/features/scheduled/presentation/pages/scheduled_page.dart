@@ -57,6 +57,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
   bool _showMatrix = false;
   TaskSortOption _sortOption = TaskSortOption.plannedFor;
   bool _sortAscending = true;
+  Map<String, TaskCategory> _categoriesById = {};
 
   @override
   void initState() {
@@ -67,6 +68,22 @@ final class _ScheduledViewState extends State<_ScheduledView>
       onChanged: _silentReload,
     );
     _reloadTasks();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await context
+          .read<TaskCategoryRepository>()
+          .getForHousehold(widget.householdId);
+      if (mounted) {
+        setState(() {
+          _categoriesById = {for (final c in categories) c.id: c};
+        });
+      }
+    } catch (_) {
+      // Категории не критичны — список задач показываем без них.
+    }
   }
 
   @override
@@ -179,6 +196,40 @@ final class _ScheduledViewState extends State<_ScheduledView>
     }
   }
 
+  Future<void> _rescheduleTask(Task task) async {
+    final result = await showReschedulePicker(context: context, task: task);
+    if (result == null || !mounted) return;
+
+    final tasksCubit = context.read<ScheduledTasksCubit>();
+    final repository = context.read<TaskRepository>();
+    final useCase = RescheduleTaskUseCase(repository: repository);
+
+    // Оптимистичное обновление
+    final optimistic = task.copyWith(plannedFor: result.newPlannedFor);
+    tasksCubit.replaceTask(optimistic);
+
+    try {
+      await useCase.call(
+        task: task,
+        newDate: result.newPlannedFor,
+        scope: result.isSeries ? RecurrenceEditScope.all : null,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Задача перенесена на ${_formatDate(result.newPlannedFor)}')),
+        );
+      }
+    } catch (exception, stackTrace) {
+      // Откат — перезагружаем
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось перенести задачу.')),
+      );
+      AppLogger.error('Ошибка переноса задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
   Future<void> _completeTask(
     Task task,
     List<HouseholdMember> members,
@@ -278,6 +329,33 @@ final class _ScheduledViewState extends State<_ScheduledView>
         const SnackBar(content: Text('Не удалось удалить задачу.')),
       );
       AppLogger.error('Ошибка удаления задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
+  Future<void> _duplicateTask(Task task) async {
+    final repository = context.read<TaskRepository>();
+    final useCase = DuplicateTaskUseCase(repository: repository);
+
+    try {
+      final created = await useCase.call(task: task);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              created.isRecurring
+                  ? 'Серия скопирована.'
+                  : 'Задача скопирована.',
+            ),
+          ),
+        );
+      }
+    } catch (exception, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось скопировать задачу.')),
+      );
+      AppLogger.error('Ошибка дублирования задачи', error: exception, stackTrace: stackTrace);
       _reloadTasks();
     }
   }
@@ -445,6 +523,8 @@ final class _ScheduledViewState extends State<_ScheduledView>
                           onSwipeComplete: (task) => _completeTask(task, members, context),
                           onSwipeUncomplete: (task) => _uncompleteTask(task, members, context),
                           onSwipeDelete: (task) => _deleteTask(task),
+                          onReschedule: _rescheduleTask,
+                          onDuplicate: _duplicateTask,
                           onUpdatePriority: _updateTaskPriority,
                         ),
                       )
@@ -479,6 +559,9 @@ final class _ScheduledViewState extends State<_ScheduledView>
                                     onAssign: () => _assignTask(task, members),
                                     onTogglePin: () => _togglePinTask(task),
                                     onDelete: () => _deleteTask(task),
+                                    onReschedule: () => _rescheduleTask(task),
+                                    onDuplicate: () => _duplicateTask(task),
+                                    category: _categoriesById[task.categoryId],
                                   ),
                                 ),
                             ],

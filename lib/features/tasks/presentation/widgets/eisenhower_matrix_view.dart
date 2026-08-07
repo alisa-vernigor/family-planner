@@ -23,6 +23,8 @@ final class EisenhowerMatrixView extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    this.onReschedule,
+    this.onDuplicate,
     this.onUpdatePriority,
     super.key,
   });
@@ -39,6 +41,12 @@ final class EisenhowerMatrixView extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+
+  /// Вызывается при переносе задачи на другую дату.
+  final void Function(Task)? onReschedule;
+
+  /// Вызывается при дублировании задачи.
+  final void Function(Task)? onDuplicate;
 
   /// Вызывается, когда пользователь перетащил задачу в другой квадрант.
   final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
@@ -88,6 +96,8 @@ final class EisenhowerMatrixView extends StatelessWidget {
             onSwipeComplete: onSwipeComplete,
             onSwipeUncomplete: onSwipeUncomplete,
             onSwipeDelete: onSwipeDelete,
+            onReschedule: onReschedule,
+            onDuplicate: onDuplicate,
             onUpdatePriority: onUpdatePriority,
           );
         }
@@ -116,6 +126,8 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
                 onUpdatePriority: onUpdatePriority,
               ),
               const SizedBox(height: 12),
@@ -138,6 +150,8 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
                 onUpdatePriority: onUpdatePriority,
               ),
               const SizedBox(height: 12),
@@ -160,6 +174,8 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
                 onUpdatePriority: onUpdatePriority,
               ),
               const SizedBox(height: 12),
@@ -182,6 +198,8 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onSwipeComplete: onSwipeComplete,
                 onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
+                onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
                 onUpdatePriority: onUpdatePriority,
               ),
             ],
@@ -212,6 +230,8 @@ final class _QuadGrid extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    required this.onReschedule,
+    required this.onDuplicate,
     required this.onUpdatePriority,
   });
 
@@ -231,6 +251,8 @@ final class _QuadGrid extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final void Function(Task)? onReschedule;
+  final void Function(Task)? onDuplicate;
   final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
@@ -261,7 +283,9 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
-                    onUpdatePriority: onUpdatePriority,
+                    onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
+                onUpdatePriority: onUpdatePriority,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -284,7 +308,9 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
-                    onUpdatePriority: onUpdatePriority,
+                    onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
+                onUpdatePriority: onUpdatePriority,
                   ),
                 ),
               ],
@@ -313,7 +339,9 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
-                    onUpdatePriority: onUpdatePriority,
+                    onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
+                onUpdatePriority: onUpdatePriority,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -336,7 +364,9 @@ final class _QuadGrid extends StatelessWidget {
                     onSwipeComplete: onSwipeComplete,
                     onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
-                    onUpdatePriority: onUpdatePriority,
+                    onReschedule: onReschedule,
+                onDuplicate: onDuplicate,
+                onUpdatePriority: onUpdatePriority,
                   ),
                 ),
               ],
@@ -369,6 +399,8 @@ final class _QuadrantGridCell extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    required this.onReschedule,
+    required this.onDuplicate,
     required this.onUpdatePriority,
   });
 
@@ -389,6 +421,8 @@ final class _QuadrantGridCell extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final void Function(Task)? onReschedule;
+  final void Function(Task)? onDuplicate;
   final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
@@ -556,6 +590,8 @@ final class _QuadrantSection extends StatelessWidget {
     required this.onSwipeComplete,
     required this.onSwipeUncomplete,
     required this.onSwipeDelete,
+    required this.onReschedule,
+    required this.onDuplicate,
     required this.onUpdatePriority,
   });
 
@@ -577,6 +613,8 @@ final class _QuadrantSection extends StatelessWidget {
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
+  final void Function(Task)? onReschedule;
+  final void Function(Task)? onDuplicate;
   final void Function(Task task, EisenhowerPriority newPriority)? onUpdatePriority;
 
   @override
@@ -674,6 +712,10 @@ final class _QuadrantSection extends StatelessWidget {
                     onDelete: () => onDelete(task),
                     onAssign: () => onAssign(task, members),
                     onTogglePin: () => onTogglePin(task),
+                    onReschedule:
+                        onReschedule != null ? () => onReschedule!(task) : null,
+                    onDuplicate:
+                        onDuplicate != null ? () => onDuplicate!(task) : null,
                     onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(task) : null,
                     onSwipeUncomplete: onSwipeUncomplete != null ? () => onSwipeUncomplete!(task) : null,
                     onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(task) : null,

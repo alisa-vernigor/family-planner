@@ -1,6 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/logging/app_logger.dart';
+import '../../../../core/services/reminder_service.dart';
 import '../../domain/entities/task.dart';
 import '../../domain/use_cases/complete_task_use_case.dart';
 import 'task_completion_state.dart';
@@ -22,6 +23,9 @@ final class TaskCompletionCubit extends Cubit<TaskCompletionState> {
         task: task,
         memberId: memberId,
       );
+
+      // Задача выполнена — напоминание не нужно.
+      await ReminderService.instance.cancel(completedTask.id);
 
       AppLogger.info(
         'Задача выполнена: taskId=${completedTask.id}; '

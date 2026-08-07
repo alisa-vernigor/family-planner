@@ -1,5 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Push-напоминания о задачах -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Пересоздание запланированных напоминаний после перезагрузки устройства -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
         android:label="family_planner"
         android:name="${applicationName}"

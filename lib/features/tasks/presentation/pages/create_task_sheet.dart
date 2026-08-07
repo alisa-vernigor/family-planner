@@ -12,8 +12,10 @@ import 'package:family_planner/features/tasks/presentation/cubit/create_task_sta
 import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/category_field.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/recurrence_editor.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/reminder_selector.dart';
 
 Future<bool?> showCreateTaskSheet({
   required BuildContext context,
@@ -64,6 +66,8 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   final _durationController = TextEditingController(text: '30');
 
   DateTime? _deadline;
+  int? _reminderMinutesBefore;
+  String? _categoryId;
   RecurrenceDraft _recurrenceDraft = const RecurrenceDraft(
     type: TaskRecurrenceType.daily,
     isEnabled: false,
@@ -221,6 +225,8 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         recurrenceStartDate: _recurrenceDraft.startDate,
         recurrenceEndDate: _recurrenceDraft.endDate,
         priority: _priority,
+        reminderMinutesBefore: _reminderMinutesBefore,
+        categoryId: _categoryId,
       ),
     );
   }
@@ -415,6 +421,24 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                             child: const Text('Убрать дедлайн'),
                           ),
                         ),
+                      const SizedBox(height: 16),
+                      ReminderSelector(
+                        value: _reminderMinutesBefore,
+                        enabled: !isLoading,
+                        onChanged: (minutes) {
+                          setState(() => _reminderMinutesBefore = minutes);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      CategoryField(
+                        key: const Key('create_category_field'),
+                        householdId: widget.householdId,
+                        selectedCategoryId: _categoryId,
+                        enabled: !isLoading,
+                        onChanged: (categoryId) {
+                          setState(() => _categoryId = categoryId);
+                        },
+                      ),
                       const SizedBox(height: 8),
                       FilledButton(
                         onPressed: isLoading ? null : _submit,

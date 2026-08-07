@@ -11,11 +11,21 @@
   - `syncTasks(tasks, currentMemberId, householdId)` — обновление данных виджета.
   - Сохранение Supabase-конфигурации и сессии в SharedPreferences (через `HomeWidget.saveWidgetData`).
   - `interactiveCallback` — фоновый изолят: обрабатывает нажатие на задачу в виджете (toggle complete/uncomplete). Восстанавливает Supabase-сессию из сохранённого JSON.
+- **services/reminder_service.dart** — `ReminderService`: локальные push-напоминания о задачах (`flutter_local_notifications` v22 + `timezone`).
+  - Singleton: `ReminderService.instance`.
+  - `initialize()` — инициализация плагина (вызывается в `main.dart`).
+  - `scheduleReminder(task)` / `cancelReminder(taskId)` — планирование/отмена по `task.reminderMinutesBefore`.
+  - `_isSupportedPlatform` — только Android/iOS (не web).
+  - v22 API: `initialize(settings:)`, `zonedSchedule(id:, title:, body:, scheduledDate:, notificationDetails:, androidScheduleMode:)`, `cancel(id:)`.
+- **database/** — Drift/SQLite (offline-first):
+  - Таблицы: `TaskOccurrences`, `TaskTemplates`, `TaskCategories`, `TaskSubtasks`, `SyncQueue`, а также household/профильные.
+  - **Важно:** row-классы `TaskCategory` / `TaskSubtask` конфликтуют с доменными сущностями tasks — в drift-репозиториях доменный импорт алиасится (`import '...task_category.dart' as domain;`).
+  - DAO категорий: `TaskCategoriesDao` — метод удаления называется `deleteCategory` (избегает конфликта с базовым `DatabaseConnectionUser.delete`). Аналогично `deleteSubtask` в `TaskSubtasksDao`.
 
 ## Связи
 
 - `app_bloc_observer.dart` использует `AppLogger`.
-- `main.dart` вызывает `SupabaseConfig`, `AppLogger`, `HomeWidgetService.initialize()`.
+- `main.dart` вызывает `SupabaseConfig`, `AppLogger`, `HomeWidgetService.initialize()`, `ReminderService.instance.initialize()`.
 - `HomeWidgetService` импортирует `Task` из tasks feature.
 - Не зависит от других модулей приложения (кроме HomeWidgetService → tasks).
 

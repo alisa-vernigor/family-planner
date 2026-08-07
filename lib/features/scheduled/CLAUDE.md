@@ -20,10 +20,11 @@
   - `_ScheduledTaskCard` — карточка для списка (отличается от `TaskCard` — без свайпов, компактнее).
   - `_FilterChip` — кастомный фильтр-чип.
   - FAB создания задачи.
+  - Категории: страница загружает их (`TaskCategoryRepository.getForHousehold`) в `_categoriesById` и передаёт в `ScheduledTaskCard.category` (чип).
 
 ## Связи
 
 - Вложена в `HouseholdGate` через `IndexedStack` (таб «Запланированные»).
-- Использует `TaskRepository`, `HouseholdRepository`, `Supabase.instance.client` (realtime).
+- Использует `TaskRepository`, `HouseholdRepository`, `Supabase.instance.client` (realtime), `TaskCategoryRepository` (для чипов категорий).
 - Использует `CreateTaskSheet`, `EditTaskSheet`, `EisenhowerMatrixView`, `AssigneePicker`, `SortSelector` из `tasks` feature.
 - В отличие от `TodayPage`, не имеет `TaskCompletionCubit`/`TaskActionsCubit` — обрабатывает complete/uncomplete/delete прямо на странице (instant via cubit + repository).

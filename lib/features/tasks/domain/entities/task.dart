@@ -25,6 +25,8 @@ final class Task extends Equatable {
     this.recurrence,
     this.recurrenceStartDate,
     this.recurrenceEndDate,
+    this.reminderMinutesBefore,
+    this.categoryId,
   });
 
   final String id;
@@ -55,6 +57,13 @@ final class Task extends Equatable {
 
   /// Дата окончания повторения (из шаблона), `null` — бессрочно.
   final DateTime? recurrenceEndDate;
+
+  /// За сколько минут до дедлайна/начала прислать напоминание.
+  /// `null` — напоминание не настроено.
+  final int? reminderMinutesBefore;
+
+  /// ID категории задачи (`task_categories.id`). `null` — без категории.
+  final String? categoryId;
 
   bool get isRecurring => templateId != null && recurrence != null;
 
@@ -111,6 +120,8 @@ final class Task extends Equatable {
     Object? recurrence = _sentinel,
     Object? recurrenceStartDate = _sentinel,
     Object? recurrenceEndDate = _sentinel,
+    Object? reminderMinutesBefore = _sentinel,
+    Object? categoryId = _sentinel,
   }) {
     return Task(
       id: id ?? this.id,
@@ -145,6 +156,12 @@ final class Task extends Equatable {
       recurrenceEndDate: identical(recurrenceEndDate, _sentinel)
           ? this.recurrenceEndDate
           : recurrenceEndDate as DateTime?,
+      reminderMinutesBefore: identical(reminderMinutesBefore, _sentinel)
+          ? this.reminderMinutesBefore
+          : reminderMinutesBefore as int?,
+      categoryId: identical(categoryId, _sentinel)
+          ? this.categoryId
+          : categoryId as String?,
     );
   }
 
@@ -172,6 +189,8 @@ final class Task extends Equatable {
       recurrence,
       recurrenceStartDate,
       recurrenceEndDate,
+      reminderMinutesBefore,
+      categoryId,
     ];
   }
 }

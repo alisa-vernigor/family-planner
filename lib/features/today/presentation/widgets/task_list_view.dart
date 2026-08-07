@@ -18,6 +18,9 @@ final class TaskListView extends StatelessWidget {
     required this.onTogglePin,
     required this.onComplete,
     required this.onUncomplete,
+    this.onReschedule,
+    this.onDuplicate,
+    this.categoriesById = const {},
     this.isSelectionMode = false,
     this.selectedTaskIds = const {},
     this.onLongPress,
@@ -42,6 +45,9 @@ final class TaskListView extends StatelessWidget {
   final void Function(Task) onTogglePin;
   final void Function(Task) onComplete;
   final void Function(Task) onUncomplete;
+  final void Function(Task)? onReschedule;
+  final void Function(Task)? onDuplicate;
+  final Map<String, TaskCategory> categoriesById;
   final void Function(Task)? onLongPress;
   final void Function(Task)? onSwipeComplete;
   final void Function(Task)? onSwipeUncomplete;
@@ -137,6 +143,11 @@ final class TaskListView extends StatelessWidget {
                 onDelete: () => onDelete(t),
                 onAssign: () => onAssign(t, members),
                 onTogglePin: () => onTogglePin(t),
+                onReschedule:
+                    onReschedule != null ? () => onReschedule!(t) : null,
+                onDuplicate:
+                    onDuplicate != null ? () => onDuplicate!(t) : null,
+                category: categoriesById[t.categoryId],
               ),
             ),
           ),
@@ -198,6 +209,11 @@ final class TaskListView extends StatelessWidget {
                 onDelete: () => onDelete(t),
                 onAssign: () => onAssign(t, members),
                 onTogglePin: () => onTogglePin(t),
+                onReschedule:
+                    onReschedule != null ? () => onReschedule!(t) : null,
+                onDuplicate:
+                    onDuplicate != null ? () => onDuplicate!(t) : null,
+                category: categoriesById[t.categoryId],
               ),
             ),
           ),
@@ -259,6 +275,11 @@ final class TaskListView extends StatelessWidget {
                 onDelete: () => onDelete(t),
                 onAssign: () => onAssign(t, members),
                 onTogglePin: () => onTogglePin(t),
+                onReschedule:
+                    onReschedule != null ? () => onReschedule!(t) : null,
+                onDuplicate:
+                    onDuplicate != null ? () => onDuplicate!(t) : null,
+                category: categoriesById[t.categoryId],
               ),
             ),
           ),

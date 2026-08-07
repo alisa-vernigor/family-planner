@@ -134,6 +134,30 @@ class SyncProcessor {
             .delete()
             .eq('task_occurrence_id', payload['task_occurrence_id'])
             .eq('profile_id', payload['profile_id']);
+      case 'SUBTASK_CREATE':
+        // Создание подзадачи: payload — поля task_subtasks, entityId — task_occurrence_id.
+        await _supabase
+            .from('task_subtasks')
+            .insert({
+              'task_occurrence_id': payload['task_occurrence_id'],
+              'title': payload['title'],
+              'position': payload['position'],
+            });
+      case 'SUBTASK_UPDATE':
+        await _supabase
+            .from('task_subtasks')
+            .update({
+              'title': payload['title'],
+              'is_completed': payload['is_completed'],
+              'completed_at': payload['completed_at'],
+              'position': payload['position'],
+            })
+            .eq('id', entry.entityId);
+      case 'SUBTASK_DELETE':
+        await _supabase
+            .from('task_subtasks')
+            .delete()
+            .eq('id', entry.entityId);
       default:
         AppLogger.warning('Unknown sync operation: ${entry.operation}');
     }

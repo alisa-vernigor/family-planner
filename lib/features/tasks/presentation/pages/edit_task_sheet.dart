@@ -4,18 +4,24 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/tasks/domain/entities/create_task_subtask_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_subtask.dart';
 import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_subtask_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_state.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/category_field.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/recurrence_edit_scope_dialog.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/recurrence_editor.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/reminder_selector.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/subtask_editor.dart';
 
 Future<bool?> showEditTaskSheet({
   required BuildContext context,
@@ -92,11 +98,14 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   late final TextEditingController _durationController;
 
   late DateTime? _deadline;
+  int? _reminderMinutesBefore;
+  String? _categoryId;
   String? _assignedMemberId;
   bool _isPinned = false;
   bool _isSubmitting = false;
   EisenhowerPriority? _priority;
   List<HouseholdMember> _members = [];
+  List<TaskSubtask> _subtasks = [];
 
   late RecurrenceDraft _recurrenceDraft;
 
@@ -115,6 +124,8 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       text: widget.task.estimatedDurationMinutes.toString(),
     );
     _deadline = widget.task.deadline;
+    _reminderMinutesBefore = widget.task.reminderMinutesBefore;
+    _categoryId = widget.task.categoryId;
     _assignedMemberId = widget.task.assignedMemberId;
     _isPinned = widget.task.isPinned;
     _priority = widget.task.priority;
@@ -131,9 +142,83 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
           );
 
     _loadMembers();
+    _loadSubtasks();
   }
 
   static const defaultType = TaskRecurrenceType.daily;
+
+  Future<void> _loadSubtasks() async {
+    // Подзадачи есть только у обычных (не-серийных) экземпляров.
+    // Для серии подзадачи не показываем — они привязаны к экземпляру.
+    if (_isEditingSeries) return;
+    try {
+      final repository = context.read<TaskSubtaskRepository>();
+      final subtasks = await repository.getForTask(widget.task.id);
+      if (mounted) {
+        setState(() => _subtasks = subtasks);
+      }
+    } catch (exception, stackTrace) {
+      AppLogger.warning('Не удалось загрузить подзадачи');
+      AppLogger.error(
+        'Ошибка загрузки подзадач',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  Future<void> _addSubtask(String title) async {
+    try {
+      final repository = context.read<TaskSubtaskRepository>();
+      await repository.create(
+        CreateTaskSubtaskParams(taskId: widget.task.id, title: title),
+      );
+      if (mounted) {
+        final subtasks = await repository.getForTask(widget.task.id);
+        setState(() => _subtasks = subtasks);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось добавить подзадачу.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleSubtask(TaskSubtask subtask) async {
+    try {
+      final repository = context.read<TaskSubtaskRepository>();
+      await repository.toggle(subtask.id, !subtask.isCompleted);
+      if (mounted) {
+        final subtasks = await repository.getForTask(widget.task.id);
+        setState(() => _subtasks = subtasks);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось обновить подзадачу.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteSubtask(String subtaskId) async {
+    try {
+      final repository = context.read<TaskSubtaskRepository>();
+      await repository.delete(subtaskId);
+      if (mounted) {
+        final subtasks = await repository.getForTask(widget.task.id);
+        setState(() => _subtasks = subtasks);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось удалить подзадачу.')),
+        );
+      }
+    }
+  }
 
   Future<void> _loadMembers() async {
     try {
@@ -267,6 +352,8 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       recurrence: widget.task.recurrence,
       recurrenceStartDate: widget.task.recurrenceStartDate,
       recurrenceEndDate: widget.task.recurrenceEndDate,
+      reminderMinutesBefore: _reminderMinutesBefore,
+      categoryId: _categoryId,
     );
 
     if (_isEditingSeries) {
@@ -434,6 +521,25 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                           ),
                         ),
                       const SizedBox(height: 16),
+                      ReminderSelector(
+                        key: const Key('edit_reminder_selector'),
+                        value: _reminderMinutesBefore,
+                        enabled: !isLoading,
+                        onChanged: (minutes) {
+                          setState(() => _reminderMinutesBefore = minutes);
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      CategoryField(
+                        key: const Key('edit_category_field'),
+                        householdId: widget.task.householdId,
+                        selectedCategoryId: _categoryId,
+                        enabled: !isLoading,
+                        onChanged: (categoryId) {
+                          setState(() => _categoryId = categoryId);
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       OutlinedButton.icon(
                         onPressed: isLoading ? null : _pickAssignee,
                         icon: Icon(
@@ -485,6 +591,17 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                         onChanged: (p) => setState(() => _priority = p),
                       ),
                       const SizedBox(height: 8),
+                      if (!_isEditingSeries) ...[
+                        const SizedBox(height: 8),
+                        SubtaskEditor(
+                          key: const Key('edit_subtask_editor'),
+                          subtasks: _subtasks,
+                          onAdd: _addSubtask,
+                          onToggle: _toggleSubtask,
+                          onDelete: _deleteSubtask,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       FilledButton(
                         key: const Key('save_task_button'),
                         onPressed: isLoading ? null : _submit,

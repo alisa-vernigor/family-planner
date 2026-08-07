@@ -26,6 +26,8 @@ class TaskOccurrences extends Table {
   TextColumn get weekdays => text().nullable()(); // JSON array: '[1,3,5]'
   TextColumn get recurrenceStartDate => text().nullable()(); // ISO date
   TextColumn get recurrenceEndDate => text().nullable()(); // ISO date
+  IntColumn get reminderMinutesBefore => integer().nullable()(); // minutes before deadline/start
+  TextColumn get categoryId => text().nullable()(); // task_categories.id
 
   @override
   Set<Column> get primaryKey => {id};

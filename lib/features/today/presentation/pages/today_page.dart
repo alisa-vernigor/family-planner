@@ -92,6 +92,7 @@ final class _TodayViewState extends State<_TodayView>
   bool _isSelectionMode = false;
   TaskSortOption _sortOption = TaskSortOption.deadline;
   bool _sortAscending = true;
+  Map<String, TaskCategory> _categoriesById = {};
 
   @override
   void initState() {
@@ -103,6 +104,22 @@ final class _TodayViewState extends State<_TodayView>
       onChanged: _silentReload,
     );
     _loadTasks();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final categories = await context
+          .read<TaskCategoryRepository>()
+          .getForHousehold(widget.householdId);
+      if (mounted) {
+        setState(() {
+          _categoriesById = {for (final c in categories) c.id: c};
+        });
+      }
+    } catch (_) {
+      // Категории не критичны — список задач показываем без них.
+    }
   }
 
   @override
@@ -276,6 +293,71 @@ final class _TodayViewState extends State<_TodayView>
     }
   }
 
+  Future<void> _rescheduleTask(Task task) async {
+    final result = await showReschedulePicker(context: context, task: task);
+    if (result == null || !mounted) return;
+
+    final tasksCubit = context.read<TodayTasksCubit>();
+    final repository = context.read<TaskRepository>();
+    final useCase = RescheduleTaskUseCase(repository: repository);
+
+    // Оптимистичное обновление
+    final optimistic = task.copyWith(plannedFor: result.newPlannedFor);
+    tasksCubit.replaceTask(optimistic);
+
+    try {
+      await useCase.call(
+        task: task,
+        newDate: result.newPlannedFor,
+        scope: result.isSeries ? RecurrenceEditScope.all : null,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Задача перенесена на ${_formatRescheduleDate(result.newPlannedFor)}')),
+        );
+      }
+    } catch (exception, stackTrace) {
+      // Откат — перезагружаем
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось перенести задачу.')),
+      );
+      AppLogger.error('Ошибка переноса задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
+  String _formatRescheduleDate(DateTime value) {
+    return '${value.day.toString().padLeft(2, '0')}.${value.month.toString().padLeft(2, '0')}.${value.year}';
+  }
+
+  Future<void> _duplicateTask(Task task) async {
+    final repository = context.read<TaskRepository>();
+    final useCase = DuplicateTaskUseCase(repository: repository);
+
+    try {
+      final created = await useCase.call(task: task);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              created.isRecurring
+                  ? 'Серия скопирована.'
+                  : 'Задача скопирована.',
+            ),
+          ),
+        );
+      }
+    } catch (exception, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось скопировать задачу.')),
+      );
+      AppLogger.error('Ошибка дублирования задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
   void _toggleSelectionMode() {
     setState(() {
       _isSelectionMode = !_isSelectionMode;
@@ -432,6 +514,7 @@ final class _TodayViewState extends State<_TodayView>
                       currentMemberId: widget.currentMemberId,
                       isSelectionMode: _isSelectionMode,
                       selectedTaskIds: _selectedTaskIds,
+                      categoriesById: _categoriesById,
                       sortOption: _sortOption,
                       onSortChanged: (option) {
                         setState(() => _sortOption = option);
@@ -444,6 +527,8 @@ final class _TodayViewState extends State<_TodayView>
                             onDelete: _deleteTask,
                             onAssign: _assignTask,
                             onTogglePin: _togglePinTask,
+                            onReschedule: _rescheduleTask,
+                            onDuplicate: _duplicateTask,
                             onComplete: (task) {
                         if (_isSelectionMode) {
                           _toggleTaskSelection(task.id);

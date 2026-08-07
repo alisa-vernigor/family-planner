@@ -36,6 +36,7 @@ final class UpdateRecurringTaskParams extends Equatable {
     required this.scope,
     this.recurrenceStartDate,
     this.recurrenceEndDate,
+    this.newStartDate,
   });
 
   /// Экземпляр, с которого открыто редактирование.
@@ -53,12 +54,19 @@ final class UpdateRecurringTaskParams extends Equatable {
   /// Новая дата окончания повторения (если меняется).
   final DateTime? recurrenceEndDate;
 
+  /// Новая дата, на которую переносится серия (перенос через reschedule).
+  ///
+  /// Задаётся, когда пользователь переносит повторяющуюся задачу целиком —
+  /// тогда вся серия сдвигается на эту дату.
+  final DateTime? newStartDate;
+
   UpdateRecurringTaskParams copyWith({
     Task? task,
     TaskRecurrence? recurrence,
     RecurrenceEditScope? scope,
     Object? recurrenceStartDate = _sentinel,
     Object? recurrenceEndDate = _sentinel,
+    Object? newStartDate = _sentinel,
   }) {
     return UpdateRecurringTaskParams(
       task: task ?? this.task,
@@ -70,6 +78,9 @@ final class UpdateRecurringTaskParams extends Equatable {
       recurrenceEndDate: identical(recurrenceEndDate, _sentinel)
           ? this.recurrenceEndDate
           : recurrenceEndDate as DateTime?,
+      newStartDate: identical(newStartDate, _sentinel)
+          ? this.newStartDate
+          : newStartDate as DateTime?,
     );
   }
 
@@ -82,5 +93,6 @@ final class UpdateRecurringTaskParams extends Equatable {
     scope,
     recurrenceStartDate,
     recurrenceEndDate,
+    newStartDate,
   ];
 }

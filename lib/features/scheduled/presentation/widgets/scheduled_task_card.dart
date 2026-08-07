@@ -17,6 +17,9 @@ final class ScheduledTaskCard extends StatelessWidget {
     required this.onAssign,
     required this.onTogglePin,
     required this.onDelete,
+    this.onReschedule,
+    this.onDuplicate,
+    this.category,
     super.key,
   });
 
@@ -28,6 +31,9 @@ final class ScheduledTaskCard extends StatelessWidget {
   final VoidCallback onAssign;
   final VoidCallback onTogglePin;
   final VoidCallback onDelete;
+  final VoidCallback? onReschedule;
+  final VoidCallback? onDuplicate;
+  final TaskCategory? category;
 
   String? _assigneeName() {
     if (task.assignedMemberId == null) return null;
@@ -78,6 +84,10 @@ final class ScheduledTaskCard extends StatelessWidget {
                         onTogglePin();
                       case 'delete':
                         onDelete();
+                      case 'reschedule':
+                        onReschedule?.call();
+                      case 'duplicate':
+                        onDuplicate?.call();
                     }
                   },
                   itemBuilder: (_) => [
@@ -85,6 +95,16 @@ final class ScheduledTaskCard extends StatelessWidget {
                       value: 'edit',
                       child: Text('Редактировать'),
                     ),
+                    if (onReschedule != null)
+                      const PopupMenuItem(
+                        value: 'reschedule',
+                        child: Text('Перенести'),
+                      ),
+                    if (onDuplicate != null)
+                      const PopupMenuItem(
+                        value: 'duplicate',
+                        child: Text('Дублировать'),
+                      ),
                     PopupMenuItem(
                       value: 'assign',
                       child: Text(
@@ -122,6 +142,7 @@ final class ScheduledTaskCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 6,
               children: [
+                CategoryChip(category: category),
                 InfoChip(
                   icon: Icons.calendar_today_outlined,
                   label: formatDate(task.plannedFor),

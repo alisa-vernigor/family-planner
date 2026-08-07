@@ -1,22 +1,30 @@
 import 'package:drift/drift.dart';
 
 import 'tables/task_occurrences_table.dart';
+import 'tables/task_categories_table.dart';
+import 'tables/task_subtasks_table.dart';
 import 'tables/household_members_table.dart';
 import 'tables/sync_queue_table.dart';
 import 'daos/task_dao.dart';
 import 'daos/sync_queue_dao.dart';
 import 'daos/household_members_dao.dart';
+import 'daos/task_categories_dao.dart';
+import 'daos/task_subtasks_dao.dart';
 
 part 'app_database.g.dart';
 
 @DriftDatabase(
   tables: [
     TaskOccurrences,
+    TaskCategories,
+    TaskSubtasks,
     HouseholdMembers,
     SyncQueue,
   ],
   daos: [
     TaskDao,
+    TaskCategoriesDao,
+    TaskSubtasksDao,
     SyncQueueDao,
     HouseholdMembersDao,
   ],
@@ -25,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration {
@@ -44,6 +52,23 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(
             taskOccurrences,
             taskOccurrences.recurrenceEndDate,
+          );
+        }
+        if (from < 3) {
+          // Reminders: за сколько минут до дедлайна/начала прислать напоминание.
+          await migrator.addColumn(
+            taskOccurrences,
+            taskOccurrences.reminderMinutesBefore,
+          );
+        }
+        if (from < 4) {
+          // Категории и подзадачи: локальные кэши справочников.
+          await migrator.createTable(taskCategories);
+          await migrator.createTable(taskSubtasks);
+          // category_id на task_occurrences — ссылка на категорию задачи.
+          await migrator.addColumn(
+            taskOccurrences,
+            taskOccurrences.categoryId,
           );
         }
       },

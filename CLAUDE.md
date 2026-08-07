@@ -55,7 +55,7 @@ family-planner/
 │       ├── scheduled/     # Экран «Запланированные» (все будущие задачи)
 │       └── profile/       # Профиль (настройки, аватар, публичная страница со статистикой)
 ├── supabase/
-│   └── migrations/        # 7 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing)
+│   └── migrations/        # 8 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing → google_calendar_actions)
 ├── test/
 │   ├── app/               # Тесты App и AppBlocObserver
 │   ├── core/              # Тесты logging, database, sync
@@ -121,12 +121,15 @@ main.dart → FamilyPlannerApp → AuthGate
 `pause_task_template`, `resume_task_template`, `update_task_template`,
 `get_household_name_for_invitation`, `get_profile_stats`
 
+> **Примечание:** подзадачи (`task_subtasks`) и категории (`task_categories`)
+> читаются/пишутся напрямую через RLS — RPC для них не нужны.
+
 ### Offline-first (Drift + sync queue)
 
 - **Чтение** — из локального SQLite (`DriftTaskRepository`), при онлайне сначала фетч с Supabase в кэш.
 - **Запись** — сразу в локальную БД + `SyncQueueDao.enqueue(...)` с операцией. Когда интернет появится — `SyncProcessor.processPending()` реплеит очередь FIFO.
-- **Операции очереди**: `CREATE`, `UPDATE`, `DELETE`, `PATCH_STATUS`, `ADD_ALLOWED`, `REMOVE_ALLOWED`, `UPDATE_TEMPLATE` (обработка в `lib/core/sync/sync_processor.dart`).
-- **Ди** в `main.dart`: на нативных платформах `AppDatabase` (не null) → `DriftTaskRepository`; на web (null) → `SupabaseTaskRepository`. Выбор в `app.dart`.
+- **Операции очереди**: `CREATE`, `UPDATE`, `DELETE`, `PATCH_STATUS`, `ADD_ALLOWED`, `REMOVE_ALLOWED`, `UPDATE_TEMPLATE`, `SUBTASK_CREATE`, `SUBTASK_UPDATE`, `SUBTASK_DELETE` (обработка в `lib/core/sync/sync_processor.dart`).
+- **Ди** в `main.dart`: на нативных платформах `AppDatabase` (не null) → `DriftTaskRepository` / `DriftTaskSubtaskRepository` / `DriftTaskCategoryRepository`; на web (null) → `Supabase*`-аналоги. Выбор в `app.dart`.
 - **Realtime**: экраны подписываются на `task_occurrences`, debounce 1.5s → `_silentReload`. После редактирования серии из другого клиента изменения прилетят через realtime.
 
 ### Безопасность
@@ -169,6 +172,33 @@ main.dart → FamilyPlannerApp → AuthGate
 - Greedy-алгебра: нераспределённые задачи назначаются наименее загруженному члену семьи
 - Закреплённые задачи (pinned) не перераспределяются
 - Учитывается уже назначенная нагрузка в минутах
+
+### Напоминания (push)
+
+- Локальные push через `flutter_local_notifications` (v22) + `timezone`, сервис `ReminderService` (`lib/core/services/reminder_service.dart`).
+- `task_occurrences.reminder_minutes_before` — за сколько минут до дедлайна прислать напоминание (per-instance; `null` — без напоминания).
+- Для повторяющихся задач применяется только к первому экземпляру (RPC `create_recurring_task_template`).
+- `ReminderService.instance.initialize()` вызывается в `main.dart` после `HomeWidgetService.initialize()`.
+- Планирование/отмена встроены в cubit'ы: `CreateTaskCubit._scheduleReminder`, `UpdateTaskCubit._syncReminder`, `TaskActionsCubit` (delete/uncomplete), `TaskCompletionCubit` (complete). Сбой напоминания никогда не ломает CRUD задачи.
+- UI: `ReminderSelector` (widget) в Create/EditTaskSheet.
+- Android: в манифесте `POST_NOTIFICATIONS`, `RECEIVE_BOOT_COMPLETED`. Только Android/iOS (на web не поддерживается).
+
+### Подзадачи (subtasks)
+
+- Таблица `task_subtasks` (существовала с initial_schema, RLS даёт членам семьи прямой CRUD — RPC не нужны).
+- Домен: `TaskSubtask` (id, taskId, title, position, isCompleted, createdAt, completedAt). `copyWith` с `_Sentinel`, `toggle()`.
+- Репозитории: `TaskSubtaskRepository` → `DriftTaskSubtaskRepository` (offline-first через sync-очередь `SUBTASK_CREATE/UPDATE/DELETE`) или `SupabaseTaskSubtaskRepository` (web).
+- UI: `SubtaskEditor` (список, чекбоксы, добавление, удаление по свайпу, drag&drop) в `EditTaskSheet` (только для обычных задач, не серий).
+- **Подводный камень:** Drift-таблица `TaskSubtasks` генерирует row-класс `TaskSubtask`, конфликтующий с доменным — в drift-репозиториях доменный импорт алиасится (`as domain`).
+
+### Категории (categories)
+
+- Таблица `task_categories` (существовала с initial_schema, RLS — прямой CRUD).
+- `task_occurrences.category_id` / `task_templates.category_id` — ссылка на категорию (`ON DELETE SET NULL`).
+- Домен: `TaskCategory` (id, householdId, name, colorHex, iconName) + `category_color.dart` (палитра `kCategoryColorHexes`, `colorFromHex`, `categoryBackground`).
+- Репозитории: `TaskCategoryRepository` → `DriftTaskCategoryRepository` (кэш в SQLite, записи напрямую в Supabase, без offline-очереди) или `SupabaseTaskCategoryRepository` (web).
+- UI: `CategoryField` (поле в Create/EditTaskSheet с созданием новой), `CategoryChip` (цветной чип на карточках), `CategoryPicker` (bottom sheet). Категории загружаются на страницах (Today/Scheduled) и пробрасываются в карточки через `Map<String, TaskCategory> categoriesById`.
+- **Подводный камень:** в drift-репозитории категорий доменный `TaskCategory` алиасится (`as domain`), т.к. Drift row тоже называется `TaskCategory`.
 
 ### Аватары
 

@@ -32,6 +32,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
+          'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
           'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
@@ -65,6 +66,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
+          'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
           'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
@@ -97,6 +99,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
+          'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
           'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
@@ -138,6 +141,8 @@ final class SupabaseTaskRepository implements TaskRepository {
                   'p_planned_for': _dateOnly(params.plannedFor),
                   'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
                   'p_priority': params.priority?.value,
+                  'p_reminder_minutes_before': params.reminderMinutesBefore,
+                  'p_category_id': params.categoryId,
                 },
               )
               as Map<String, dynamic>;
@@ -195,6 +200,8 @@ final class SupabaseTaskRepository implements TaskRepository {
                     ? null
                     : _dateOnly(params.recurrenceEndDate!),
                 'p_priority': params.priority?.value,
+                'p_reminder_minutes_before': params.reminderMinutesBefore,
+                'p_category_id': params.categoryId,
               },
             )
             as Map<String, dynamic>;
@@ -221,6 +228,8 @@ final class SupabaseTaskRepository implements TaskRepository {
           'pinned_member_id': task.pinnedMemberId,
           'status': task.status.name,
           'priority': task.priority?.value,
+          'reminder_minutes_before': task.reminderMinutesBefore,
+          'category_id': task.categoryId,
           'completed_by_member_id': task.isCompleted
               ? task.assignedMemberId
               : null,
@@ -280,6 +289,10 @@ final class SupabaseTaskRepository implements TaskRepository {
         'p_assigned_member_id': task.assignedMemberId,
         'p_pinned_member_id': task.pinnedMemberId,
         'p_add_allowed_member_ids': task.allowedMemberIds,
+        'p_new_start_date': params.newStartDate == null
+            ? null
+            : _dateOnly(params.newStartDate!),
+        'p_category_id': task.categoryId,
       },
     );
   }
@@ -368,6 +381,8 @@ final class SupabaseTaskRepository implements TaskRepository {
       completedAt: _parseNullableDateTime(row['completed_at']),
       updatedAt: _parseNullableDateTime(row['updated_at']),
       priority: EisenhowerPriority.fromValue(row['priority'] as int?),
+      reminderMinutesBefore: row['reminder_minutes_before'] as int?,
+      categoryId: row['category_id'] as String?,
     );
   }
 
@@ -398,6 +413,8 @@ final class SupabaseTaskRepository implements TaskRepository {
       recurrence: _recurrenceFromRow(rawTemplate),
       recurrenceStartDate: _parseNullableDate(rawTemplate?['recurrence_start_date']),
       recurrenceEndDate: _parseNullableDate(rawTemplate?['recurrence_end_date']),
+      reminderMinutesBefore: row['reminder_minutes_before'] as int?,
+      categoryId: row['category_id'] as String?,
     );
   }
 

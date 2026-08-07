@@ -5,7 +5,10 @@ import 'package:family_planner/features/households/domain/entities/household_mem
 import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_category.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/filter_chip.dart';
+
+import 'category_chip.dart';
 
 final class TaskCard extends StatelessWidget {
   const TaskCard({
@@ -18,6 +21,9 @@ final class TaskCard extends StatelessWidget {
     required this.onDelete,
     required this.onAssign,
     this.onTogglePin,
+    this.onReschedule,
+    this.onDuplicate,
+    this.category,
     this.isSelected = false,
     this.onLongPress,
     this.onSwipeComplete,
@@ -35,6 +41,9 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback onAssign;
   final VoidCallback? onTogglePin;
+  final VoidCallback? onReschedule;
+  final VoidCallback? onDuplicate;
+  final TaskCategory? category;
   final bool isSelected;
   final VoidCallback? onLongPress;
   final VoidCallback? onSwipeComplete;
@@ -167,6 +176,10 @@ final class TaskCard extends StatelessWidget {
                         onAssign();
                       case 'pin':
                         onTogglePin?.call();
+                      case 'reschedule':
+                        onReschedule?.call();
+                      case 'duplicate':
+                        onDuplicate?.call();
                     }
                   },
                   itemBuilder: (context) => [
@@ -177,6 +190,22 @@ final class TaskCard extends StatelessWidget {
                         label: 'Редактировать',
                       ),
                     ),
+                    if (onReschedule != null)
+                      const PopupMenuItem(
+                        value: 'reschedule',
+                        child: _MenuRow(
+                          icon: Icons.event_outlined,
+                          label: 'Перенести',
+                        ),
+                      ),
+                    if (onDuplicate != null)
+                      const PopupMenuItem(
+                        value: 'duplicate',
+                        child: _MenuRow(
+                          icon: Icons.copy_outlined,
+                          label: 'Дублировать',
+                        ),
+                      ),
                     PopupMenuItem(
                       value: 'assign',
                       child: _MenuRow(
@@ -215,6 +244,7 @@ final class TaskCard extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 6,
                 children: [
+                  CategoryChip(category: category),
                   InfoChip(
                     icon: Icons.timer_outlined,
                     label: '${task.estimatedDurationMinutes} мин',

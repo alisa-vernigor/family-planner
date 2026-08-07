@@ -12,9 +12,15 @@ import 'package:family_planner/features/auth/presentation/pages/auth_gate.dart';
 import 'package:family_planner/features/households/data/repositories/supabase_household_repository.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
+import 'package:family_planner/features/tasks/data/repositories/drift_task_category_repository.dart';
 import 'package:family_planner/features/tasks/data/repositories/drift_task_repository.dart';
+import 'package:family_planner/features/tasks/data/repositories/drift_task_subtask_repository.dart';
+import 'package:family_planner/features/tasks/data/repositories/supabase_task_category_repository.dart';
 import 'package:family_planner/features/tasks/data/repositories/supabase_task_repository.dart';
+import 'package:family_planner/features/tasks/data/repositories/supabase_task_subtask_repository.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_category_repository.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_subtask_repository.dart';
 import 'package:family_planner/core/database/app_database.dart';
 import 'package:family_planner/core/services/connectivity_service.dart';
 import 'package:family_planner/core/sync/sync_cubit.dart';
@@ -56,11 +62,41 @@ final class FamilyPlannerApp extends StatelessWidget {
       taskRepository = SupabaseTaskRepository(client: client);
     }
 
+    // Подзадачи: offline-first через Drift на нативных, напрямую на web.
+    final TaskSubtaskRepository subtaskRepository;
+    if (database != null) {
+      subtaskRepository = DriftTaskSubtaskRepository(
+        database: database!,
+        supabaseClient: client,
+        connectivityService: connectivityService,
+      );
+    } else {
+      subtaskRepository = SupabaseTaskSubtaskRepository(client: client);
+    }
+
+    // Категории: справочные данные, кэшируются в Drift, пишутся напрямую.
+    final TaskCategoryRepository categoryRepository;
+    if (database != null) {
+      categoryRepository = DriftTaskCategoryRepository(
+        database: database!,
+        supabaseClient: client,
+        connectivityService: connectivityService,
+      );
+    } else {
+      categoryRepository = SupabaseTaskCategoryRepository(client: client);
+    }
+
     final profileRepository = SupabaseProfileRepository(client: client);
 
     return MultiRepositoryProvider(
       providers: [
         RepositoryProvider<TaskRepository>.value(value: taskRepository),
+        RepositoryProvider<TaskSubtaskRepository>.value(
+          value: subtaskRepository,
+        ),
+        RepositoryProvider<TaskCategoryRepository>.value(
+          value: categoryRepository,
+        ),
         RepositoryProvider<HouseholdRepository>.value(
           value: householdRepository,
         ),

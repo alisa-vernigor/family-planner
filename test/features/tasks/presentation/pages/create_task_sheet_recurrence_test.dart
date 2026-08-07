@@ -6,8 +6,11 @@ import 'package:family_planner/features/households/domain/entities/household.dar
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/tasks/domain/entities/create_task_category_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_category.dart';
+import 'package:family_planner/features/tasks/domain/repositories/task_category_repository.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_cubit.dart';
@@ -18,16 +21,19 @@ void main() {
   Widget buildSubject() {
     return MaterialApp(
       home: Scaffold(
-        body: BlocProvider(
-          create: (_) => CreateTaskCubit(
-            createTaskUseCase: CreateTaskUseCase(
-              repository: _FakeTaskRepository(),
+        body: RepositoryProvider<TaskCategoryRepository>(
+          create: (_) => _FakeTaskCategoryRepository(),
+          child: BlocProvider(
+            create: (_) => CreateTaskCubit(
+              createTaskUseCase: CreateTaskUseCase(
+                repository: _FakeTaskRepository(),
+              ),
             ),
-          ),
-          child: CreateTaskSheet(
-            householdId: 'household-1',
-            plannedFor: DateTime(2026, 7, 19),
-            householdRepository: _FakeHouseholdRepository(),
+            child: CreateTaskSheet(
+              householdId: 'household-1',
+              plannedFor: DateTime(2026, 7, 19),
+              householdRepository: _FakeHouseholdRepository(),
+            ),
           ),
         ),
       ),
@@ -204,4 +210,22 @@ final class _FakeHouseholdRepository implements HouseholdRepository {
     required String householdId,
     required String name,
   }) async {}
+}
+
+final class _FakeTaskCategoryRepository implements TaskCategoryRepository {
+  @override
+  Future<List<TaskCategory>> getForHousehold(String householdId) async {
+    return const [];
+  }
+
+  @override
+  Future<TaskCategory> create(CreateTaskCategoryParams params) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> update(TaskCategory category) async {}
+
+  @override
+  Future<void> delete(String categoryId) async {}
 }

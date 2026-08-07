@@ -17,6 +17,8 @@ final class CreateTaskParams extends Equatable {
     this.recurrenceStartDate,
     this.recurrenceEndDate,
     this.priority,
+    this.reminderMinutesBefore,
+    this.categoryId,
   });
 
   final String householdId;
@@ -39,6 +41,13 @@ final class CreateTaskParams extends Equatable {
   /// Необязательная дата, после которой повторы больше не создаются.
   final DateTime? recurrenceEndDate;
 
+  /// За сколько минут до дедлайна/начала прислать напоминание.
+  /// `null` — без напоминания.
+  final int? reminderMinutesBefore;
+
+  /// ID категории задачи. `null` — без категории.
+  final String? categoryId;
+
   bool get isRecurring => recurrence != null;
 
   @override
@@ -55,5 +64,7 @@ final class CreateTaskParams extends Equatable {
     recurrenceStartDate,
     recurrenceEndDate,
     priority,
+    reminderMinutesBefore,
+    categoryId,
   ];
 }

@@ -113,6 +113,7 @@ class DriftTaskRepository implements TaskRepository {
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
+          'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
           'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
@@ -131,6 +132,7 @@ class DriftTaskRepository implements TaskRepository {
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
+          'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
           'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
@@ -150,6 +152,7 @@ class DriftTaskRepository implements TaskRepository {
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
+          'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
           'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
@@ -215,6 +218,8 @@ class DriftTaskRepository implements TaskRepository {
         recurrenceEndDate: Value(
           rawTemplate?['recurrence_end_date'] as String?,
         ),
+        reminderMinutesBefore: Value(row['reminder_minutes_before'] as int?),
+        categoryId: Value(row['category_id'] as String?),
       ));
     }
 
@@ -251,6 +256,8 @@ class DriftTaskRepository implements TaskRepository {
       completedAt: null,
       updatedAt: now,
       priority: params.priority,
+      reminderMinutesBefore: params.reminderMinutesBefore,
+      categoryId: params.categoryId,
     );
 
     // Write to local DB
@@ -270,6 +277,8 @@ class DriftTaskRepository implements TaskRepository {
       updatedAt: Value(_toIso(now)),
       priority: Value(params.priority?.value),
       allowedMemberIds: Value(jsonEncode(domainTask.allowedMemberIds)),
+      reminderMinutesBefore: Value(params.reminderMinutesBefore),
+      categoryId: Value(params.categoryId),
     ));
 
     // Enqueue sync operation
@@ -282,6 +291,7 @@ class DriftTaskRepository implements TaskRepository {
       'p_planned_for': plannedForStr,
       'p_deadline_at': _toIso(params.deadline),
       'p_priority': params.priority?.value,
+      'p_category_id': params.categoryId,
       'is_recurring': params.isRecurring,
     };
 
@@ -327,6 +337,8 @@ class DriftTaskRepository implements TaskRepository {
       updatedAt: Value(_toIso(now)),
       priority: Value(task.priority?.value),
       allowedMemberIds: Value(jsonEncode(task.allowedMemberIds)),
+      reminderMinutesBefore: Value(task.reminderMinutesBefore),
+      categoryId: Value(task.categoryId),
     ));
 
     await _syncQueueDao.enqueue(
@@ -380,6 +392,10 @@ class DriftTaskRepository implements TaskRepository {
         'p_assigned_member_id': task.assignedMemberId,
         'p_pinned_member_id': task.pinnedMemberId,
         'p_add_allowed_member_ids': task.allowedMemberIds,
+        'p_new_start_date': params.newStartDate == null
+            ? null
+            : _dateOnly(params.newStartDate!),
+        'p_category_id': task.categoryId,
       },
     );
 
@@ -535,6 +551,8 @@ class DriftTaskRepository implements TaskRepository {
       weekdays: Value(jsonEncode(task.recurrence?.weekdays ?? const [])),
       recurrenceStartDate: Value(_toIso(task.recurrenceStartDate)),
       recurrenceEndDate: Value(_toIso(task.recurrenceEndDate)),
+      reminderMinutesBefore: Value(task.reminderMinutesBefore),
+      categoryId: Value(task.categoryId),
     );
   }
 
@@ -569,6 +587,8 @@ class DriftTaskRepository implements TaskRepository {
       ),
       recurrenceStartDate: _parseDt(row.recurrenceStartDate),
       recurrenceEndDate: _parseDt(row.recurrenceEndDate),
+      reminderMinutesBefore: row.reminderMinutesBefore,
+      categoryId: row.categoryId,
     );
   }
 
@@ -626,6 +646,7 @@ class DriftTaskRepository implements TaskRepository {
       updatedAt: Value(_toIso(task.updatedAt)),
       priority: Value(task.priority?.value),
       allowedMemberIds: Value(jsonEncode(task.allowedMemberIds)),
+      reminderMinutesBefore: Value(task.reminderMinutesBefore),
     )).toList();
 
     await _taskDao.upsertTasks(companions);
