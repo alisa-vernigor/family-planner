@@ -2,26 +2,36 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
     android:background="@drawable/widget_item_bg"
-    android:padding="12dp"
-    android:gravity="center_vertical">
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="12dp"
+    android:paddingVertical="10dp"
+    android:layout_marginVertical="2.5dp"
+    android:layout_marginHorizontal="2dp">
 
+    <!-- Checkbox indicator -->
     <TextView
         android:id="@+id/task_checkbox"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:text="☐"
-        android:textColor="@color/checkbox_unchecked" />
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:gravity="center"
+        android:textSize="18sp"
+        android:textColor="@color/checkbox_unchecked"
+        android:background="@drawable/checkbox_bg"
+        android:text="☐" />
 
+    <!-- Task title -->
     <TextView
         android:id="@+id/task_title"
         android:layout_width="0dp"
         android:layout_weight="1"
         android:layout_height="wrap_content"
-        android:textSize="15sp"
-        android:paddingStart="12dp"
-        android:textColor="@color/task_title" />
+        android:paddingStart="10dp"
+        android:paddingEnd="4dp"
+        android:textSize="14sp"
+        android:lineSpacingExtra="2sp"
+        android:textColor="@color/task_title"
+        android:maxLines="2"
+        android:ellipsize="end" />
 </LinearLayout>

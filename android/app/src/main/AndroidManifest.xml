@@ -48,6 +48,14 @@
                        android:resource="@xml/tasks_widget_info" />
         </receiver>
 
+        <!-- Нативный receiver для обработки тапов по задачам в виджете.
+             Вместо HomeWidgetBackgroundReceiver (который запускает тяжеловесный
+             Flutter engine через WorkManager), этот receiver дёргает Supabase
+             REST API напрямую — быстро и надёжно. -->
+        <receiver android:name=".TasksWidgetActionReceiver" android:exported="true" />
+
+        <!-- OLD: Запасной receiver/service через WorkManager + Flutter engine.
+             Можно удалить, если виджет стабильно работает через TaskWidgetActionReceiver. -->
         <receiver android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="es.antonborri.home_widget.action.BACKGROUND" />

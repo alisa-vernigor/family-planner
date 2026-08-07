@@ -2,6 +2,7 @@ package com.allisyonok.family_planner
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Paint
 import android.net.Uri
 import android.widget.RemoteViews
 import android.widget.RemoteViewsService
@@ -42,20 +43,34 @@ class TasksRemoteViewsFactory(private val context: Context) : RemoteViewsService
         val memberId = task.getString("memberId")
 
         val rv = RemoteViews(context.packageName, R.layout.tasks_widget_item)
-        rv.setTextViewText(R.id.task_title, title)
 
         if (isCompleted) {
-            rv.setTextViewText(R.id.task_checkbox, "☑")
+            // Выполненная задача: зачёркнутый текст + галочка
+            rv.setTextViewText(R.id.task_checkbox, "✓")
             rv.setTextColor(R.id.task_checkbox, context.getColor(R.color.checkbox_checked))
+            rv.setTextViewText(R.id.task_title, title)
             rv.setTextColor(R.id.task_title, context.getColor(R.color.task_title_completed))
+            rv.setInt(R.id.task_title, "setPaintFlags",
+                Paint.STRIKE_THRU_TEXT_FLAG or Paint.ANTI_ALIAS_FLAG)
         } else {
+            // Активная задача
             rv.setTextViewText(R.id.task_checkbox, "☐")
             rv.setTextColor(R.id.task_checkbox, context.getColor(R.color.checkbox_unchecked))
+            rv.setTextViewText(R.id.task_title, title)
             rv.setTextColor(R.id.task_title, context.getColor(R.color.task_title))
+            rv.setInt(R.id.task_title, "setPaintFlags", Paint.ANTI_ALIAS_FLAG)
         }
 
+        // Fill-in Intent для TasksWidgetActionReceiver
+        // URI разбирается в onReceive по query-параметрам
         val fillInIntent = Intent().apply {
-            data = Uri.parse("familyplanner://task/toggle?id=$id&status=${if (isCompleted) "completed" else "pending"}&householdId=$householdId&memberId=$memberId")
+            data = Uri.parse(
+                "familyplanner://task/toggle" +
+                    "?id=$id" +
+                    "&status=${if (isCompleted) "completed" else "pending"}" +
+                    "&householdId=$householdId" +
+                    "&memberId=$memberId"
+            )
         }
         rv.setOnClickFillInIntent(R.id.task_checkbox, fillInIntent)
         rv.setOnClickFillInIntent(R.id.task_title, fillInIntent)

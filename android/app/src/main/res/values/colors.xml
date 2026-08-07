@@ -7,15 +7,22 @@
 <resources>
     <!-- Surface & Background -->
     <color name="widget_background">#FFFBFE</color>
-    <color name="widget_item_background">#F8F2FA</color>
+    <color name="widget_item_background">#F3EDF7</color>
+
+    <!-- Accent header -->
+    <color name="widget_header_bar">#6759A0</color>
 
     <!-- Text -->
     <color name="widget_header">#1C1B1F</color>
     <color name="widget_empty_text">#7A7582</color>
     <color name="task_title">#1C1B1F</color>
-    <color name="task_title_completed">#7A7582</color>
+    <color name="task_title_completed">#938F99</color>
 
     <!-- Checkbox -->
     <color name="checkbox_unchecked">#6759A0</color>
     <color name="checkbox_checked">#6759A0</color>
+    <color name="checkbox_border">#C8B8D8</color>
+
+    <!-- Dividers -->
+    <color name="widget_divider">#E6E0E9</color>
 </resources>

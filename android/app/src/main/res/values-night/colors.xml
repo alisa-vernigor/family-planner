@@ -8,6 +8,9 @@
     <color name="widget_background">#1C1B1F</color>
     <color name="widget_item_background">#2B2930</color>
 
+    <!-- Accent header -->
+    <color name="widget_header_bar">#D0BCFF</color>
+
     <!-- Text -->
     <color name="widget_header">#E6E1E5</color>
     <color name="widget_empty_text">#938F99</color>
@@ -17,4 +20,8 @@
     <!-- Checkbox -->
     <color name="checkbox_unchecked">#D0BCFF</color>
     <color name="checkbox_checked">#D0BCFF</color>
+    <color name="checkbox_border">#4A4458</color>
+
+    <!-- Dividers -->
+    <color name="widget_divider">#3F3849</color>
 </resources>
