@@ -106,6 +106,9 @@ class SyncProcessor {
     switch (entry.operation) {
       case 'CREATE':
         await _supabase.rpc('create_task_occurrence', params: payload);
+      case 'UPDATE_TEMPLATE':
+        // Обновление повторяющейся задачи: RPC с областью применения.
+        await _supabase.rpc('update_task_template', params: payload);
       case 'UPDATE':
         await _supabase
             .from('task_occurrences')

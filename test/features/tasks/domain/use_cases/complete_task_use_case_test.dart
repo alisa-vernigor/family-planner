@@ -5,6 +5,7 @@ import 'package:family_planner/features/tasks/domain/entities/create_task_params
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/complete_task_use_case.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   late FakeTaskRepository repository;
@@ -79,6 +80,11 @@ void main() {
 }
 
 final class FakeTaskRepository implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   final List<Task> savedTasks = [];
   String? lastStatusPatched;
   String? lastCompletedByPatched;

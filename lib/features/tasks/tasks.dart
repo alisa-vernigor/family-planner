@@ -12,6 +12,7 @@ export 'domain/entities/task.dart';
 export 'domain/entities/task_recurrence.dart';
 export 'domain/entities/task_sort_option.dart';
 export 'domain/entities/task_status.dart';
+export 'domain/entities/update_recurring_task_params.dart';
 export 'domain/repositories/task_repository.dart';
 export 'domain/services/task_schedule.dart';
 
@@ -46,5 +47,7 @@ export 'presentation/widgets/assignee_picker.dart';
 export 'presentation/widgets/eisenhower_matrix_view.dart';
 export 'presentation/widgets/filter_chip.dart';
 export 'presentation/widgets/priority_selector.dart';
+export 'presentation/widgets/recurrence_editor.dart';
+export 'presentation/widgets/recurrence_edit_scope_dialog.dart';
 export 'presentation/widgets/sort_selector.dart';
 export 'presentation/widgets/task_card.dart';

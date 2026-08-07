@@ -1,0 +1,6 @@
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "START-UP PACKAGE (Family Planner) — прочитай, чтобы не переисследовать код:\n- Карты проекта (уже в контексте, но читай их ПЕРЕД grep): корневой CLAUDE.md (стек/БД/конвенции/чеклист), lib/core/CLAUDE.md (Drift-миграции, offline-first), lib/app/CLAUDE.md (DI/navigation), lib/features/*/CLAUDE.md (карта каждой фичи).\n- ПРАВИЛО ОБЯЗАТЕЛЬНОЕ: если изменяешь архитектуру (интерфейс TaskRepository, Drift-таблицы, RPC, DI, новые сущности) — В ТОМ ЖЕ ЗАХОДЕ обнови соответствующий CLAUDE.md. Изменил код и не обновил документацию = незаконченная работа.\n- Известные подводные камни: (1) Task.copyWith использует _Sentinel для nullable-полей; (2) изменение TaskRepository ломает ~14 ручных тестовых фейков (список в корневом CLAUDE.md), mocktail-моки не трогать; (3) Drift: колонка = таблица + schemaVersion++ + onUpgrade + build_runner + все Companion(); (4) dart analyze запускать из корня проекта.\n- Частые команды: /verify (анализ + тесты), /drift-regenerate (build_runner), /coverage (make coverage), /quickstart (сводка проекта).\n- Повторяющиеся задачи (recurring): шаблон task_templates ↔ экземпляры task_occurrences, редактирование через scope-выбор (3 опции как в Google Calendar) → RPC update_task_template. Карта в lib/features/tasks/CLAUDE.md."
+  }
+}

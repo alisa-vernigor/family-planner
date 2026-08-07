@@ -1,5 +1,6 @@
 import '../entities/create_task_params.dart';
 import '../entities/task.dart';
+import '../entities/update_recurring_task_params.dart';
 
 abstract interface class TaskRepository {
   Future<List<Task>> getForDay({
@@ -20,6 +21,12 @@ abstract interface class TaskRepository {
   Future<Task> create({required CreateTaskParams params});
 
   Future<void> save(Task task);
+
+  /// Обновляет повторяющуюся задачу (шаблон серии + экземпляры)
+  /// с учётом выбранной области применения (только эта / эта и последующие / все).
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  });
 
   /// Быстрая смена статуса (complete/uncomplete).
   /// Отправляет 3 поля вместо 11 — для самого частого действия.

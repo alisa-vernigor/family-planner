@@ -7,6 +7,7 @@ import 'package:family_planner/features/tasks/domain/repositories/task_repositor
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_state.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   final task = Task(
@@ -62,6 +63,11 @@ void main() {
 }
 
 final class _FakeTaskRepository implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   _FakeTaskRepository({this.shouldThrowOnSave = false});
 
   final bool shouldThrowOnSave;

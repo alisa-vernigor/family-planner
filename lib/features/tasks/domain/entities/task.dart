@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'eisenhower_priority.dart';
+import 'task_recurrence.dart';
 import 'task_status.dart';
 
 final class Task extends Equatable {
@@ -20,6 +21,10 @@ final class Task extends Equatable {
     this.completedAt,
     this.updatedAt,
     this.priority,
+    this.templateId,
+    this.recurrence,
+    this.recurrenceStartDate,
+    this.recurrenceEndDate,
   });
 
   final String id;
@@ -37,6 +42,21 @@ final class Task extends Equatable {
   final DateTime? completedAt;
   final DateTime? updatedAt;
   final EisenhowerPriority? priority;
+
+  /// ID шаблона серии повторяющейся задачи.
+  /// `null` — обычная одноразовая задача.
+  final String? templateId;
+
+  /// Расписание повторения (если задача из серии).
+  final TaskRecurrence? recurrence;
+
+  /// Дата начала повторения (из шаблона).
+  final DateTime? recurrenceStartDate;
+
+  /// Дата окончания повторения (из шаблона), `null` — бессрочно.
+  final DateTime? recurrenceEndDate;
+
+  bool get isRecurring => templateId != null && recurrence != null;
 
   bool get isCompleted => status == TaskStatus.completed;
 
@@ -87,6 +107,10 @@ final class Task extends Equatable {
     DateTime? createdAt,
     Object? completedAt = _sentinel,
     Object? priority = _sentinel,
+    Object? templateId = _sentinel,
+    Object? recurrence = _sentinel,
+    Object? recurrenceStartDate = _sentinel,
+    Object? recurrenceEndDate = _sentinel,
   }) {
     return Task(
       id: id ?? this.id,
@@ -107,8 +131,20 @@ final class Task extends Equatable {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       completedAt: identical(completedAt, _sentinel) ? this.completedAt : completedAt as DateTime?,
-      updatedAt: this.updatedAt,
+      updatedAt: updatedAt,
       priority: identical(priority, _sentinel) ? this.priority : priority as EisenhowerPriority?,
+      templateId: identical(templateId, _sentinel)
+          ? this.templateId
+          : templateId as String?,
+      recurrence: identical(recurrence, _sentinel)
+          ? this.recurrence
+          : recurrence as TaskRecurrence?,
+      recurrenceStartDate: identical(recurrenceStartDate, _sentinel)
+          ? this.recurrenceStartDate
+          : recurrenceStartDate as DateTime?,
+      recurrenceEndDate: identical(recurrenceEndDate, _sentinel)
+          ? this.recurrenceEndDate
+          : recurrenceEndDate as DateTime?,
     );
   }
 
@@ -132,6 +168,10 @@ final class Task extends Equatable {
       completedAt,
       updatedAt,
       priority,
+      templateId,
+      recurrence,
+      recurrenceStartDate,
+      recurrenceEndDate,
     ];
   }
 }

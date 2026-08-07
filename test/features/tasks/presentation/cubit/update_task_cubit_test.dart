@@ -3,11 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_state.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   final task = Task(
@@ -76,15 +78,77 @@ void main() {
       act: (cubit) => cubit.reset(),
       expect: () => [const UpdateTaskInitial()],
     );
+
+    blocTest<UpdateTaskCubit, UpdateTaskState>(
+      'updateTemplate emits [InProgress, Success] and calls repository',
+      build: () => cubit,
+      act: (cubit) => cubit.updateTemplate(
+        params: UpdateRecurringTaskParams(
+          task: task,
+          recurrence: const TaskRecurrence.weekly(weekdays: [1, 3, 5]),
+          scope: RecurrenceEditScope.thisAndFollowing,
+          recurrenceStartDate: DateTime(2026, 7, 22),
+        ),
+      ),
+      expect: () => [
+        const UpdateTaskInProgress(),
+        UpdateTaskSuccess(task: task),
+      ],
+      verify: (_) {
+        expect(
+          (repository as _FakeTaskRepository).updateTemplateCalls,
+          1,
+        );
+      },
+    );
+
+    blocTest<UpdateTaskCubit, UpdateTaskState>(
+      'updateTemplate emits [InProgress, Failure] on exception',
+      build: () {
+        final repo = _FakeTaskRepository(shouldThrowOnUpdateTemplate: true);
+        return UpdateTaskCubit(
+          updateTaskUseCase: UpdateTaskUseCase(repository: repo),
+        );
+      },
+      act: (cubit) => cubit.updateTemplate(
+        params: UpdateRecurringTaskParams(
+          task: task,
+          recurrence: const TaskRecurrence.daily(),
+          scope: RecurrenceEditScope.all,
+          recurrenceStartDate: DateTime(2026, 7, 22),
+        ),
+      ),
+      expect: () => const [
+        UpdateTaskInProgress(),
+        UpdateTaskFailure(
+          message: 'Не удалось сохранить изменения повторяющейся задачи.',
+        ),
+      ],
+    );
   });
 }
 
 final class _FakeTaskRepository implements TaskRepository {
-  _FakeTaskRepository({this.shouldThrowOnSave = false});
+  _FakeTaskRepository({
+    this.shouldThrowOnSave = false,
+    this.shouldThrowOnUpdateTemplate = false,
+  });
 
   final bool shouldThrowOnSave;
+  final bool shouldThrowOnUpdateTemplate;
 
   Task? savedTask;
+  int updateTemplateCalls = 0;
+
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {
+    updateTemplateCalls++;
+    if (shouldThrowOnUpdateTemplate) {
+      throw Exception('Ошибка сети');
+    }
+  }
 
   @override
   Future<Task> create({required CreateTaskParams params}) {

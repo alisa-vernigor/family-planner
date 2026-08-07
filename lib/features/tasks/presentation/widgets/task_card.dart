@@ -220,6 +220,12 @@ final class TaskCard extends StatelessWidget {
                     label: '${task.estimatedDurationMinutes} мин',
                     color: cs.tertiary,
                   ),
+                  if (task.isRecurring)
+                    InfoChip(
+                      icon: Icons.repeat_outlined,
+                      label: 'Повтор',
+                      color: cs.tertiary,
+                    ),
                   if (task.isPinned)
                     InfoChip(
                       icon: Icons.push_pin,

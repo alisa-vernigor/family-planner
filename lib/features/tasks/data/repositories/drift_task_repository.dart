@@ -12,7 +12,9 @@ import 'package:family_planner/core/services/connectivity_service.dart';
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 
 /// Drift-backed implementation of [TaskRepository] with offline-first support.
@@ -111,7 +113,9 @@ class DriftTaskRepository implements TaskRepository {
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
-          'task_occurrence_allowed_members(profile_id)',
+          'template_id, '
+          'task_occurrence_allowed_members(profile_id), '
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
         )
         .eq('household_id', householdId)
         .eq('planned_for', _dateOnly(day));
@@ -127,7 +131,9 @@ class DriftTaskRepository implements TaskRepository {
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
-          'task_occurrence_allowed_members(profile_id)',
+          'template_id, '
+          'task_occurrence_allowed_members(profile_id), '
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
         )
         .eq('household_id', householdId)
         .gte('planned_for', _dateOnly(startOfTomorrow))
@@ -144,7 +150,9 @@ class DriftTaskRepository implements TaskRepository {
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
-          'task_occurrence_allowed_members(profile_id)',
+          'template_id, '
+          'task_occurrence_allowed_members(profile_id), '
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
         )
         .eq('household_id', householdId)
         .neq('status', 'completed')
@@ -173,6 +181,13 @@ class DriftTaskRepository implements TaskRepository {
           .toList() ??
           <String>[];
 
+      final rawTemplate =
+          row['task_templates'] as Map<String, dynamic>?;
+      final recurrenceType =
+          rawTemplate?['recurrence_type'] as String?;
+      final weekdaysRaw =
+          rawTemplate?['weekdays'] as List<dynamic>? ?? const [];
+
       companions.add(TaskOccurrencesCompanion(
         id: Value(id),
         householdId: Value(row['household_id'] as String),
@@ -190,6 +205,16 @@ class DriftTaskRepository implements TaskRepository {
         updatedAt: Value(row['updated_at'] as String?),
         priority: Value(row['priority'] as int?),
         allowedMemberIds: Value(jsonEncode(allowedRaw)),
+        templateId: Value(row['template_id'] as String?),
+        recurrenceType: Value(recurrenceType),
+        intervalDays: Value(rawTemplate?['interval_days'] as int?),
+        weekdays: Value(jsonEncode(weekdaysRaw)),
+        recurrenceStartDate: Value(
+          rawTemplate?['recurrence_start_date'] as String?,
+        ),
+        recurrenceEndDate: Value(
+          rawTemplate?['recurrence_end_date'] as String?,
+        ),
       ));
     }
 
@@ -311,6 +336,54 @@ class DriftTaskRepository implements TaskRepository {
       householdId: task.householdId,
       payload: {'base_updated_at': _toIso(task.updatedAt)},
     );
+  }
+
+  // ── UPDATE TEMPLATE (recurring series) ───────────────────
+
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {
+    final task = params.task;
+    final now = DateTime.now();
+
+    // Оптимистично обновляем локальный экземпляр (метаданные + расписание).
+    await _taskDao.upsertTask(
+      _companionFromTask(task).copyWith(updatedAt: Value(_toIso(now))),
+    );
+
+    await _syncQueueDao.enqueue(
+      entityType: 'task_occurrence',
+      operation: 'UPDATE_TEMPLATE',
+      entityId: task.id,
+      householdId: task.householdId,
+      payload: {
+        'p_task_occurrence_id': task.id,
+        'p_scope': params.scope.databaseValue,
+        'p_title': task.title,
+        'p_description': task.description ?? '',
+        'p_estimated_duration_minutes': task.estimatedDurationMinutes,
+        'p_deadline_time': task.deadline == null
+            ? null
+            : '${task.deadline!.hour.toString().padLeft(2, '0')}:'
+                  '${task.deadline!.minute.toString().padLeft(2, '0')}:00',
+        'p_recurrence_type': params.recurrence.type.databaseValue,
+        'p_interval_days': params.recurrence.intervalDays,
+        'p_weekdays': params.recurrence.weekdays,
+        'p_start_date': params.recurrenceStartDate == null
+            ? null
+            : _dateOnly(params.recurrenceStartDate!),
+        'p_end_date': params.recurrenceEndDate == null
+            ? null
+            : _dateOnly(params.recurrenceEndDate!),
+        'p_priority': task.priority?.value,
+        'p_assigned_member_id': task.assignedMemberId,
+        'p_pinned_member_id': task.pinnedMemberId,
+        'p_add_allowed_member_ids': task.allowedMemberIds,
+      },
+    );
+
+    AppLogger.info('Template update queued for task: ${task.id}');
   }
 
   // ── PATCH STATUS ─────────────────────────────────────────
@@ -438,6 +511,33 @@ class DriftTaskRepository implements TaskRepository {
 
   // ── Converters ───────────────────────────────────────────
 
+  /// Строит companion из доменного [Task], сохраняя recurrence-поля серии.
+  TaskOccurrencesCompanion _companionFromTask(Task task) {
+    return TaskOccurrencesCompanion(
+      id: Value(task.id),
+      householdId: Value(task.householdId),
+      title: Value(task.title),
+      description: Value(task.description),
+      estimatedDurationMinutes: Value(task.estimatedDurationMinutes),
+      plannedFor: Value(_dateOnly(task.plannedFor)),
+      deadline: Value(_toIso(task.deadline)),
+      assignedMemberId: Value(task.assignedMemberId),
+      pinnedMemberId: Value(task.pinnedMemberId),
+      status: Value(task.status.name),
+      createdAt: Value(_toIso(task.createdAt)!),
+      completedAt: Value(_toIso(task.completedAt)),
+      updatedAt: Value(_toIso(task.updatedAt)),
+      priority: Value(task.priority?.value),
+      allowedMemberIds: Value(jsonEncode(task.allowedMemberIds)),
+      templateId: Value(task.templateId),
+      recurrenceType: Value(task.recurrence?.type.databaseValue),
+      intervalDays: Value(task.recurrence?.intervalDays),
+      weekdays: Value(jsonEncode(task.recurrence?.weekdays ?? const [])),
+      recurrenceStartDate: Value(_toIso(task.recurrenceStartDate)),
+      recurrenceEndDate: Value(_toIso(task.recurrenceEndDate)),
+    );
+  }
+
   Task _toDomain(TaskOccurrence row) {
     return Task(
       id: row.id,
@@ -461,7 +561,42 @@ class DriftTaskRepository implements TaskRepository {
       completedAt: _parseDt(row.completedAt),
       updatedAt: _parseDt(row.updatedAt),
       priority: EisenhowerPriority.fromValue(row.priority),
+      templateId: row.templateId,
+      recurrence: _recurrenceFromColumns(
+        type: row.recurrenceType,
+        intervalDays: row.intervalDays,
+        weekdays: row.weekdays,
+      ),
+      recurrenceStartDate: _parseDt(row.recurrenceStartDate),
+      recurrenceEndDate: _parseDt(row.recurrenceEndDate),
     );
+  }
+
+  TaskRecurrence? _recurrenceFromColumns({
+    required String? type,
+    required int? intervalDays,
+    required String? weekdays,
+  }) {
+    return switch (type) {
+      'daily' => const TaskRecurrence.daily(),
+      'weekly' => TaskRecurrence.weekly(
+        weekdays: _decodeIntList(weekdays),
+      ),
+      'interval_days' => TaskRecurrence.intervalDays(
+        intervalDays: intervalDays ?? 1,
+      ),
+      _ => null,
+    };
+  }
+
+  List<int> _decodeIntList(String? jsonList) {
+    if (jsonList == null || jsonList.isEmpty) return const [];
+
+    try {
+      return (jsonDecode(jsonList) as List<dynamic>).cast<int>();
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Bulk-sync: replace all local data for a household with fresh server data.
