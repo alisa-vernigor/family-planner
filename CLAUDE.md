@@ -28,6 +28,7 @@ Flutter-приложение для планирования семейных д
    - Добавление колонки Drift → `schemaVersion++` + `MigrationStrategy.onUpgrade` + `build_runner` (см. `lib/core/CLAUDE.md`).
 3. **Куда смотреть по фичам** — у каждой feature есть свой `CLAUDE.md` (`lib/features/<feature>/CLAUDE.md`, `lib/core/CLAUDE.md`, `lib/app/CLAUDE.md`) с актуальной картой файлов.
 4. **База** — Supabase с локальным `supabase/migrations/`. Новая миграция = новый файл с датой; применение не автоматическое.
+5. **Скорость** (см. подробности в `lib/core/CLAUDE.md` → «Скоростные приёмы»): Drift-правки батчем + один `build_runner` в конце; `.g.dart` читать до компиляции; итерация через `dart analyze <файл>`, полные прогоны — только в финале.
 
 ## Структура проекта
 

@@ -1,10 +1,19 @@
-.PHONY: test test-watch coverage coverage-report
+.PHONY: test test-watch coverage coverage-report analyze analyze-file coverage-open analyze analyze-file
 
 test:
 	flutter test
 
 test-watch:
 	flutter test --watch
+
+# Быстрая итерация: точечный анализ файла (секунды вместо минут)
+# Использование: make analyze-file FILE=lib/features/tasks/domain/entities/task.dart
+analyze-file:
+	dart analyze $(FILE)
+
+# Полный анализ (медленно — только в финале, см. /verify)
+analyze:
+	dart analyze lib test
 
 # Показать coverage-статистику (требует lcov, ставится brew install lcov)
 coverage:

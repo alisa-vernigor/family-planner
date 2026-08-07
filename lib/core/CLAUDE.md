@@ -43,3 +43,10 @@
 Полезные команды:
 - `dart run build_runner build` — регенерация.
 - `dart analyze lib` — проверка после миграции.
+
+### Скоростные приёмы (проверено на google-calendar-actions, 2026-08-07)
+
+- **Читай сгенерированный `app_database.g.dart` ДО компиляции, не после.** Row-классы, семантика `copyWith` (nullable-колонки берут `Value<T>`, bool/String — plain), имена DAO-методов — всё видно в `.g.dart` заранее. Цикл «compile error → перечитать файл → фикс» съедал десятки чтений одного drift-репозитория.
+- **Все Drift-правки делай батчем, build_runner — один раз в конце.** Одна регенерация — минуты; в сессии было 9 штук. Сначала все таблицы/Companion()/DAO, потом одна `dart run build_runner build`.
+- **Итерация — `dart analyze <конкретный файл>` (секунды), не полный репозиторий.** Полный `dart analyze lib test` и `flutter test` — только в финале.
+- **Новый виджет с `context.read<SomeRepository>()`** → сразу же проверь тесты, которые его рендерят (нужен `RepositoryProvider` в тестовом окружении). CategoryField сломал 4 теста из-за отсутствующего провайдера.
