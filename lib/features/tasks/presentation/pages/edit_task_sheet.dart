@@ -6,19 +6,45 @@ import 'package:family_planner/features/households/domain/entities/household_mem
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
+import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/update_task_state.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/recurrence_edit_scope_dialog.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/recurrence_editor.dart';
 
 Future<bool?> showEditTaskSheet({
   required BuildContext context,
   required Task task,
-}) {
+}) async {
   final repository = context.read<TaskRepository>();
   final householdRepository = context.read<HouseholdRepository>();
+
+  // Для повторяющейся задачи сначала выбираем область применения изменений
+  // (как в Google Calendar): только эта / эта и последующие / все.
+  final isRecurring = task.templateId != null;
+  final RecurrenceEditScope? recurrenceScope = isRecurring
+      ? await showRecurrenceEditScopeDialog(context: context, task: task)
+      : null;
+
+  // Отмена диалога области → не открываем редактирование.
+  // И проверяем, что контекст ещё жив после await.
+  if (!context.mounted) {
+    return null;
+  }
+  if (isRecurring && recurrenceScope == null) {
+    return null;
+  }
+
+  // «Только эту задачу» — обычное редактирование одного экземпляра,
+  // без секции повторения.
+  final editScope = recurrenceScope == RecurrenceEditScope.onlyThis
+      ? null
+      : recurrenceScope;
 
   return showModalBottomSheet<bool>(
     context: context,
@@ -31,6 +57,7 @@ Future<bool?> showEditTaskSheet({
         child: EditTaskSheet(
           task: task,
           householdRepository: householdRepository,
+          recurrenceScope: editScope,
         ),
       );
     },
@@ -41,11 +68,18 @@ final class EditTaskSheet extends StatefulWidget {
   const EditTaskSheet({
     required this.task,
     required this.householdRepository,
+    this.recurrenceScope,
     super.key,
   });
 
   final Task task;
   final HouseholdRepository householdRepository;
+
+  /// Область применения изменений для повторяющейся задачи.
+  ///
+  /// `null` — обычное редактирование одного экземпляра.
+  /// Не `null` — редактирование серии (шаблон + экземпляры).
+  final RecurrenceEditScope? recurrenceScope;
 
   @override
   State<EditTaskSheet> createState() => _EditTaskSheetState();
@@ -64,6 +98,10 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   EisenhowerPriority? _priority;
   List<HouseholdMember> _members = [];
 
+  late RecurrenceDraft _recurrenceDraft;
+
+  bool get _isEditingSeries => widget.recurrenceScope != null;
+
   @override
   void initState() {
     super.initState();
@@ -81,8 +119,21 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
     _isPinned = widget.task.isPinned;
     _priority = widget.task.priority;
 
+    final recurrence = widget.task.recurrence;
+    _recurrenceDraft = recurrence == null
+        ? RecurrenceDraft(type: widget.task.recurrence?.type ?? defaultType)
+        : RecurrenceDraft(
+            type: recurrence.type,
+            intervalDays: recurrence.intervalDays ?? 1,
+            weekdays: recurrence.weekdays,
+            startDate: widget.task.recurrenceStartDate,
+            endDate: widget.task.recurrenceEndDate,
+          );
+
     _loadMembers();
   }
+
+  static const defaultType = TaskRecurrenceType.daily;
 
   Future<void> _loadMembers() async {
     try {
@@ -212,7 +263,29 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       completedAt: widget.task.completedAt,
       updatedAt: widget.task.updatedAt,
       priority: _priority,
+      templateId: widget.task.templateId,
+      recurrence: widget.task.recurrence,
+      recurrenceStartDate: widget.task.recurrenceStartDate,
+      recurrenceEndDate: widget.task.recurrenceEndDate,
     );
+
+    if (_isEditingSeries) {
+      context.read<UpdateTaskCubit>().updateTemplate(
+        params: UpdateRecurringTaskParams(
+          task: updatedTask,
+          // Для серии повторение всегда включено — но подстрахуемся,
+          // если draft по какой-то причине вернул null.
+          recurrence:
+              _recurrenceDraft.buildRecurrence() ??
+              widget.task.recurrence ??
+              const TaskRecurrence.daily(),
+          scope: widget.recurrenceScope!,
+          recurrenceStartDate: _recurrenceDraft.startDate,
+          recurrenceEndDate: _recurrenceDraft.endDate,
+        ),
+      );
+      return;
+    }
 
     context.read<UpdateTaskCubit>().update(task: updatedTask);
   }
@@ -393,6 +466,17 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                               ),
                             ),
                           ],
+                        ),
+                      ],
+                      if (_isEditingSeries) ...[
+                        const SizedBox(height: 8),
+                        RecurrenceEditor(
+                          key: const Key('edit_recurrence_editor'),
+                          enabled: !isLoading,
+                          initial: _recurrenceDraft,
+                          onChanged: (draft) {
+                            setState(() => _recurrenceDraft = draft);
+                          },
                         ),
                       ],
                       const SizedBox(height: 16),

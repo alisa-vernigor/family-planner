@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 
 import 'update_task_state.dart';
@@ -26,6 +27,30 @@ final class UpdateTaskCubit extends Cubit<UpdateTaskState> {
       emit(UpdateTaskSuccess(task: task));
     } catch (exception, stackTrace) {
       const message = 'Не удалось сохранить изменения задачи.';
+
+      AppLogger.error(message, error: exception, stackTrace: stackTrace);
+
+      emit(const UpdateTaskFailure(message: message));
+    }
+  }
+
+  /// Обновляет повторяющуюся задачу с выбранной областью применения.
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {
+    emit(const UpdateTaskInProgress());
+
+    try {
+      await updateTaskUseCase.updateRecurring(params: params);
+
+      AppLogger.info(
+        'Повторяющаяся задача обновлена: '
+        'taskId=${params.task.id}; scope=${params.scope.databaseValue}',
+      );
+
+      emit(UpdateTaskSuccess(task: params.task));
+    } catch (exception, stackTrace) {
+      const message = 'Не удалось сохранить изменения повторяющейся задачи.';
 
       AppLogger.error(message, error: exception, stackTrace: stackTrace);
 

@@ -12,6 +12,7 @@ import 'package:family_planner/features/tasks/domain/repositories/task_repositor
 import 'package:family_planner/features/tasks/domain/use_cases/distribute_tasks_use_case.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_cubit.dart';
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   final day = DateTime.utc(2026, 7, 20);
@@ -234,6 +235,11 @@ void main() {
 }
 
 final class _FakeTaskRepository implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   _FakeTaskRepository({
     this.tasksToReturn = const [],
     this.exceptionToThrow,

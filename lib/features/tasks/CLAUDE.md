@@ -6,16 +6,18 @@
 
 ### domain/entities/
 
-- **task.dart** — `Task` (Equatable). 20 полей: id, householdId, title, description, estimatedDurationMinutes, plannedFor, deadline, allowedMemberIds, assignedMemberId, pinnedMemberId, status, createdAt, completedAt, updatedAt, priority. Методы: `isCompleted`, `isPinned`, `canBeCompletedBy(memberId)`, `effectivePriority` (default 4), `copyWith` (с `_Sentinel` для nullable).
+- **task.dart** — `Task` (Equatable). Поля: id, householdId, title, description, estimatedDurationMinutes, plannedFor, deadline, allowedMemberIds, assignedMemberId, pinnedMemberId, status, createdAt, completedAt, updatedAt, priority, **templateId**, **recurrence**, **recurrenceStartDate**, **recurrenceEndDate**. Методы: `isCompleted`, `isPinned`, **`isRecurring`** (templateId != null && recurrence != null), `canBeCompletedBy(memberId)`, `effectivePriority` (default 4), `copyWith` (с `_Sentinel` для nullable).
 - **task_status.dart** — enum `TaskStatus.pending | completed | skipped`.
 - **eisenhower_priority.dart** — enum `EisenhowerPriority` (1–4): `urgentImportant`, `notUrgentImportant`, `urgentNotImportant`, `notUrgentNotImportant`. `fromValue(int?)`, `value`, `label`.
 - **task_recurrence.dart** — `TaskRecurrenceType` (daily, weekly, intervalDays) + `TaskRecurrence` (type, intervalDays?, weekdays[]).
 - **create_task_params.dart** — `CreateTaskParams`: входные данные для создания задачи (включая опциональные recurrence, priority).
+- **update_recurring_task_params.dart** — `RecurrenceEditScope` (onlyThis / thisAndFollowing / all, как в Google Calendar) + `UpdateRecurringTaskParams` (task, recurrence, scope, recurrenceStartDate?, recurrenceEndDate?).
 - **task_sort_option.dart** — enum `TaskSortOption` (deadline, priority, duration, title, createdAt, plannedFor). Статический метод `apply(List<Task>, TaskSortOption)` — сортировка.
 
 ### domain/repositories/
 
-- **task_repository.dart** — абстрактный контракт: `getForDay`, `getScheduledAfter`, `getAllPending`, `create`, `save`, `patchStatus`, `delete`, `addAllowedMember`, `removeAllowedMember`.
+- **task_repository.dart** — абстрактный контракт: `getForDay`, `getScheduledAfter`, `getAllPending`, `create`, `save`, **`updateTemplate`**, `patchStatus`, `delete`, `addAllowedMember`, `removeAllowedMember`.
+  - **ВАЖНО:** при изменении интерфейса обновляй ВСЕ тестовые фейки — они перечислены в корневом CLAUDE.md в разделе «Тестирование».
 
 ### domain/services/
 
@@ -27,7 +29,7 @@
 - **complete_task_use_case.dart** — `CompleteTaskUseCase`: проверка `isCompleted` и `canBeCompletedBy`. Использует `patchStatus` (3 поля).
 - **uncomplete_task_use_case.dart** — `UncompleteTaskUseCase`: проверка `isCompleted`, `patchStatus` в pending.
 - **delete_task_use_case.dart** — `DeleteTaskUseCase`: делегирует `repository.delete`.
-- **update_task_use_case.dart** — `UpdateTaskUseCase`: валидация, делегирует `repository.save`.
+- **update_task_use_case.dart** — `UpdateTaskUseCase`: `call` (обычное сохранение, валидация title/duration), `updateRecurring` (для серии: валидация recurrence через исключения из create_task_use_case, делегирует `repository.updateTemplate`).
 - **get_tasks_for_day_use_case.dart** — делегирует `repository.getForDay`.
 - **get_all_pending_tasks_use_case.dart** — делегирует `repository.getAllPending`.
 - **get_scheduled_tasks_use_case.dart** — делегирует `repository.getScheduledAfter`.
@@ -36,12 +38,27 @@
 ### data/repositories/
 
 - **supabase_task_repository.dart** — имплементация через Supabase:
-  - SELECT задачи с JOIN `task_occurrence_allowed_members`.
+  - SELECT задачи с JOIN `task_occurrence_allowed_members` и вложенным `task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)` (для `templateId`/`recurrence` на Task).
   - CREATE: одноразовые через RPC `create_task_occurrence`, повторяющиеся через `create_recurring_task_template`.
   - SAVE: `update` с optimistic lock по `updated_at`.
+  - **updateTemplate**: RPC `update_task_template` (см. «Повторяющиеся задачи» ниже).
   - `patchStatus`: обновляет 3 поля (status, completed_by_member_id, completed_at).
-  - `_toTask`, `_taskFromCreatedRow`, `_parseNullableDateTime`, `_dateOnly`.
+  - `_toTask`, `_taskFromCreatedRow`, `_recurrenceFromRow`, `_parseNullableDateTime`, `_dateOnly`.
   - `TaskUserNotAuthenticatedException`.
+
+## Повторяющиеся задачи (recurring) — архитектура
+
+Повторяющаяся задача = **шаблон** (`task_templates`) + **экземпляры** (`task_occurrences`, каждый имеет `template_id`).
+
+- **Create** (`CreateTaskSheet` → RPC `create_recurring_task_template`): создаёт шаблон, первый экземпляр и генерирует экземпляры на ~30 дней (`generate_recurring_task_occurrences`).
+- **Read**: каждый экземпляр возвращается как `Task` с заполненными `templateId` + `recurrence` + `recurrenceStartDate/EndDate` (из вложенного select шаблона). Это позволяет UI знать, что задача повторяющаяся (`task.isRecurring`).
+- **Edit** (`EditTaskSheet`): для `task.templateId != null` сначала показывается **scope-диалог** (`showRecurrenceEditScopeDialog`) — 3 опции как в Google Calendar. Затем:
+  - `onlyThis` → обычное `save` (один экземпляр).
+  - `thisAndFollowing` / `all` → **`updateTemplate`** (RPC `update_task_template`), который обновляет шаблон и пересобирает экземпляры.
+- **RPC `update_task_template`** (миграция `20260807_recurrence_editing.sql`): валидация как при create; для `only_this` обновляет только указанный экземпляр; иначе обновляет шаблон + метаданные экземпляров в зоне изменений, а при смене расписания удаляет несовпадающие pending-экземпляры (с `planned_for >= current_date`), сохраняет completed, и перегенерирует.
+- **UI-виджет повторения**: `RecurrenceEditor` + `RecurrenceDraft` (в `presentation/widgets/recurrence_editor.dart`) — переиспользуется в CreateTaskSheet и EditTaskSheet. Управляет собственным состоянием (uncontrolled: `initial` читается только в initState), `buildRecurrence()` возвращает `null` при выключенном повторе, `showEnableSwitch` скрывает переключатель в edit-режиме.
+- **Offline** (`DriftTaskRepository.updateTemplate`): обновляет локальный экземпляр + очередь `UPDATE_TEMPLATE` с полным payload RPC. `SyncProcessor` обрабатывает операцию.
+- **Полезные RPC, пока не используемые из UI**: `pause_task_template`, `resume_task_template`.
 
 ### presentation/cubit/
 
@@ -63,8 +80,8 @@
 
 ### presentation/pages/
 
-- **create_task_sheet.dart** — `showCreateTaskSheet`: модальный bottom sheet создания задачи. `CreateTaskSheet` (StatefulWidget): форма с полями (название, описание, длительность, ответственный, повторение, дедлайн, приоритет). `_RecurrenceSummary` — сводка повторения с предпросмотром дат. `_WeekdayChip` — выбор дней недели.
-- **edit_task_sheet.dart** — `showEditTaskSheet`: модальный bottom sheet редактирования задачи. Аналогично create, но предзаполнено из `Task`.
+- **create_task_sheet.dart** — `showCreateTaskSheet`: модальный bottom sheet создания задачи. `CreateTaskSheet` (StatefulWidget): форма с полями (название, описание, длительность, ответственный, повторение, дедлайн, приоритет). Повторение — через `RecurrenceEditor`.
+- **edit_task_sheet.dart** — `showEditTaskSheet`: модальный bottom sheet редактирования задачи. Аналогично create, но предзаполнено из `Task`. Для повторяющейся задачи сначала показывает scope-диалог, при `thisAndFollowing`/`all` показывает `RecurrenceEditor` (без переключателя) и сохраняет через `updateTemplate`.
 
 ## Связи
 

@@ -22,8 +22,31 @@ part 'app_database.g.dart';
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase(QueryExecutor executor) : super(executor);
+  AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration {
+    return MigrationStrategy(
+      onUpgrade: (migrator, from, to) async {
+        if (from < 2) {
+          // Recurrence editing: кэш повторяющихся задач хранит шаблон серии.
+          await migrator.addColumn(taskOccurrences, taskOccurrences.templateId);
+          await migrator.addColumn(taskOccurrences, taskOccurrences.recurrenceType);
+          await migrator.addColumn(taskOccurrences, taskOccurrences.intervalDays);
+          await migrator.addColumn(taskOccurrences, taskOccurrences.weekdays);
+          await migrator.addColumn(
+            taskOccurrences,
+            taskOccurrences.recurrenceStartDate,
+          );
+          await migrator.addColumn(
+            taskOccurrences,
+            taskOccurrences.recurrenceEndDate,
+          );
+        }
+      },
+    );
+  }
 }

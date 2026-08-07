@@ -9,6 +9,7 @@ import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_c
 import 'package:family_planner/features/tasks/domain/use_cases/update_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/households/domain/entities/household_invitation.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   final task = Task(
@@ -107,6 +108,11 @@ void main() {
 }
 
 final class _FakeRepo implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   @override Future<Task> create({required CreateTaskParams params}) => throw UnimplementedError();
   @override Future<void> delete({required String taskId}) async {}
   @override Future<List<Task>> getForDay({required String householdId, required DateTime day}) => Future.value([]);

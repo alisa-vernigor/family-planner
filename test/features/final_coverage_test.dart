@@ -19,6 +19,7 @@ import 'package:family_planner/features/households/presentation/cubit/household_
 import 'package:family_planner/features/households/presentation/cubit/household_members_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_members_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   test('AppLogger._', () => expect(AppLogger, isA<Type>()));
@@ -202,6 +203,11 @@ class _EmptyHouseholdRepo implements HouseholdRepository {
 }
 
 class _SlowTaskRepo implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   @override Future<Task> create({required CreateTaskParams params}) => throw UnimplementedError();
   @override Future<void> delete({required String taskId}) async {}
   @override Future<List<Task>> getForDay({required String householdId, required DateTime day}) async => [];
@@ -216,6 +222,11 @@ class _SlowTaskRepo implements TaskRepository {
 }
 
 class _KeepTaskRepo implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   final _saved = <Task>[];
   @override Future<List<Task>> getForDay({required String householdId, required DateTime day}) async =>
     _saved.where((t) => t.plannedFor == day).toList();

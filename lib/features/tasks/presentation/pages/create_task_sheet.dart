@@ -13,8 +13,7 @@ import 'package:family_planner/features/tasks/domain/entities/task_recurrence.da
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/assignee_picker.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/recurrence_summary.dart';
-import 'package:family_planner/features/tasks/presentation/widgets/weekday_chip.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/recurrence_editor.dart';
 
 Future<bool?> showCreateTaskSheet({
   required BuildContext context,
@@ -65,14 +64,10 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   final _durationController = TextEditingController(text: '30');
 
   DateTime? _deadline;
-  DateTime? _recurrenceStartDate;
-  DateTime? _recurrenceEndDate;
-
-  final _recurrenceIntervalController = TextEditingController(text: '1');
-
-  bool _isRecurring = false;
-  TaskRecurrenceType _recurrenceType = TaskRecurrenceType.daily;
-  final Set<int> _selectedWeekdays = {};
+  RecurrenceDraft _recurrenceDraft = const RecurrenceDraft(
+    type: TaskRecurrenceType.daily,
+    isEnabled: false,
+  );
 
   List<HouseholdMember> _members = [];
   String? _assignedMemberId;
@@ -111,7 +106,6 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     _titleController.dispose();
     _descriptionController.dispose();
     _durationController.dispose();
-    _recurrenceIntervalController.dispose();
     super.dispose();
   }
 
@@ -155,61 +149,6 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     });
   }
 
-  Future<void> _pickRecurrenceStartDate() async {
-    final selectedDate = await showDatePicker(
-      context: context,
-      initialDate: _recurrenceStartDate ?? _deadline ?? widget.plannedFor,
-      firstDate: widget.plannedFor,
-      lastDate: DateTime(widget.plannedFor.year + 5),
-      helpText: 'Когда начать повторение',
-    );
-
-    if (selectedDate == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _recurrenceStartDate = selectedDate;
-
-      if (_recurrenceEndDate != null &&
-          _recurrenceEndDate!.isBefore(selectedDate)) {
-        _recurrenceEndDate = null;
-      }
-    });
-  }
-
-  Future<void> _pickRecurrenceEndDate() async {
-    final startDate = _recurrenceStartDate ?? _deadline ?? widget.plannedFor;
-
-    final selectedDate = await showDatePicker(
-      context: context,
-      initialDate: _recurrenceEndDate ?? startDate,
-      firstDate: startDate,
-      lastDate: DateTime(startDate.year + 5),
-      helpText: 'Когда закончить повторение',
-    );
-
-    if (selectedDate == null || !mounted) {
-      return;
-    }
-
-    setState(() {
-      _recurrenceEndDate = selectedDate;
-    });
-  }
-
-  void _clearRecurrenceStartDate() {
-    setState(() {
-      _recurrenceStartDate = null;
-    });
-  }
-
-  void _clearRecurrenceEndDate() {
-    setState(() {
-      _recurrenceEndDate = null;
-    });
-  }
-
   Future<void> _pickAssignee() async {
     final picked = await showAssigneePicker(
       context: context,
@@ -235,40 +174,6 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     return member.isNotEmpty ? member.first.displayName : null;
   }
 
-  String _formatDate(DateTime value) {
-    final day = value.day.toString().padLeft(2, '0');
-    final month = value.month.toString().padLeft(2, '0');
-    final year = value.year.toString();
-
-    return '$day.$month.$year';
-  }
-
-  TaskRecurrence? _buildRecurrence() {
-    if (!_isRecurring) {
-      return null;
-    }
-
-    return switch (_recurrenceType) {
-      TaskRecurrenceType.daily => const TaskRecurrence.daily(),
-      TaskRecurrenceType.weekly => TaskRecurrence.weekly(
-        weekdays: _selectedWeekdays.toList()..sort(),
-      ),
-      TaskRecurrenceType.intervalDays => TaskRecurrence.intervalDays(
-        intervalDays: int.tryParse(_recurrenceIntervalController.text) ?? 1,
-      ),
-    };
-  }
-
-  void _toggleWeekday(int day, bool isSelected) {
-    setState(() {
-      if (isSelected) {
-        _selectedWeekdays.add(day);
-      } else {
-        _selectedWeekdays.remove(day);
-      }
-    });
-  }
-
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -277,9 +182,12 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
     if (_isSubmitting) return;
     _isSubmitting = true;
 
-    if (_isRecurring &&
-        _recurrenceType == TaskRecurrenceType.weekly &&
-        _selectedWeekdays.isEmpty) {
+    final recurrence = _recurrenceDraft.buildRecurrence();
+    final isRecurring = recurrence != null;
+
+    if (isRecurring &&
+        recurrence.type == TaskRecurrenceType.weekly &&
+        recurrence.weekdays.isEmpty) {
       _isSubmitting = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Выберите хотя бы один день недели.')),
@@ -287,9 +195,9 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
       return;
     }
 
-    if (_isRecurring &&
-        _recurrenceType == TaskRecurrenceType.intervalDays &&
-        (int.tryParse(_recurrenceIntervalController.text) ?? 0) <= 0) {
+    if (isRecurring &&
+        recurrence.type == TaskRecurrenceType.intervalDays &&
+        recurrence.intervalDays! <= 0) {
       _isSubmitting = false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -309,9 +217,9 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         deadline: _deadline,
         assignedMemberId: _assignedMemberId,
         pinnedMemberId: _isPinned ? _assignedMemberId : null,
-        recurrence: _buildRecurrence(),
-        recurrenceStartDate: _recurrenceStartDate,
-        recurrenceEndDate: _recurrenceEndDate,
+        recurrence: recurrence,
+        recurrenceStartDate: _recurrenceDraft.startDate,
+        recurrenceEndDate: _recurrenceDraft.endDate,
         priority: _priority,
       ),
     );
@@ -475,208 +383,16 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                           ],
                         ),
                       ],
-                      SwitchListTile(
-                        key: const Key('recurrence_switch'),
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Повторять задачу'),
-                        subtitle: const Text(
-                          'Можно будет поставить повторение на паузу позже',
-                        ),
-                        value: _isRecurring,
-                        onChanged: isLoading
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  _isRecurring = value;
-                                });
-                              },
+                      const SizedBox(height: 8),
+                      RecurrenceEditor(
+                        key: const Key('create_recurrence_editor'),
+                        enabled: !isLoading,
+                        initial: _recurrenceDraft,
+                        onChanged: (draft) {
+                          setState(() => _recurrenceDraft = draft);
+                        },
                       ),
-                      if (_isRecurring) ...[
-                        const SizedBox(height: 8),
-                        RecurrenceSummary(
-                          type: _recurrenceType,
-                          intervalDays: int.tryParse(_recurrenceIntervalController.text) ?? 1,
-                          weekdayCount: _selectedWeekdays.length,
-                          weekdays: _selectedWeekdays.toList()..sort(),
-                          startDate: _recurrenceStartDate,
-                          endDate: _recurrenceEndDate,
-                        ),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<TaskRecurrenceType>(
-                          key: const Key('recurrence_type_dropdown'),
-                          initialValue: _recurrenceType,
-                          decoration: const InputDecoration(
-                            labelText: 'Как повторять',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.repeat_outlined),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: TaskRecurrenceType.daily,
-                              child: Text('Каждый день'),
-                            ),
-                            DropdownMenuItem(
-                              value: TaskRecurrenceType.weekly,
-                              child: Text('В выбранные дни недели'),
-                            ),
-                            DropdownMenuItem(
-                              value: TaskRecurrenceType.intervalDays,
-                              child: Text('Раз в несколько дней'),
-                            ),
-                          ],
-                          onChanged: isLoading
-                              ? null
-                              : (value) {
-                                  if (value == null) {
-                                    return;
-                                  }
-
-                                  setState(() {
-                                    _recurrenceType = value;
-                                  });
-                                },
-                        ),
-                        if (_recurrenceType == TaskRecurrenceType.weekly) ...[
-                          const SizedBox(height: 16),
-                          const Text('Дни недели'),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              WeekdayChip(
-                                day: 1,
-                                label: 'Пн',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                              WeekdayChip(
-                                day: 2,
-                                label: 'Вт',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                              WeekdayChip(
-                                day: 3,
-                                label: 'Ср',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                              WeekdayChip(
-                                day: 4,
-                                label: 'Чт',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                              WeekdayChip(
-                                day: 5,
-                                label: 'Пт',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                              WeekdayChip(
-                                day: 6,
-                                label: 'Сб',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                              WeekdayChip(
-                                day: 7,
-                                label: 'Вс',
-                                selectedDays: _selectedWeekdays,
-                                isEnabled: !isLoading,
-                                onChanged: _toggleWeekday,
-                              ),
-                            ],
-                          ),
-                        ],
-                        if (_recurrenceType == TaskRecurrenceType.intervalDays) ...[
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            key: const Key('recurrence_interval_field'),
-                            controller: _recurrenceIntervalController,
-                            enabled: !isLoading,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                              labelText: 'Повторять каждые N дней',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.event_repeat_outlined),
-                            ),
-                            validator: (value) {
-                              if (!_isRecurring ||
-                                  _recurrenceType !=
-                                      TaskRecurrenceType.intervalDays) {
-                                return null;
-                              }
-
-                              final interval = int.tryParse(value ?? '');
-
-                              if (interval == null || interval <= 0) {
-                                return 'Введите целое число больше нуля.';
-                              }
-
-                              return null;
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          key: const Key('recurrence_start_date_button'),
-                          onPressed: isLoading ? null : _pickRecurrenceStartDate,
-                          icon: const Icon(Icons.play_circle_outline),
-                          label: Text(
-                            _recurrenceStartDate == null
-                                ? 'Начать повторение с даты задачи'
-                                : 'Начать повторение: '
-                                      '${_formatDate(_recurrenceStartDate!)}',
-                          ),
-                        ),
-                        if (_recurrenceStartDate != null)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              key: const Key(
-                                'clear_recurrence_start_date_button',
-                              ),
-                              onPressed: isLoading
-                                  ? null
-                                  : _clearRecurrenceStartDate,
-                              child: const Text('Использовать дату задачи'),
-                            ),
-                          ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          key: const Key('recurrence_end_date_button'),
-                          onPressed: isLoading ? null : _pickRecurrenceEndDate,
-                          icon: const Icon(Icons.stop_circle_outlined),
-                          label: Text(
-                            _recurrenceEndDate == null
-                                ? 'Закончить повторение — без срока'
-                                : 'Закончить повторение: '
-                                      '${_formatDate(_recurrenceEndDate!)}',
-                          ),
-                        ),
-                        if (_recurrenceEndDate != null)
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              key: const Key(
-                                'clear_recurrence_end_date_button',
-                              ),
-                              onPressed: isLoading
-                                  ? null
-                                  : _clearRecurrenceEndDate,
-                              child: const Text('Без даты окончания'),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       PrioritySelector(
                         value: _priority,
                         onChanged: (p) => setState(() => _priority = p),

@@ -26,6 +26,7 @@ import 'package:family_planner/features/today/presentation/cubit/today_tasks_cub
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 // ── 1. Конструкторы ─────────────────────────────────────
 void main() {
@@ -263,6 +264,11 @@ class _FailGetMembers implements HouseholdRepository {
 }
 
 class _FakeTaskRepo implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   _FakeTaskRepo({this.tasks = const []});
   final List<Task> tasks;
   @override Future<Task> create({required CreateTaskParams params}) => throw UnimplementedError();
@@ -279,6 +285,11 @@ class _FakeTaskRepo implements TaskRepository {
 }
 
 class _DistributeTaskRepo implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   final _saved = <Task>[];
   @override Future<List<Task>> getForDay({required String householdId, required DateTime day}) async =>
     _saved.where((t) => t.plannedFor == day).toList();

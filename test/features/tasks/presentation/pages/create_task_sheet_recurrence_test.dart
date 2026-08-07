@@ -12,6 +12,7 @@ import 'package:family_planner/features/tasks/domain/repositories/task_repositor
 import 'package:family_planner/features/tasks/domain/use_cases/create_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/create_task_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/pages/create_task_sheet.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   Widget buildSubject() {
@@ -105,6 +106,11 @@ void main() {
 }
 
 final class _FakeTaskRepository implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   @override
   Future<Task> create({required CreateTaskParams params}) {
     throw UnimplementedError();

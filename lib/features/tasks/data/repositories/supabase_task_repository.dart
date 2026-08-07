@@ -4,7 +4,9 @@ import '../../../../core/logging/app_logger.dart';
 import '../../domain/entities/create_task_params.dart';
 import '../../domain/entities/eisenhower_priority.dart';
 import '../../domain/entities/task.dart';
+import '../../domain/entities/task_recurrence.dart';
 import '../../domain/entities/task_status.dart';
+import '../../domain/entities/update_recurring_task_params.dart';
 import '../../domain/repositories/task_repository.dart';
 
 final class SupabaseTaskRepository implements TaskRepository {
@@ -30,7 +32,9 @@ final class SupabaseTaskRepository implements TaskRepository {
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
-          'task_occurrence_allowed_members(profile_id)',
+          'template_id, '
+          'task_occurrence_allowed_members(profile_id), '
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
         )
         .eq('household_id', householdId)
         .eq('planned_for', plannedFor)
@@ -61,7 +65,9 @@ final class SupabaseTaskRepository implements TaskRepository {
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
-          'task_occurrence_allowed_members(profile_id)',
+          'template_id, '
+          'task_occurrence_allowed_members(profile_id), '
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
         )
         .eq('household_id', householdId)
         .gte('planned_for', _dateOnly(startOfTomorrow))
@@ -91,7 +97,9 @@ final class SupabaseTaskRepository implements TaskRepository {
           'id, household_id, title, description, '
           'estimated_duration_minutes, planned_for, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
-          'task_occurrence_allowed_members(profile_id)',
+          'template_id, '
+          'task_occurrence_allowed_members(profile_id), '
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
         )
         .eq('household_id', householdId)
         .neq('status', TaskStatus.completed.name)
@@ -235,6 +243,48 @@ final class SupabaseTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {
+    final task = params.task;
+    final deadlineTime = task.deadline == null
+        ? null
+        : '${task.deadline!.hour.toString().padLeft(2, '0')}:'
+              '${task.deadline!.minute.toString().padLeft(2, '0')}:00';
+
+    AppLogger.debug(
+      'SupabaseTaskRepository.updateTemplate: '
+      'taskId=${task.id}; scope=${params.scope.databaseValue}',
+    );
+
+    await _client.rpc(
+      'update_task_template',
+      params: {
+        'p_task_occurrence_id': task.id,
+        'p_scope': params.scope.databaseValue,
+        'p_title': task.title,
+        'p_description': task.description ?? '',
+        'p_estimated_duration_minutes': task.estimatedDurationMinutes,
+        'p_deadline_time': deadlineTime,
+        'p_deadline_at': task.deadline?.toUtc().toIso8601String(),
+        'p_recurrence_type': params.recurrence.type.databaseValue,
+        'p_interval_days': params.recurrence.intervalDays,
+        'p_weekdays': params.recurrence.weekdays,
+        'p_start_date': params.recurrenceStartDate == null
+            ? null
+            : _dateOnly(params.recurrenceStartDate!),
+        'p_end_date': params.recurrenceEndDate == null
+            ? null
+            : _dateOnly(params.recurrenceEndDate!),
+        'p_priority': task.priority?.value,
+        'p_assigned_member_id': task.assignedMemberId,
+        'p_pinned_member_id': task.pinnedMemberId,
+        'p_add_allowed_member_ids': task.allowedMemberIds,
+      },
+    );
+  }
+
+  @override
   Future<void> delete({required String taskId}) async {
     AppLogger.info('SupabaseTaskRepository.delete: taskId=$taskId');
 
@@ -324,6 +374,7 @@ final class SupabaseTaskRepository implements TaskRepository {
   Task _toTask(Map<String, dynamic> row) {
     final rawAllowedMembers =
         row['task_occurrence_allowed_members'] as List<dynamic>? ?? const [];
+    final rawTemplate = row['task_templates'] as Map<String, dynamic>?;
 
     return Task(
       id: row['id'] as String,
@@ -343,7 +394,59 @@ final class SupabaseTaskRepository implements TaskRepository {
       completedAt: _parseNullableDateTime(row['completed_at']),
       updatedAt: _parseNullableDateTime(row['updated_at']),
       priority: EisenhowerPriority.fromValue(row['priority'] as int?),
+      templateId: row['template_id'] as String?,
+      recurrence: _recurrenceFromRow(rawTemplate),
+      recurrenceStartDate: _parseNullableDate(rawTemplate?['recurrence_start_date']),
+      recurrenceEndDate: _parseNullableDate(rawTemplate?['recurrence_end_date']),
     );
+  }
+
+  TaskRecurrence? _recurrenceFromRow(Map<String, dynamic>? rawTemplate) {
+    if (rawTemplate == null) {
+      return null;
+    }
+
+    final type = switch (rawTemplate['recurrence_type'] as String?) {
+      'daily' => TaskRecurrenceType.daily,
+      'weekly' => TaskRecurrenceType.weekly,
+      'interval_days' => TaskRecurrenceType.intervalDays,
+      _ => null,
+    };
+
+    if (type == null) {
+      return null;
+    }
+
+    return switch (type) {
+      TaskRecurrenceType.daily => const TaskRecurrence.daily(),
+      TaskRecurrenceType.weekly => TaskRecurrence.weekly(
+        weekdays: _toIntList(rawTemplate['weekdays']),
+      ),
+      TaskRecurrenceType.intervalDays => TaskRecurrence.intervalDays(
+        intervalDays: rawTemplate['interval_days'] as int? ?? 1,
+      ),
+    };
+  }
+
+  List<int> _toIntList(dynamic value) {
+    if (value is List) {
+      return value.whereType<int>().toList(growable: false);
+    }
+
+    return const [];
+  }
+
+  DateTime? _parseNullableDate(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    final text = value.toString();
+    if (text.isEmpty) {
+      return null;
+    }
+
+    return DateTime.parse(text);
   }
 
   TaskStatus _toTaskStatus(String value) {

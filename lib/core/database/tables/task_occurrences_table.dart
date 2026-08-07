@@ -20,6 +20,12 @@ class TaskOccurrences extends Table {
   TextColumn get updatedAt => text().nullable()(); // ISO datetime
   IntColumn get priority => integer().nullable()();
   TextColumn get allowedMemberIds => text()(); // JSON array: '["id1","id2"]'
+  TextColumn get templateId => text().nullable()(); // task_templates.id (series)
+  TextColumn get recurrenceType => text().nullable()(); // 'daily'|'weekly'|'interval_days'
+  IntColumn get intervalDays => integer().nullable()();
+  TextColumn get weekdays => text().nullable()(); // JSON array: '[1,3,5]'
+  TextColumn get recurrenceStartDate => text().nullable()(); // ISO date
+  TextColumn get recurrenceEndDate => text().nullable()(); // ISO date
 
   @override
   Set<Column> get primaryKey => {id};

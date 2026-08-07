@@ -168,6 +168,73 @@ class $TaskOccurrencesTable extends TaskOccurrences
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _templateIdMeta = const VerificationMeta(
+    'templateId',
+  );
+  @override
+  late final GeneratedColumn<String> templateId = GeneratedColumn<String>(
+    'template_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recurrenceTypeMeta = const VerificationMeta(
+    'recurrenceType',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceType = GeneratedColumn<String>(
+    'recurrence_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _intervalDaysMeta = const VerificationMeta(
+    'intervalDays',
+  );
+  @override
+  late final GeneratedColumn<int> intervalDays = GeneratedColumn<int>(
+    'interval_days',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _weekdaysMeta = const VerificationMeta(
+    'weekdays',
+  );
+  @override
+  late final GeneratedColumn<String> weekdays = GeneratedColumn<String>(
+    'weekdays',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _recurrenceStartDateMeta =
+      const VerificationMeta('recurrenceStartDate');
+  @override
+  late final GeneratedColumn<String> recurrenceStartDate =
+      GeneratedColumn<String>(
+        'recurrence_start_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _recurrenceEndDateMeta = const VerificationMeta(
+    'recurrenceEndDate',
+  );
+  @override
+  late final GeneratedColumn<String> recurrenceEndDate =
+      GeneratedColumn<String>(
+        'recurrence_end_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -185,6 +252,12 @@ class $TaskOccurrencesTable extends TaskOccurrences
     updatedAt,
     priority,
     allowedMemberIds,
+    templateId,
+    recurrenceType,
+    intervalDays,
+    weekdays,
+    recurrenceStartDate,
+    recurrenceEndDate,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -322,6 +395,54 @@ class $TaskOccurrencesTable extends TaskOccurrences
     } else if (isInserting) {
       context.missing(_allowedMemberIdsMeta);
     }
+    if (data.containsKey('template_id')) {
+      context.handle(
+        _templateIdMeta,
+        templateId.isAcceptableOrUnknown(data['template_id']!, _templateIdMeta),
+      );
+    }
+    if (data.containsKey('recurrence_type')) {
+      context.handle(
+        _recurrenceTypeMeta,
+        recurrenceType.isAcceptableOrUnknown(
+          data['recurrence_type']!,
+          _recurrenceTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('interval_days')) {
+      context.handle(
+        _intervalDaysMeta,
+        intervalDays.isAcceptableOrUnknown(
+          data['interval_days']!,
+          _intervalDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weekdays')) {
+      context.handle(
+        _weekdaysMeta,
+        weekdays.isAcceptableOrUnknown(data['weekdays']!, _weekdaysMeta),
+      );
+    }
+    if (data.containsKey('recurrence_start_date')) {
+      context.handle(
+        _recurrenceStartDateMeta,
+        recurrenceStartDate.isAcceptableOrUnknown(
+          data['recurrence_start_date']!,
+          _recurrenceStartDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('recurrence_end_date')) {
+      context.handle(
+        _recurrenceEndDateMeta,
+        recurrenceEndDate.isAcceptableOrUnknown(
+          data['recurrence_end_date']!,
+          _recurrenceEndDateMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -391,6 +512,30 @@ class $TaskOccurrencesTable extends TaskOccurrences
         DriftSqlType.string,
         data['${effectivePrefix}allowed_member_ids'],
       )!,
+      templateId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}template_id'],
+      ),
+      recurrenceType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_type'],
+      ),
+      intervalDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}interval_days'],
+      ),
+      weekdays: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}weekdays'],
+      ),
+      recurrenceStartDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_start_date'],
+      ),
+      recurrenceEndDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}recurrence_end_date'],
+      ),
     );
   }
 
@@ -416,6 +561,12 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
   final String? updatedAt;
   final int? priority;
   final String allowedMemberIds;
+  final String? templateId;
+  final String? recurrenceType;
+  final int? intervalDays;
+  final String? weekdays;
+  final String? recurrenceStartDate;
+  final String? recurrenceEndDate;
   const TaskOccurrence({
     required this.id,
     required this.householdId,
@@ -432,6 +583,12 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     this.updatedAt,
     this.priority,
     required this.allowedMemberIds,
+    this.templateId,
+    this.recurrenceType,
+    this.intervalDays,
+    this.weekdays,
+    this.recurrenceStartDate,
+    this.recurrenceEndDate,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -465,6 +622,24 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       map['priority'] = Variable<int>(priority);
     }
     map['allowed_member_ids'] = Variable<String>(allowedMemberIds);
+    if (!nullToAbsent || templateId != null) {
+      map['template_id'] = Variable<String>(templateId);
+    }
+    if (!nullToAbsent || recurrenceType != null) {
+      map['recurrence_type'] = Variable<String>(recurrenceType);
+    }
+    if (!nullToAbsent || intervalDays != null) {
+      map['interval_days'] = Variable<int>(intervalDays);
+    }
+    if (!nullToAbsent || weekdays != null) {
+      map['weekdays'] = Variable<String>(weekdays);
+    }
+    if (!nullToAbsent || recurrenceStartDate != null) {
+      map['recurrence_start_date'] = Variable<String>(recurrenceStartDate);
+    }
+    if (!nullToAbsent || recurrenceEndDate != null) {
+      map['recurrence_end_date'] = Variable<String>(recurrenceEndDate);
+    }
     return map;
   }
 
@@ -499,6 +674,24 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           ? const Value.absent()
           : Value(priority),
       allowedMemberIds: Value(allowedMemberIds),
+      templateId: templateId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(templateId),
+      recurrenceType: recurrenceType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceType),
+      intervalDays: intervalDays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(intervalDays),
+      weekdays: weekdays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(weekdays),
+      recurrenceStartDate: recurrenceStartDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceStartDate),
+      recurrenceEndDate: recurrenceEndDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(recurrenceEndDate),
     );
   }
 
@@ -525,6 +718,16 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       updatedAt: serializer.fromJson<String?>(json['updatedAt']),
       priority: serializer.fromJson<int?>(json['priority']),
       allowedMemberIds: serializer.fromJson<String>(json['allowedMemberIds']),
+      templateId: serializer.fromJson<String?>(json['templateId']),
+      recurrenceType: serializer.fromJson<String?>(json['recurrenceType']),
+      intervalDays: serializer.fromJson<int?>(json['intervalDays']),
+      weekdays: serializer.fromJson<String?>(json['weekdays']),
+      recurrenceStartDate: serializer.fromJson<String?>(
+        json['recurrenceStartDate'],
+      ),
+      recurrenceEndDate: serializer.fromJson<String?>(
+        json['recurrenceEndDate'],
+      ),
     );
   }
   @override
@@ -548,6 +751,12 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       'updatedAt': serializer.toJson<String?>(updatedAt),
       'priority': serializer.toJson<int?>(priority),
       'allowedMemberIds': serializer.toJson<String>(allowedMemberIds),
+      'templateId': serializer.toJson<String?>(templateId),
+      'recurrenceType': serializer.toJson<String?>(recurrenceType),
+      'intervalDays': serializer.toJson<int?>(intervalDays),
+      'weekdays': serializer.toJson<String?>(weekdays),
+      'recurrenceStartDate': serializer.toJson<String?>(recurrenceStartDate),
+      'recurrenceEndDate': serializer.toJson<String?>(recurrenceEndDate),
     };
   }
 
@@ -567,6 +776,12 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     Value<String?> updatedAt = const Value.absent(),
     Value<int?> priority = const Value.absent(),
     String? allowedMemberIds,
+    Value<String?> templateId = const Value.absent(),
+    Value<String?> recurrenceType = const Value.absent(),
+    Value<int?> intervalDays = const Value.absent(),
+    Value<String?> weekdays = const Value.absent(),
+    Value<String?> recurrenceStartDate = const Value.absent(),
+    Value<String?> recurrenceEndDate = const Value.absent(),
   }) => TaskOccurrence(
     id: id ?? this.id,
     householdId: householdId ?? this.householdId,
@@ -588,6 +803,18 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
     priority: priority.present ? priority.value : this.priority,
     allowedMemberIds: allowedMemberIds ?? this.allowedMemberIds,
+    templateId: templateId.present ? templateId.value : this.templateId,
+    recurrenceType: recurrenceType.present
+        ? recurrenceType.value
+        : this.recurrenceType,
+    intervalDays: intervalDays.present ? intervalDays.value : this.intervalDays,
+    weekdays: weekdays.present ? weekdays.value : this.weekdays,
+    recurrenceStartDate: recurrenceStartDate.present
+        ? recurrenceStartDate.value
+        : this.recurrenceStartDate,
+    recurrenceEndDate: recurrenceEndDate.present
+        ? recurrenceEndDate.value
+        : this.recurrenceEndDate,
   );
   TaskOccurrence copyWithCompanion(TaskOccurrencesCompanion data) {
     return TaskOccurrence(
@@ -622,6 +849,22 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       allowedMemberIds: data.allowedMemberIds.present
           ? data.allowedMemberIds.value
           : this.allowedMemberIds,
+      templateId: data.templateId.present
+          ? data.templateId.value
+          : this.templateId,
+      recurrenceType: data.recurrenceType.present
+          ? data.recurrenceType.value
+          : this.recurrenceType,
+      intervalDays: data.intervalDays.present
+          ? data.intervalDays.value
+          : this.intervalDays,
+      weekdays: data.weekdays.present ? data.weekdays.value : this.weekdays,
+      recurrenceStartDate: data.recurrenceStartDate.present
+          ? data.recurrenceStartDate.value
+          : this.recurrenceStartDate,
+      recurrenceEndDate: data.recurrenceEndDate.present
+          ? data.recurrenceEndDate.value
+          : this.recurrenceEndDate,
     );
   }
 
@@ -642,13 +885,19 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           ..write('completedAt: $completedAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('priority: $priority, ')
-          ..write('allowedMemberIds: $allowedMemberIds')
+          ..write('allowedMemberIds: $allowedMemberIds, ')
+          ..write('templateId: $templateId, ')
+          ..write('recurrenceType: $recurrenceType, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('weekdays: $weekdays, ')
+          ..write('recurrenceStartDate: $recurrenceStartDate, ')
+          ..write('recurrenceEndDate: $recurrenceEndDate')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     householdId,
     title,
@@ -664,7 +913,13 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     updatedAt,
     priority,
     allowedMemberIds,
-  );
+    templateId,
+    recurrenceType,
+    intervalDays,
+    weekdays,
+    recurrenceStartDate,
+    recurrenceEndDate,
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -683,7 +938,13 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           other.completedAt == this.completedAt &&
           other.updatedAt == this.updatedAt &&
           other.priority == this.priority &&
-          other.allowedMemberIds == this.allowedMemberIds);
+          other.allowedMemberIds == this.allowedMemberIds &&
+          other.templateId == this.templateId &&
+          other.recurrenceType == this.recurrenceType &&
+          other.intervalDays == this.intervalDays &&
+          other.weekdays == this.weekdays &&
+          other.recurrenceStartDate == this.recurrenceStartDate &&
+          other.recurrenceEndDate == this.recurrenceEndDate);
 }
 
 class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
@@ -702,6 +963,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
   final Value<String?> updatedAt;
   final Value<int?> priority;
   final Value<String> allowedMemberIds;
+  final Value<String?> templateId;
+  final Value<String?> recurrenceType;
+  final Value<int?> intervalDays;
+  final Value<String?> weekdays;
+  final Value<String?> recurrenceStartDate;
+  final Value<String?> recurrenceEndDate;
   final Value<int> rowid;
   const TaskOccurrencesCompanion({
     this.id = const Value.absent(),
@@ -719,6 +986,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     this.updatedAt = const Value.absent(),
     this.priority = const Value.absent(),
     this.allowedMemberIds = const Value.absent(),
+    this.templateId = const Value.absent(),
+    this.recurrenceType = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.weekdays = const Value.absent(),
+    this.recurrenceStartDate = const Value.absent(),
+    this.recurrenceEndDate = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TaskOccurrencesCompanion.insert({
@@ -737,6 +1010,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     this.updatedAt = const Value.absent(),
     this.priority = const Value.absent(),
     required String allowedMemberIds,
+    this.templateId = const Value.absent(),
+    this.recurrenceType = const Value.absent(),
+    this.intervalDays = const Value.absent(),
+    this.weekdays = const Value.absent(),
+    this.recurrenceStartDate = const Value.absent(),
+    this.recurrenceEndDate = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        householdId = Value(householdId),
@@ -762,6 +1041,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     Expression<String>? updatedAt,
     Expression<int>? priority,
     Expression<String>? allowedMemberIds,
+    Expression<String>? templateId,
+    Expression<String>? recurrenceType,
+    Expression<int>? intervalDays,
+    Expression<String>? weekdays,
+    Expression<String>? recurrenceStartDate,
+    Expression<String>? recurrenceEndDate,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -781,6 +1066,13 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
       if (updatedAt != null) 'updated_at': updatedAt,
       if (priority != null) 'priority': priority,
       if (allowedMemberIds != null) 'allowed_member_ids': allowedMemberIds,
+      if (templateId != null) 'template_id': templateId,
+      if (recurrenceType != null) 'recurrence_type': recurrenceType,
+      if (intervalDays != null) 'interval_days': intervalDays,
+      if (weekdays != null) 'weekdays': weekdays,
+      if (recurrenceStartDate != null)
+        'recurrence_start_date': recurrenceStartDate,
+      if (recurrenceEndDate != null) 'recurrence_end_date': recurrenceEndDate,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -801,6 +1093,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     Value<String?>? updatedAt,
     Value<int?>? priority,
     Value<String>? allowedMemberIds,
+    Value<String?>? templateId,
+    Value<String?>? recurrenceType,
+    Value<int?>? intervalDays,
+    Value<String?>? weekdays,
+    Value<String?>? recurrenceStartDate,
+    Value<String?>? recurrenceEndDate,
     Value<int>? rowid,
   }) {
     return TaskOccurrencesCompanion(
@@ -820,6 +1118,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
       updatedAt: updatedAt ?? this.updatedAt,
       priority: priority ?? this.priority,
       allowedMemberIds: allowedMemberIds ?? this.allowedMemberIds,
+      templateId: templateId ?? this.templateId,
+      recurrenceType: recurrenceType ?? this.recurrenceType,
+      intervalDays: intervalDays ?? this.intervalDays,
+      weekdays: weekdays ?? this.weekdays,
+      recurrenceStartDate: recurrenceStartDate ?? this.recurrenceStartDate,
+      recurrenceEndDate: recurrenceEndDate ?? this.recurrenceEndDate,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -874,6 +1178,26 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     if (allowedMemberIds.present) {
       map['allowed_member_ids'] = Variable<String>(allowedMemberIds.value);
     }
+    if (templateId.present) {
+      map['template_id'] = Variable<String>(templateId.value);
+    }
+    if (recurrenceType.present) {
+      map['recurrence_type'] = Variable<String>(recurrenceType.value);
+    }
+    if (intervalDays.present) {
+      map['interval_days'] = Variable<int>(intervalDays.value);
+    }
+    if (weekdays.present) {
+      map['weekdays'] = Variable<String>(weekdays.value);
+    }
+    if (recurrenceStartDate.present) {
+      map['recurrence_start_date'] = Variable<String>(
+        recurrenceStartDate.value,
+      );
+    }
+    if (recurrenceEndDate.present) {
+      map['recurrence_end_date'] = Variable<String>(recurrenceEndDate.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -898,6 +1222,12 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
           ..write('updatedAt: $updatedAt, ')
           ..write('priority: $priority, ')
           ..write('allowedMemberIds: $allowedMemberIds, ')
+          ..write('templateId: $templateId, ')
+          ..write('recurrenceType: $recurrenceType, ')
+          ..write('intervalDays: $intervalDays, ')
+          ..write('weekdays: $weekdays, ')
+          ..write('recurrenceStartDate: $recurrenceStartDate, ')
+          ..write('recurrenceEndDate: $recurrenceEndDate, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1939,6 +2269,12 @@ typedef $$TaskOccurrencesTableCreateCompanionBuilder =
       Value<String?> updatedAt,
       Value<int?> priority,
       required String allowedMemberIds,
+      Value<String?> templateId,
+      Value<String?> recurrenceType,
+      Value<int?> intervalDays,
+      Value<String?> weekdays,
+      Value<String?> recurrenceStartDate,
+      Value<String?> recurrenceEndDate,
       Value<int> rowid,
     });
 typedef $$TaskOccurrencesTableUpdateCompanionBuilder =
@@ -1958,6 +2294,12 @@ typedef $$TaskOccurrencesTableUpdateCompanionBuilder =
       Value<String?> updatedAt,
       Value<int?> priority,
       Value<String> allowedMemberIds,
+      Value<String?> templateId,
+      Value<String?> recurrenceType,
+      Value<int?> intervalDays,
+      Value<String?> weekdays,
+      Value<String?> recurrenceStartDate,
+      Value<String?> recurrenceEndDate,
       Value<int> rowid,
     });
 
@@ -2042,6 +2384,36 @@ class $$TaskOccurrencesTableFilterComposer
 
   ColumnFilters<String> get allowedMemberIds => $composableBuilder(
     column: $table.allowedMemberIds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get templateId => $composableBuilder(
+    column: $table.templateId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceType => $composableBuilder(
+    column: $table.recurrenceType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get weekdays => $composableBuilder(
+    column: $table.weekdays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceStartDate => $composableBuilder(
+    column: $table.recurrenceStartDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get recurrenceEndDate => $composableBuilder(
+    column: $table.recurrenceEndDate,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -2129,6 +2501,36 @@ class $$TaskOccurrencesTableOrderingComposer
     column: $table.allowedMemberIds,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get templateId => $composableBuilder(
+    column: $table.templateId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceType => $composableBuilder(
+    column: $table.recurrenceType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get weekdays => $composableBuilder(
+    column: $table.weekdays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceStartDate => $composableBuilder(
+    column: $table.recurrenceStartDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get recurrenceEndDate => $composableBuilder(
+    column: $table.recurrenceEndDate,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TaskOccurrencesTableAnnotationComposer
@@ -2200,6 +2602,34 @@ class $$TaskOccurrencesTableAnnotationComposer
     column: $table.allowedMemberIds,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get templateId => $composableBuilder(
+    column: $table.templateId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recurrenceType => $composableBuilder(
+    column: $table.recurrenceType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get intervalDays => $composableBuilder(
+    column: $table.intervalDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get weekdays =>
+      $composableBuilder(column: $table.weekdays, builder: (column) => column);
+
+  GeneratedColumn<String> get recurrenceStartDate => $composableBuilder(
+    column: $table.recurrenceStartDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get recurrenceEndDate => $composableBuilder(
+    column: $table.recurrenceEndDate,
+    builder: (column) => column,
+  );
 }
 
 class $$TaskOccurrencesTableTableManager
@@ -2254,6 +2684,12 @@ class $$TaskOccurrencesTableTableManager
                 Value<String?> updatedAt = const Value.absent(),
                 Value<int?> priority = const Value.absent(),
                 Value<String> allowedMemberIds = const Value.absent(),
+                Value<String?> templateId = const Value.absent(),
+                Value<String?> recurrenceType = const Value.absent(),
+                Value<int?> intervalDays = const Value.absent(),
+                Value<String?> weekdays = const Value.absent(),
+                Value<String?> recurrenceStartDate = const Value.absent(),
+                Value<String?> recurrenceEndDate = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TaskOccurrencesCompanion(
                 id: id,
@@ -2271,6 +2707,12 @@ class $$TaskOccurrencesTableTableManager
                 updatedAt: updatedAt,
                 priority: priority,
                 allowedMemberIds: allowedMemberIds,
+                templateId: templateId,
+                recurrenceType: recurrenceType,
+                intervalDays: intervalDays,
+                weekdays: weekdays,
+                recurrenceStartDate: recurrenceStartDate,
+                recurrenceEndDate: recurrenceEndDate,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -2290,6 +2732,12 @@ class $$TaskOccurrencesTableTableManager
                 Value<String?> updatedAt = const Value.absent(),
                 Value<int?> priority = const Value.absent(),
                 required String allowedMemberIds,
+                Value<String?> templateId = const Value.absent(),
+                Value<String?> recurrenceType = const Value.absent(),
+                Value<int?> intervalDays = const Value.absent(),
+                Value<String?> weekdays = const Value.absent(),
+                Value<String?> recurrenceStartDate = const Value.absent(),
+                Value<String?> recurrenceEndDate = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TaskOccurrencesCompanion.insert(
                 id: id,
@@ -2307,6 +2755,12 @@ class $$TaskOccurrencesTableTableManager
                 updatedAt: updatedAt,
                 priority: priority,
                 allowedMemberIds: allowedMemberIds,
+                templateId: templateId,
+                recurrenceType: recurrenceType,
+                intervalDays: intervalDays,
+                weekdays: weekdays,
+                recurrenceStartDate: recurrenceStartDate,
+                recurrenceEndDate: recurrenceEndDate,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

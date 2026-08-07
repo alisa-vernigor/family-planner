@@ -14,6 +14,7 @@ import 'package:family_planner/features/today/presentation/cubit/today_tasks_cub
 import 'package:family_planner/features/today/presentation/cubit/today_tasks_state.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
+import 'package:family_planner/features/tasks/domain/entities/update_recurring_task_params.dart';
 
 void main() {
   final day = DateTime.utc(2026, 7, 28);
@@ -85,6 +86,11 @@ void main() {
 }
 
 final class _FakeTaskRepo implements TaskRepository {
+  @override
+  Future<void> updateTemplate({
+    required UpdateRecurringTaskParams params,
+  }) async {}
+
   _FakeTaskRepo({this.tasks = const []});
   final List<Task> tasks;
   @override Future<List<Task>> getForDay({required String householdId, required DateTime day}) => Future.value(tasks);
