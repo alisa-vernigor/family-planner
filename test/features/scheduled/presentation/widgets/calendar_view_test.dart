@@ -30,16 +30,18 @@ void main() {
     List<Task> tasks = const [],
     List<HouseholdMember> members = const [],
     Map<String, TaskCategory> categoriesById = const {},
+    String currentMemberId = 'member-1',
     void Function(Task, DateTime)? onRescheduleToDay,
     void Function(Task)? onTogglePause,
     void Function(Task)? onSkip,
+    void Function(Task)? onComplete,
   }) {
     return MaterialApp(
       home: Scaffold(
         body: CalendarView(
           tasks: tasks,
           members: members,
-          currentMemberId: 'member-1',
+          currentMemberId: currentMemberId,
           categoriesById: categoriesById,
           onEdit: (_) {},
           onDelete: (_) {},
@@ -50,7 +52,7 @@ void main() {
           onDuplicate: (_) {},
           onTogglePause: onTogglePause,
           onSkip: onSkip,
-          onComplete: (_) {},
+          onComplete: onComplete ?? (_) {},
           onUncomplete: (_) {},
           onCreate: () {},
         ),
@@ -315,5 +317,49 @@ void main() {
 
     // Заголовок календаря сменился на следующий месяц.
     expect(find.text(nextMonthHeader), findsOneWidget);
+  });
+
+  testWidgets('чекбокс выполнения в списке дня активен, если пользователь в allowedMemberIds', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Task? completed;
+    await tester.pumpWidget(
+      buildSubject(tasks: [taskOnToday], onComplete: (task) => completed = task),
+    );
+
+    // В списке выбранного дня — карточка с чекбоксом.
+    await tester.tap(find.byIcon(Icons.radio_button_unchecked).first);
+    await tester.pump();
+
+    expect(completed?.id, 'task-today');
+  });
+
+  testWidgets('чекбокс выполнения в списке дня неактивен, если пользователь не в allowedMemberIds', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Task? completed;
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [taskOnToday],
+        currentMemberId: 'other-member',
+        onComplete: (task) => completed = task,
+      ),
+    );
+
+    await tester.tap(
+      find.byIcon(Icons.radio_button_unchecked).first,
+      warnIfMissed: false,
+    );
+    await tester.pump();
+
+    expect(completed, isNull);
   });
 }

@@ -421,6 +421,7 @@ final class _CalendarViewState extends State<CalendarView> {
             child: TimeScaleView(
               tasks: widget.tasks,
               categoriesById: widget.categoriesById,
+              currentMemberId: widget.currentMemberId,
               weekMode: _mode == _CalendarMode.week,
               focusedDay: _focusedDay,
               onFocusedDayChanged: (day) {
@@ -713,6 +714,7 @@ final class _CalendarDayTaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final assigneeName = _assigneeName();
+    final canComplete = task.canBeCompletedBy(currentMemberId);
 
     return Card(
       child: InkWell(
@@ -723,14 +725,29 @@ final class _CalendarDayTaskCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: task.isCompleted ? onUncomplete : onComplete,
-                child: Icon(
-                  task.isCompleted
-                      ? Icons.check_circle
-                      : Icons.radio_button_unchecked,
-                  size: 22,
-                  color: task.isCompleted ? cs.primary : cs.onSurfaceVariant,
+              Tooltip(
+                message: task.isCompleted
+                    ? 'Отменить выполнение'
+                    : canComplete
+                    ? 'Отметить выполненной'
+                    : 'Вы не назначены исполнителем',
+                child: GestureDetector(
+                  onTap: task.isCompleted
+                      ? onUncomplete
+                      : canComplete
+                      ? onComplete
+                      : () {},
+                  child: Icon(
+                    task.isCompleted
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    size: 22,
+                    color: task.isCompleted
+                        ? cs.primary
+                        : canComplete
+                        ? cs.onSurfaceVariant
+                        : cs.onSurfaceVariant.withValues(alpha: 0.38),
+                  ),
                 ),
               ),
               const SizedBox(width: 10),

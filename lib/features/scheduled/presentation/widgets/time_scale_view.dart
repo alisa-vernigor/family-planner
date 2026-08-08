@@ -20,6 +20,7 @@ final class TimeScaleView extends StatefulWidget {
   const TimeScaleView({
     required this.tasks,
     required this.categoriesById,
+    required this.currentMemberId,
     required this.weekMode,
     required this.focusedDay,
     required this.onFocusedDayChanged,
@@ -41,6 +42,7 @@ final class TimeScaleView extends StatefulWidget {
 
   final List<Task> tasks;
   final Map<String, TaskCategory> categoriesById;
+  final String currentMemberId;
   final bool weekMode;
   final DateTime focusedDay;
   final void Function(DateTime) onFocusedDayChanged;
@@ -519,6 +521,7 @@ final class _TimeScaleViewState extends State<TimeScaleView> {
                 child: _TimelineTaskBlock(
                   task: block.task,
                   color: _markerColor(block.task, cs),
+                  currentMemberId: widget.currentMemberId,
                   titleMaxLines: _blockHeight(block) >= 44 ? 2 : 1,
                   onEdit: () => widget.onEdit(block.task),
                   onComplete: () => widget.onComplete(block.task),
@@ -641,6 +644,7 @@ final class _TimelineTaskBlock extends StatelessWidget {
   const _TimelineTaskBlock({
     required this.task,
     required this.color,
+    required this.currentMemberId,
     required this.onEdit,
     required this.onComplete,
     required this.onUncomplete,
@@ -649,6 +653,7 @@ final class _TimelineTaskBlock extends StatelessWidget {
 
   final Task task;
   final Color color;
+  final String currentMemberId;
   final VoidCallback onEdit;
   final VoidCallback onComplete;
   final VoidCallback onUncomplete;
@@ -662,6 +667,7 @@ final class _TimelineTaskBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final isCompleted = task.isCompleted;
+    final canComplete = task.canBeCompletedBy(currentMemberId);
     final accent = isCompleted ? cs.onSurfaceVariant : color;
 
     return GestureDetector(
@@ -677,14 +683,29 @@ final class _TimelineTaskBlock extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-              onTap: isCompleted ? onUncomplete : onComplete,
-              child: Icon(
-                isCompleted
-                    ? Icons.check_circle
-                    : Icons.radio_button_unchecked,
-                size: 12,
-                color: isCompleted ? accent : cs.onSurfaceVariant,
+            Tooltip(
+              message: isCompleted
+                  ? 'Отменить выполнение'
+                  : canComplete
+                  ? 'Отметить выполненной'
+                  : 'Вы не назначены исполнителем',
+              child: GestureDetector(
+                onTap: isCompleted
+                    ? onUncomplete
+                    : canComplete
+                    ? onComplete
+                    : () {},
+                child: Icon(
+                  isCompleted
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  size: 12,
+                  color: isCompleted
+                      ? accent
+                      : canComplete
+                      ? cs.onSurfaceVariant
+                      : cs.onSurfaceVariant.withValues(alpha: 0.38),
+                ),
               ),
             ),
             const SizedBox(width: 3),

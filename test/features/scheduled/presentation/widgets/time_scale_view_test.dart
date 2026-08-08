@@ -41,18 +41,21 @@ void main() {
     Map<String, TaskCategory> categoriesById = const {},
     bool weekMode = false,
     DateTime? focusedDay,
+    String currentMemberId = 'member-1',
     void Function(Task)? onEdit,
+    void Function(Task)? onComplete,
   }) {
     return MaterialApp(
       home: Scaffold(
         body: TimeScaleView(
           tasks: tasks,
           categoriesById: categoriesById,
+          currentMemberId: currentMemberId,
           weekMode: weekMode,
           focusedDay: focusedDay ?? today,
           onFocusedDayChanged: (_) {},
           onEdit: onEdit ?? (_) {},
-          onComplete: (_) {},
+          onComplete: onComplete ?? (_) {},
           onUncomplete: (_) {},
         ),
       ),
@@ -212,5 +215,50 @@ void main() {
 
     // Задача на понедельник — в первой колонке, под шапкой «пн».
     expect(find.text('Понедельничная'), findsOneWidget);
+  });
+
+  testWidgets('чекбокс выполнения активен, если пользователь в allowedMemberIds', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Task? completed;
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [earlyTask],
+        onComplete: (task) => completed = task,
+      ),
+    );
+
+    // Ранняя задача в 8:00 — чекбокс-иконка внутри блока.
+    await tester.tap(find.byIcon(Icons.radio_button_unchecked));
+    await tester.pump();
+
+    expect(completed?.id, 'task-early');
+  });
+
+  testWidgets('чекбокс выполнения неактивен, если пользователь не в allowedMemberIds', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Task? completed;
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [earlyTask],
+        currentMemberId: 'other-member',
+        onComplete: (task) => completed = task,
+      ),
+    );
+
+    // Тап по «неактивному» чекбоксу не должен вызвать onComplete.
+    await tester.tap(find.byIcon(Icons.radio_button_unchecked), warnIfMissed: false);
+    await tester.pump();
+
+    expect(completed, isNull);
   });
 }
