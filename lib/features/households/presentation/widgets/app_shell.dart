@@ -52,12 +52,23 @@ final class AppShell extends StatefulWidget {
 
 final class _AppShellState extends State<AppShell> {
   String? _lastSyncedHouseholdId;
+  late final AppNotificationsCubit _notificationsCubit;
 
   @override
   void initState() {
     super.initState();
+    _notificationsCubit = AppNotificationsCubit(
+      notificationsRepository: context.read<NotificationsRepository>(),
+      readStore: NotificationReadStore(),
+    )..load();
     context.read<HouseholdInvitationsCubit>().load();
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncIfNeeded());
+  }
+
+  @override
+  void dispose() {
+    _notificationsCubit.close();
+    super.dispose();
   }
 
   @override
@@ -196,11 +207,8 @@ final class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => AppNotificationsCubit(
-        notificationsRepository: context.read<NotificationsRepository>(),
-        readStore: NotificationReadStore(),
-      )..load(),
+    return BlocProvider.value(
+      value: _notificationsCubit,
       child: Scaffold(
         appBar: AppBar(
         title: DropdownButtonHideUnderline(
@@ -374,7 +382,7 @@ final class _AppShellState extends State<AppShell> {
           // При переключении на таб уведомлений — обновляем ленту,
           // чтобы бейдж и список были свежими.
           if (index == 2) {
-            context.read<AppNotificationsCubit>().refresh();
+            _notificationsCubit.refresh();
           }
           widget.onTabChanged(index);
         },
