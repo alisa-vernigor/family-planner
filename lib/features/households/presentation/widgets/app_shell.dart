@@ -13,6 +13,10 @@ import 'package:family_planner/features/scheduled/presentation/pages/scheduled_p
 import 'package:family_planner/features/households/presentation/pages/household_invitations_page.dart';
 import 'package:family_planner/features/households/presentation/pages/household_members_page.dart';
 import 'package:family_planner/features/households/presentation/pages/create_household_page.dart';
+import 'package:family_planner/features/notifications/notifications.dart';
+import 'package:family_planner/features/notifications/presentation/cubit/notifications_cubit.dart';
+import 'package:family_planner/features/notifications/presentation/cubit/notifications_state.dart';
+import 'package:family_planner/features/notifications/presentation/pages/notifications_page.dart';
 import 'package:family_planner/features/auth/presentation/cubit/auth_cubit.dart';
 import 'package:family_planner/core/database/app_database.dart';
 import 'package:family_planner/core/logging/app_logger.dart';
@@ -192,8 +196,13 @@ final class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return BlocProvider(
+      create: (_) => AppNotificationsCubit(
+        notificationsRepository: context.read<NotificationsRepository>(),
+        readStore: NotificationReadStore(),
+      )..load(),
+      child: Scaffold(
+        appBar: AppBar(
         title: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             value: widget.selectedHouseholdId,
@@ -353,6 +362,7 @@ final class _AppShellState extends State<AppShell> {
                   householdId: _selectedHousehold.id,
                   currentMemberId: widget.currentMemberId,
                 ),
+                NotificationsPage(currentMemberId: widget.currentMemberId),
               ],
             ),
           ),
@@ -360,19 +370,54 @@ final class _AppShellState extends State<AppShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.currentTab,
-        onDestinationSelected: widget.onTabChanged,
-        destinations: const [
-          NavigationDestination(
+        onDestinationSelected: (index) {
+          // При переключении на таб уведомлений — обновляем ленту,
+          // чтобы бейдж и список были свежими.
+          if (index == 2) {
+            context.read<AppNotificationsCubit>().refresh();
+          }
+          widget.onTabChanged(index);
+        },
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.today_outlined),
             selectedIcon: Icon(Icons.today),
             label: 'Сегодня',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
             label: 'Запланированные',
           ),
+          NavigationDestination(
+            icon: BlocBuilder<AppNotificationsCubit, NotificationsState>(
+              builder: (context, state) {
+                final count = state is NotificationsLoaded
+                    ? state.unreadCount
+                    : 0;
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  child: const Icon(Icons.notifications_outlined),
+                );
+              },
+            ),
+            selectedIcon: BlocBuilder<AppNotificationsCubit, NotificationsState>(
+              builder: (context, state) {
+                final count = state is NotificationsLoaded
+                    ? state.unreadCount
+                    : 0;
+                return Badge(
+                  isLabelVisible: count > 0,
+                  label: Text('$count'),
+                  child: const Icon(Icons.notifications),
+                );
+              },
+            ),
+            label: 'Уведомления',
+          ),
         ],
+      ),
       ),
     );
   }

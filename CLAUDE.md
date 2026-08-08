@@ -15,6 +15,7 @@ Flutter-приложение для планирования семейных д
 | **Равенство** | equatable 2.x для всех моделей |
 | **Тесты** | flutter_test + bloc_test 10.x + mocktail 1.x |
 | **Виджет** | home_widget 0.9.x (Android) |
+| **Календарь** | table_calendar 3.x (месячная сетка с полосками задач) + собственный `TimeScaleView` (неделя/день с часами, как Google Calendar) |
 | **Линтер** | flutter_lints 6.x |
 | **Env** | flutter_dotenv 6.x |
 | **Изображения** | image_picker 1.x |
@@ -53,10 +54,11 @@ family-planner/
 │       ├── households/    # Семьи (CRUD, участники, приглашения)
 │       ├── tasks/         # Задачи (сущности, use cases, репозиторий, виджеты, формы)
 │       ├── today/         # Экран «Сегодня» (задачи на день)
-│       ├── scheduled/     # Экран «Запланированные» (все будущие задачи)
+│       ├── scheduled/     # Экран «Запланированные» (все будущие задачи; список/матрица/календарь)
+│       ├── notifications/ # Центр уведомлений / inbox (лента активности: назначено мне, выполнено/пропущено другими, приглашения)
 │       └── profile/       # Профиль (настройки, аватар, публичная страница со статистикой)
 ├── supabase/
-│   └── migrations/        # 8 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing → google_calendar_actions)
+│   └── migrations/        # 11 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing → google_calendar_actions → planned_time → pause_resume)
 ├── test/
 │   ├── app/               # Тесты App и AppBlocObserver
 │   ├── core/              # Тесты logging, database, sync
@@ -96,7 +98,8 @@ main.dart → FamilyPlannerApp → AuthGate
         ├── _EmptyShell (нет семей: CreateHouseholdPage / приглашения)
         └── _AppShell (есть семьи)
               ├── Tab 0: TodayPage (задачи на сегодня)
-              └── Tab 1: ScheduledPage (запланированные задачи)
+              ├── Tab 1: ScheduledPage (запланированные задачи)
+              └── Tab 2: NotificationsPage (уведомления / лента активности)
 ```
 
 ## Database (Supabase / PostgreSQL)
@@ -108,7 +111,7 @@ main.dart → FamilyPlannerApp → AuthGate
 - `household_members` — members (owner/member); PK = (household_id, profile_id)
 - `household_invitations` — приглашения по email
 - `task_templates` — шаблоны повторяющихся задач
-- `task_occurrences` — экземпляры задач (основная таблица)
+- `task_occurrences` — экземпляры задач (основная таблица). Колонка `planned_time` (TIME) — время начала для календарной шкалы (миграция `20260808_planned_time.sql`; в домене — `Task.plannedTime` как `Duration?`). `task_templates.is_active` (bool) — серия на паузе/активна (кэшируется в `Task.templateActive`; миграция `20260808_pause_resume.sql`).
 - `task_occurrence_allowed_members` — кто может выполнять задачу
 - `task_subtasks` — подзадачи
 - `task_categories` — категории
@@ -119,7 +122,7 @@ main.dart → FamilyPlannerApp → AuthGate
 `create_household_invitation`, `accept_household_invitation`, `decline_household_invitation`,
 `leave_household`, `remove_household_member`,
 `create_task_occurrence`, `create_recurring_task_template`, `generate_recurring_task_occurrences`,
-`pause_task_template`, `resume_task_template`, `update_task_template`,
+`pause_task_template`, `resume_task_template` (пауза/возобновление серии — миграция `20260808_pause_resume.sql`), `update_task_template`,
 `get_household_name_for_invitation`, `get_profile_stats`
 
 > **Примечание:** подзадачи (`task_subtasks`) и категории (`task_categories`)
@@ -130,6 +133,7 @@ main.dart → FamilyPlannerApp → AuthGate
 - **Чтение** — из локального SQLite (`DriftTaskRepository`), при онлайне сначала фетч с Supabase в кэш.
 - **Запись** — сразу в локальную БД + `SyncQueueDao.enqueue(...)` с операцией. Когда интернет появится — `SyncProcessor.processPending()` реплеит очередь FIFO.
 - **Операции очереди**: `CREATE`, `UPDATE`, `DELETE`, `PATCH_STATUS`, `ADD_ALLOWED`, `REMOVE_ALLOWED`, `UPDATE_TEMPLATE`, `SUBTASK_CREATE`, `SUBTASK_UPDATE`, `SUBTASK_DELETE` (обработка в `lib/core/sync/sync_processor.dart`).
+- **CREATE в offline**: payload содержит флаг `is_recurring`; `SyncProcessor` по нему выбирает RPC — `create_task_occurrence` (обычная) или `create_recurring_task_template` (серия, с recurring-полями в payload). Служебный `is_recurring` из params RPC убирается.
 - **Ди** в `main.dart`: на нативных платформах `AppDatabase` (не null) → `DriftTaskRepository` / `DriftTaskSubtaskRepository` / `DriftTaskCategoryRepository`; на web (null) → `Supabase*`-аналоги. Выбор в `app.dart`.
 - **Realtime**: экраны подписываются на `task_occurrences`, debounce 1.5s → `_silentReload`. После редактирования серии из другого клиента изменения прилетят через realtime.
 
@@ -145,8 +149,9 @@ main.dart → FamilyPlannerApp → AuthGate
 
 - `Task.copyWith` использует `_Sentinel` для различения `null` (сбросить) и `не передано` (оставить)
 - `effectivePriority` возвращает приоритет по умолчанию (4 — не срочно и не важно) если `priority == null`
-- `patchStatus` — оптимизация: 3 поля вместо 11 для частого complete/uncomplete
+- `patchStatus` — оптимизация: 3 поля вместо 11 для частого complete/uncomplete/skip
 - `isRecurring` — `templateId != null && recurrence != null` (задача из серии повторений)
+- Статус `skipped`: операция «Пропустить» в меню карточки (`SkipTaskUseCase`); пропущенные задачи исчезают из Today/Scheduled, остаются в истории. Списки исключают `completed` + `skipped`.
 - `SortSelector` + `EisenhowerMatrixView` — на экране «Запланированные»
 
 ### Повторяющиеся задачи (recurring)
@@ -155,7 +160,17 @@ main.dart → FamilyPlannerApp → AuthGate
 - Шаблон (`task_templates`) ↔ экземпляры (`task_occurrences.template_id`).
 - `Task` несёт `templateId` + `recurrence` + даты начала/конца (из вложенного select шаблона).
 - Редактирование серии — через scope-выбор (3 опции как в Google Calendar) → RPC `update_task_template` (см. memory `recurrence-edit-scope`).
+- Пауза/возобновление серии — пункт меню карточки → RPC `pause_task_template`/`resume_task_template`; бейдж «Серия на паузе» при `task.isSeriesPaused`.
 - UI повторения — переиспользуемый `RecurrenceEditor` + `RecurrenceDraft`.
+
+### Уведомления / inbox
+
+Полная карта — в `lib/features/notifications/CLAUDE.md`. Кратко:
+- Таб «Уведомления» (3-й в NavigationBar) — лента активности семьи.
+- Лента собирается из **существующих таблиц** (никаких новых RPC/таблиц/миграций): `task_occurrences` (задачи, назначенные мне другим участником; выполненные/пропущенные другим) + `household_invitations` (входящие приглашения).
+- Read-статус — локальный (SharedPreferences, `NotificationReadStore`); на сервере «прочитано/непрочитано» нет, поэтому `markAllRead` — no-op на сервере.
+- `AppNotificationsCubit` создаётся в `AppShell` (BlocProvider), чтобы бейдж в NavigationBar видел `unreadCount`; при переключении на таб вызывается `refresh()`.
+- Зависит от `TaskRepository` (открытие задачи из уведомления) и `HouseholdInvitationsCubit`/`HouseholdCubit` (принятие приглашения).
 
 ### Realtime
 

@@ -11,6 +11,7 @@ class TaskOccurrences extends Table {
   TextColumn get description => text().nullable()();
   IntColumn get estimatedDurationMinutes => integer()();
   TextColumn get plannedFor => text()(); // ISO date YYYY-MM-DD
+  IntColumn get plannedTime => integer().nullable()(); // minutes from midnight; null = whole day
   TextColumn get deadline => text().nullable()(); // ISO datetime
   TextColumn get assignedMemberId => text().nullable()();
   TextColumn get pinnedMemberId => text().nullable()();
@@ -28,6 +29,7 @@ class TaskOccurrences extends Table {
   TextColumn get recurrenceEndDate => text().nullable()(); // ISO date
   IntColumn get reminderMinutesBefore => integer().nullable()(); // minutes before deadline/start
   TextColumn get categoryId => text().nullable()(); // task_categories.id
+  BoolColumn get templateActive => boolean().nullable()(); // task_templates.is_active; false = серия на паузе
 
   @override
   Set<Column> get primaryKey => {id};

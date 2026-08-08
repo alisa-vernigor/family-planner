@@ -3,6 +3,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:family_planner/core/services/connectivity_service.dart';
 import 'package:family_planner/features/auth/domain/repositories/auth_repository.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
 
@@ -13,6 +14,8 @@ final class MockHouseholdRepository extends Mock implements HouseholdRepository 
 final class MockProfileRepository extends Mock implements ProfileRepository {}
 final class MockTaskRepository extends Mock implements TaskRepository {}
 final class MockConnectivityService extends Mock implements ConnectivityService {}
+final class MockNotificationsRepository extends Mock
+    implements NotificationsRepository {}
 
 // ── Factory ─────────────────────────────────────────────────
 
@@ -33,6 +36,7 @@ final class MockRepositoryFactory {
     profile = MockProfileRepository();
     task = MockTaskRepository();
     connectivity = MockConnectivityService();
+    notifications = MockNotificationsRepository();
   }
 
   late final MockAuthRepository auth;
@@ -40,4 +44,5 @@ final class MockRepositoryFactory {
   late final MockProfileRepository profile;
   late final MockTaskRepository task;
   late final MockConnectivityService connectivity;
+  late final MockNotificationsRepository notifications;
 }

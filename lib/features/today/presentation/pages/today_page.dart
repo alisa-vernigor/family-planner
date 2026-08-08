@@ -55,6 +55,7 @@ final class TodayPage extends StatelessWidget {
             uncompleteTaskUseCase: UncompleteTaskUseCase(
               repository: repository,
             ),
+            skipTaskUseCase: SkipTaskUseCase(repository: repository),
             taskRepository: repository,
           ),
         ),
@@ -227,6 +228,47 @@ final class _TodayViewState extends State<_TodayView>
     }
   }
 
+  Future<void> _skipTask(Task task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Пропустить задачу?'),
+        content: Text('«${task.title}» будет пропущена и исчезнет из списков.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Пропустить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final tasksCubit = context.read<TodayTasksCubit>();
+    final actionsCubit = context.read<TaskActionsCubit>();
+
+    // Оптимистично убираем задачу из списка (как при удалении).
+    tasksCubit.removeTask(task.id);
+
+    final skipped = await actionsCubit.skipTask(task: task);
+
+    if (skipped != null && mounted) {
+      tasksCubit.confirmDelete(task.id);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Задача пропущена.')),
+      );
+    } else if (mounted) {
+      // Откат — перезагружаем
+      tasksCubit.cancelDelete(task.id);
+      _reloadTasks();
+    }
+  }
+
   Future<void> _distributeTasks() async {
     await context.read<TodayTasksCubit>().distribute(
       householdId: widget.householdId,
@@ -354,6 +396,46 @@ final class _TodayViewState extends State<_TodayView>
         const SnackBar(content: Text('Не удалось скопировать задачу.')),
       );
       AppLogger.error('Ошибка дублирования задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
+  Future<void> _togglePauseTask(Task task) async {
+    if (task.templateId == null) return;
+    final repository = context.read<TaskRepository>();
+
+    final isPausing = !task.isSeriesPaused;
+    try {
+      if (isPausing) {
+        await PauseTaskTemplateUseCase(repository: repository).call(
+          templateId: task.templateId!,
+        );
+      } else {
+        await ResumeTaskTemplateUseCase(repository: repository).call(
+          templateId: task.templateId!,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isPausing ? 'Серия поставлена на паузу.' : 'Серия возобновлена.',
+            ),
+          ),
+        );
+        // Перезагружаем: пауза удаляет будущие экземпляры на сервере.
+        _silentReload();
+      }
+    } catch (exception, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось изменить состояние серии.')),
+      );
+      AppLogger.error(
+        'Ошибка паузы/возобновления серии',
+        error: exception,
+        stackTrace: stackTrace,
+      );
       _reloadTasks();
     }
   }
@@ -529,6 +611,8 @@ final class _TodayViewState extends State<_TodayView>
                             onTogglePin: _togglePinTask,
                             onReschedule: _rescheduleTask,
                             onDuplicate: _duplicateTask,
+                            onTogglePause: _togglePauseTask,
+                            onSkip: _skipTask,
                             onComplete: (task) {
                         if (_isSelectionMode) {
                           _toggleTaskSelection(task.id);

@@ -30,12 +30,12 @@ final class SupabaseTaskRepository implements TaskRepository {
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
-          'estimated_duration_minutes, planned_for, deadline_at, '
+          'estimated_duration_minutes, planned_for, planned_time, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
           'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
-          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date, is_active)',
         )
         .eq('household_id', householdId)
         .eq('planned_for', plannedFor)
@@ -64,17 +64,17 @@ final class SupabaseTaskRepository implements TaskRepository {
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
-          'estimated_duration_minutes, planned_for, deadline_at, '
+          'estimated_duration_minutes, planned_for, planned_time, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
           'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
-          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date, is_active)',
         )
         .eq('household_id', householdId)
         .gte('planned_for', _dateOnly(startOfTomorrow))
         .lte('planned_for', _dateOnly(day.add(const Duration(days: 180)))) // максимум 6 месяцев вперёд
-        .neq('status', TaskStatus.completed.name)
+        .not('status', 'in', [TaskStatus.completed.name, TaskStatus.skipped.name])
         .order('planned_for')
         .order('deadline_at');
 
@@ -97,15 +97,15 @@ final class SupabaseTaskRepository implements TaskRepository {
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
-          'estimated_duration_minutes, planned_for, deadline_at, '
+          'estimated_duration_minutes, planned_for, planned_time, deadline_at, '
           'assigned_member_id, pinned_member_id, status, created_at, completed_at, updated_at, priority, '
           'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
-          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date, is_active)',
         )
         .eq('household_id', householdId)
-        .neq('status', TaskStatus.completed.name)
+        .not('status', 'in', [TaskStatus.completed.name, TaskStatus.skipped.name])
         .gte('planned_for', _dateOnly(DateTime.now().subtract(const Duration(days: 7)))) // не тащим просрочку на месяцы
         .order('planned_for')
         .order('deadline_at')
@@ -139,6 +139,7 @@ final class SupabaseTaskRepository implements TaskRepository {
                   'p_description': params.description ?? '',
                   'p_estimated_duration_minutes': params.estimatedDurationMinutes,
                   'p_planned_for': _dateOnly(params.plannedFor),
+                  'p_planned_time': _timeToString(params.plannedTime),
                   'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
                   'p_priority': params.priority?.value,
                   'p_reminder_minutes_before': params.reminderMinutesBefore,
@@ -189,6 +190,7 @@ final class SupabaseTaskRepository implements TaskRepository {
                 'p_start_date': _dateOnly(
                   params.recurrenceStartDate ?? params.plannedFor,
                 ),
+                'p_planned_time': _timeToString(params.plannedTime),
                 'p_deadline_at': params.deadline?.toUtc().toIso8601String(),
                 'p_recurrence_type': recurrence.type.databaseValue,
                 'p_interval_days': recurrence.intervalDays,
@@ -223,6 +225,7 @@ final class SupabaseTaskRepository implements TaskRepository {
           'description': task.description,
           'estimated_duration_minutes': task.estimatedDurationMinutes,
           'planned_for': _dateOnly(task.plannedFor),
+          'planned_time': _timeToString(task.plannedTime),
           'deadline_at': task.deadline?.toUtc().toIso8601String(),
           'assigned_member_id': task.assignedMemberId,
           'pinned_member_id': task.pinnedMemberId,
@@ -276,6 +279,7 @@ final class SupabaseTaskRepository implements TaskRepository {
         'p_estimated_duration_minutes': task.estimatedDurationMinutes,
         'p_deadline_time': deadlineTime,
         'p_deadline_at': task.deadline?.toUtc().toIso8601String(),
+        'p_planned_time': _timeToString(task.plannedTime),
         'p_recurrence_type': params.recurrence.type.databaseValue,
         'p_interval_days': params.recurrence.intervalDays,
         'p_weekdays': params.recurrence.weekdays,
@@ -302,6 +306,28 @@ final class SupabaseTaskRepository implements TaskRepository {
     AppLogger.info('SupabaseTaskRepository.delete: taskId=$taskId');
 
     await _client.from('task_occurrences').delete().eq('id', taskId);
+  }
+
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.pauseTemplate: templateId=$templateId',
+    );
+
+    await _client.rpc('pause_task_template', params: {
+      'p_task_template_id': templateId,
+    });
+  }
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {
+    AppLogger.debug(
+      'SupabaseTaskRepository.resumeTemplate: templateId=$templateId',
+    );
+
+    await _client.rpc('resume_task_template', params: {
+      'p_task_template_id': templateId,
+    });
   }
 
   @override
@@ -372,6 +398,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       description: row['description'] as String?,
       estimatedDurationMinutes: row['estimated_duration_minutes'] as int,
       plannedFor: DateTime.parse(row['planned_for'] as String),
+      plannedTime: _parseTime(row['planned_time']),
       deadline: _parseNullableDateTime(row['deadline_at']),
       allowedMemberIds: [currentUserId],
       assignedMemberId: row['assigned_member_id'] as String?,
@@ -398,6 +425,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       description: row['description'] as String?,
       estimatedDurationMinutes: row['estimated_duration_minutes'] as int,
       plannedFor: DateTime.parse(row['planned_for'] as String),
+      plannedTime: _parseTime(row['planned_time']),
       deadline: _parseNullableDateTime(row['deadline_at']),
       allowedMemberIds: rawAllowedMembers
           .map((item) => (item as Map<String, dynamic>)['profile_id'] as String)
@@ -415,6 +443,7 @@ final class SupabaseTaskRepository implements TaskRepository {
       recurrenceEndDate: _parseNullableDate(rawTemplate?['recurrence_end_date']),
       reminderMinutesBefore: row['reminder_minutes_before'] as int?,
       categoryId: row['category_id'] as String?,
+      templateActive: rawTemplate?['is_active'] as bool?,
     );
   }
 
@@ -489,6 +518,28 @@ final class SupabaseTaskRepository implements TaskRepository {
     final day = value.day.toString().padLeft(2, '0');
 
     return '$year-$month-$day';
+  }
+
+  /// Minutes since midnight → `HH:MM:SS` for Supabase `TIME` columns.
+  /// `null` — задача без времени / весь день.
+  String? _timeToString(Duration? plannedTime) {
+    if (plannedTime == null) return null;
+    final h = plannedTime.inHours.toString().padLeft(2, '0');
+    final m = (plannedTime.inMinutes % 60).toString().padLeft(2, '0');
+    return '$h:$m:00';
+  }
+
+  /// Supabase `TIME` string (`HH:MM:SS`) → [Duration]. `null` — весь день.
+  Duration? _parseTime(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString();
+    if (text.isEmpty) return null;
+    final parts = text.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return Duration(hours: h, minutes: m);
   }
 }
 

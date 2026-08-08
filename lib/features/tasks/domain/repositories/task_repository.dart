@@ -28,6 +28,13 @@ abstract interface class TaskRepository {
     required UpdateRecurringTaskParams params,
   });
 
+  /// Ставит повторяющуюся задачу на паузу: будущие экземпляры удаляются,
+  /// история сохраняется.
+  Future<void> pauseTemplate({required String templateId});
+
+  /// Возобновляет повторяющуюся задачу: генерирует экземпляры на 30 дней вперёд.
+  Future<void> resumeTemplate({required String templateId});
+
   /// Быстрая смена статуса (complete/uncomplete).
   /// Отправляет 3 поля вместо 11 — для самого частого действия.
   Future<void> patchStatus({

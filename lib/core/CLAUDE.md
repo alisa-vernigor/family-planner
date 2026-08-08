@@ -18,7 +18,7 @@
   - `_isSupportedPlatform` — только Android/iOS (не web).
   - v22 API: `initialize(settings:)`, `zonedSchedule(id:, title:, body:, scheduledDate:, notificationDetails:, androidScheduleMode:)`, `cancel(id:)`.
 - **database/** — Drift/SQLite (offline-first):
-  - Таблицы: `TaskOccurrences`, `TaskTemplates`, `TaskCategories`, `TaskSubtasks`, `SyncQueue`, а также household/профильные.
+  - Таблицы: `TaskOccurrences` (включая nullable-колонки `category_id`, `reminder_minutes_before`, `planned_time`, **`template_active`** — кэш `task_templates.is_active` для паузы серии), `TaskTemplates`, `TaskCategories`, `TaskSubtasks`, `SyncQueue`, а также household/профильные.
   - **Важно:** row-классы `TaskCategory` / `TaskSubtask` конфликтуют с доменными сущностями tasks — в drift-репозиториях доменный импорт алиасится (`import '...task_category.dart' as domain;`).
   - DAO категорий: `TaskCategoriesDao` — метод удаления называется `deleteCategory` (избегает конфликта с базовым `DatabaseConnectionUser.delete`). Аналогично `deleteSubtask` в `TaskSubtasksDao`.
 

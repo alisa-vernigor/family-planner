@@ -12,6 +12,8 @@ import 'package:family_planner/features/auth/presentation/pages/auth_gate.dart';
 import 'package:family_planner/features/households/data/repositories/supabase_household_repository.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_cubit.dart';
 import 'package:family_planner/features/households/presentation/cubit/household_invitations_cubit.dart';
+import 'package:family_planner/features/notifications/data/repositories/supabase_notifications_repository.dart';
+import 'package:family_planner/features/notifications/domain/repositories/notifications_repository.dart';
 import 'package:family_planner/features/tasks/data/repositories/drift_task_category_repository.dart';
 import 'package:family_planner/features/tasks/data/repositories/drift_task_repository.dart';
 import 'package:family_planner/features/tasks/data/repositories/drift_task_subtask_repository.dart';
@@ -87,6 +89,9 @@ final class FamilyPlannerApp extends StatelessWidget {
     }
 
     final profileRepository = SupabaseProfileRepository(client: client);
+    final notificationsRepository = SupabaseNotificationsRepository(
+      client: client,
+    );
 
     return MultiRepositoryProvider(
       providers: [
@@ -102,6 +107,9 @@ final class FamilyPlannerApp extends StatelessWidget {
         ),
         RepositoryProvider<ProfileRepository>.value(
           value: profileRepository,
+        ),
+        RepositoryProvider<NotificationsRepository>.value(
+          value: notificationsRepository,
         ),
         RepositoryProvider<ConnectivityService>.value(
           value: connectivityService,

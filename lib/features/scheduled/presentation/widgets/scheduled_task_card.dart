@@ -19,6 +19,8 @@ final class ScheduledTaskCard extends StatelessWidget {
     required this.onDelete,
     this.onReschedule,
     this.onDuplicate,
+    this.onTogglePause,
+    this.onSkip,
     this.category,
     super.key,
   });
@@ -33,6 +35,12 @@ final class ScheduledTaskCard extends StatelessWidget {
   final VoidCallback onDelete;
   final VoidCallback? onReschedule;
   final VoidCallback? onDuplicate;
+
+  /// Пауза/возобновление серии повторяющейся задачи (если не `null`).
+  final VoidCallback? onTogglePause;
+
+  /// Пропустить задачу (статус `skipped`). Если не `null` — пункт меню.
+  final VoidCallback? onSkip;
   final TaskCategory? category;
 
   String? _assigneeName() {
@@ -88,6 +96,10 @@ final class ScheduledTaskCard extends StatelessWidget {
                         onReschedule?.call();
                       case 'duplicate':
                         onDuplicate?.call();
+                      case 'togglePause':
+                        onTogglePause?.call();
+                      case 'skip':
+                        onSkip?.call();
                     }
                   },
                   itemBuilder: (_) => [
@@ -104,6 +116,20 @@ final class ScheduledTaskCard extends StatelessWidget {
                       const PopupMenuItem(
                         value: 'duplicate',
                         child: Text('Дублировать'),
+                      ),
+                    if (onTogglePause != null)
+                      PopupMenuItem(
+                        value: 'togglePause',
+                        child: Text(
+                          task.isSeriesPaused
+                              ? 'Возобновить серию'
+                              : 'Поставить на паузу',
+                        ),
+                      ),
+                    if (onSkip != null)
+                      const PopupMenuItem(
+                        value: 'skip',
+                        child: Text('Пропустить'),
                       ),
                     PopupMenuItem(
                       value: 'assign',
@@ -148,6 +174,12 @@ final class ScheduledTaskCard extends StatelessWidget {
                   label: formatDate(task.plannedFor),
                   color: cs.tertiary,
                 ),
+                if (task.plannedTimeLabel != null)
+                  InfoChip(
+                    icon: Icons.schedule_outlined,
+                    label: task.plannedTimeLabel!,
+                    color: cs.tertiary,
+                  ),
                 InfoChip(
                   icon: Icons.timer_outlined,
                   label: '${task.estimatedDurationMinutes} мин',
@@ -158,6 +190,12 @@ final class ScheduledTaskCard extends StatelessWidget {
                     icon: Icons.repeat_outlined,
                     label: 'Повтор',
                     color: cs.tertiary,
+                  ),
+                if (task.isSeriesPaused)
+                  InfoChip(
+                    icon: Icons.pause_circle_outline,
+                    label: 'Серия на паузе',
+                    color: cs.error,
                   ),
                 if (task.isPinned)
                   InfoChip(

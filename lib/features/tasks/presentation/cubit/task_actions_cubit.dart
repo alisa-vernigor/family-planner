@@ -4,6 +4,7 @@ import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/core/services/reminder_service.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/skip_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 
 import 'task_action_state.dart';
@@ -11,10 +12,12 @@ import 'task_action_state.dart';
 final class TaskActionsCubit extends Cubit<TaskActionState> {
   TaskActionsCubit({
     required this.uncompleteTaskUseCase,
+    required this.skipTaskUseCase,
     required this.taskRepository,
   }) : super(const TaskActionInitial());
 
   final UncompleteTaskUseCase uncompleteTaskUseCase;
+  final SkipTaskUseCase skipTaskUseCase;
   final TaskRepository taskRepository;
 
   Future<Task?> uncompleteTask({required Task task}) async {
@@ -78,6 +81,33 @@ final class TaskActionsCubit extends Cubit<TaskActionState> {
       emit(TaskActionFailure(message: message));
 
       return false;
+    }
+  }
+
+  /// Пропустить задачу (статус `skipped`). Возвращает обновлённую [Task]
+  /// при успехе или `null` при ошибке.
+  Future<Task?> skipTask({required Task task}) async {
+    emit(const TaskActionInProgress());
+
+    try {
+      final skippedTask = await skipTaskUseCase(task: task);
+
+      // Задача пропущена — напоминание не нужно.
+      await ReminderService.instance.cancel(skippedTask.id);
+
+      AppLogger.info('Задача пропущена: taskId=${task.id}');
+
+      emit(const TaskActionInitial());
+
+      return skippedTask;
+    } catch (exception, stackTrace) {
+      const message = 'Не удалось пропустить задачу.';
+
+      AppLogger.error(message, error: exception, stackTrace: stackTrace);
+
+      emit(TaskActionFailure(message: message));
+
+      return null;
     }
   }
 }

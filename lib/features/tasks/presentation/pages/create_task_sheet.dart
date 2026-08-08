@@ -16,6 +16,7 @@ import 'package:family_planner/features/tasks/presentation/widgets/category_fiel
 import 'package:family_planner/features/tasks/presentation/widgets/priority_selector.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/recurrence_editor.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/reminder_selector.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/start_time_field.dart';
 
 Future<bool?> showCreateTaskSheet({
   required BuildContext context,
@@ -68,6 +69,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
   DateTime? _deadline;
   int? _reminderMinutesBefore;
   String? _categoryId;
+  Duration? _plannedTime;
   RecurrenceDraft _recurrenceDraft = const RecurrenceDraft(
     type: TaskRecurrenceType.daily,
     isEnabled: false,
@@ -219,6 +221,7 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
         estimatedDurationMinutes: int.tryParse(_durationController.text) ?? 0,
         plannedFor: widget.plannedFor,
         deadline: _deadline,
+        plannedTime: _plannedTime,
         assignedMemberId: _assignedMemberId,
         pinnedMemberId: _isPinned ? _assignedMemberId : null,
         recurrence: recurrence,
@@ -352,6 +355,15 @@ final class _CreateTaskSheetState extends State<CreateTaskSheet> {
                           }
 
                           return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      StartTimeField(
+                        key: const Key('create_start_time_field'),
+                        value: _plannedTime,
+                        enabled: !isLoading,
+                        onChanged: (time) {
+                          setState(() => _plannedTime = time);
                         },
                       ),
                       const SizedBox(height: 16),

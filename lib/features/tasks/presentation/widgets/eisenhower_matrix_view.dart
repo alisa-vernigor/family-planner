@@ -838,6 +838,18 @@ final class _MiniTaskCard extends StatelessWidget {
                   '${task.estimatedDurationMinutes}м',
                   style: TextStyle(fontSize: 10, color: cs.onSurfaceVariant),
                 ),
+              if (task.plannedTimeLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Text(
+                    task.plannedTimeLabel!,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

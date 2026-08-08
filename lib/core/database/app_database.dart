@@ -33,7 +33,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration {
@@ -69,6 +69,17 @@ class AppDatabase extends _$AppDatabase {
           await migrator.addColumn(
             taskOccurrences,
             taskOccurrences.categoryId,
+          );
+        }
+        if (from < 5) {
+          // Время начала задачи (минуты от полуночи) для календарной шкалы.
+          await migrator.addColumn(taskOccurrences, taskOccurrences.plannedTime);
+        }
+        if (from < 6) {
+          // Пауза повторяющейся задачи: активна ли серия (task_templates.is_active).
+          await migrator.addColumn(
+            taskOccurrences,
+            taskOccurrences.templateActive,
           );
         }
       },

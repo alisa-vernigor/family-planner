@@ -71,6 +71,17 @@ class $TaskOccurrencesTable extends TaskOccurrences
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _plannedTimeMeta = const VerificationMeta(
+    'plannedTime',
+  );
+  @override
+  late final GeneratedColumn<int> plannedTime = GeneratedColumn<int>(
+    'planned_time',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _deadlineMeta = const VerificationMeta(
     'deadline',
   );
@@ -256,6 +267,20 @@ class $TaskOccurrencesTable extends TaskOccurrences
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _templateActiveMeta = const VerificationMeta(
+    'templateActive',
+  );
+  @override
+  late final GeneratedColumn<bool> templateActive = GeneratedColumn<bool>(
+    'template_active',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("template_active" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -264,6 +289,7 @@ class $TaskOccurrencesTable extends TaskOccurrences
     description,
     estimatedDurationMinutes,
     plannedFor,
+    plannedTime,
     deadline,
     assignedMemberId,
     pinnedMemberId,
@@ -281,6 +307,7 @@ class $TaskOccurrencesTable extends TaskOccurrences
     recurrenceEndDate,
     reminderMinutesBefore,
     categoryId,
+    templateActive,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -345,6 +372,15 @@ class $TaskOccurrencesTable extends TaskOccurrences
       );
     } else if (isInserting) {
       context.missing(_plannedForMeta);
+    }
+    if (data.containsKey('planned_time')) {
+      context.handle(
+        _plannedTimeMeta,
+        plannedTime.isAcceptableOrUnknown(
+          data['planned_time']!,
+          _plannedTimeMeta,
+        ),
+      );
     }
     if (data.containsKey('deadline')) {
       context.handle(
@@ -481,6 +517,15 @@ class $TaskOccurrencesTable extends TaskOccurrences
         categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
       );
     }
+    if (data.containsKey('template_active')) {
+      context.handle(
+        _templateActiveMeta,
+        templateActive.isAcceptableOrUnknown(
+          data['template_active']!,
+          _templateActiveMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -514,6 +559,10 @@ class $TaskOccurrencesTable extends TaskOccurrences
         DriftSqlType.string,
         data['${effectivePrefix}planned_for'],
       )!,
+      plannedTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}planned_time'],
+      ),
       deadline: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}deadline'],
@@ -582,6 +631,10 @@ class $TaskOccurrencesTable extends TaskOccurrences
         DriftSqlType.string,
         data['${effectivePrefix}category_id'],
       ),
+      templateActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}template_active'],
+      ),
     );
   }
 
@@ -598,6 +651,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
   final String? description;
   final int estimatedDurationMinutes;
   final String plannedFor;
+  final int? plannedTime;
   final String? deadline;
   final String? assignedMemberId;
   final String? pinnedMemberId;
@@ -615,6 +669,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
   final String? recurrenceEndDate;
   final int? reminderMinutesBefore;
   final String? categoryId;
+  final bool? templateActive;
   const TaskOccurrence({
     required this.id,
     required this.householdId,
@@ -622,6 +677,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     this.description,
     required this.estimatedDurationMinutes,
     required this.plannedFor,
+    this.plannedTime,
     this.deadline,
     this.assignedMemberId,
     this.pinnedMemberId,
@@ -639,6 +695,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     this.recurrenceEndDate,
     this.reminderMinutesBefore,
     this.categoryId,
+    this.templateActive,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -651,6 +708,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     }
     map['estimated_duration_minutes'] = Variable<int>(estimatedDurationMinutes);
     map['planned_for'] = Variable<String>(plannedFor);
+    if (!nullToAbsent || plannedTime != null) {
+      map['planned_time'] = Variable<int>(plannedTime);
+    }
     if (!nullToAbsent || deadline != null) {
       map['deadline'] = Variable<String>(deadline);
     }
@@ -696,6 +756,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     if (!nullToAbsent || categoryId != null) {
       map['category_id'] = Variable<String>(categoryId);
     }
+    if (!nullToAbsent || templateActive != null) {
+      map['template_active'] = Variable<bool>(templateActive);
+    }
     return map;
   }
 
@@ -709,6 +772,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           : Value(description),
       estimatedDurationMinutes: Value(estimatedDurationMinutes),
       plannedFor: Value(plannedFor),
+      plannedTime: plannedTime == null && nullToAbsent
+          ? const Value.absent()
+          : Value(plannedTime),
       deadline: deadline == null && nullToAbsent
           ? const Value.absent()
           : Value(deadline),
@@ -754,6 +820,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       categoryId: categoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(categoryId),
+      templateActive: templateActive == null && nullToAbsent
+          ? const Value.absent()
+          : Value(templateActive),
     );
   }
 
@@ -771,6 +840,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
         json['estimatedDurationMinutes'],
       ),
       plannedFor: serializer.fromJson<String>(json['plannedFor']),
+      plannedTime: serializer.fromJson<int?>(json['plannedTime']),
       deadline: serializer.fromJson<String?>(json['deadline']),
       assignedMemberId: serializer.fromJson<String?>(json['assignedMemberId']),
       pinnedMemberId: serializer.fromJson<String?>(json['pinnedMemberId']),
@@ -794,6 +864,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
         json['reminderMinutesBefore'],
       ),
       categoryId: serializer.fromJson<String?>(json['categoryId']),
+      templateActive: serializer.fromJson<bool?>(json['templateActive']),
     );
   }
   @override
@@ -808,6 +879,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
         estimatedDurationMinutes,
       ),
       'plannedFor': serializer.toJson<String>(plannedFor),
+      'plannedTime': serializer.toJson<int?>(plannedTime),
       'deadline': serializer.toJson<String?>(deadline),
       'assignedMemberId': serializer.toJson<String?>(assignedMemberId),
       'pinnedMemberId': serializer.toJson<String?>(pinnedMemberId),
@@ -825,6 +897,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       'recurrenceEndDate': serializer.toJson<String?>(recurrenceEndDate),
       'reminderMinutesBefore': serializer.toJson<int?>(reminderMinutesBefore),
       'categoryId': serializer.toJson<String?>(categoryId),
+      'templateActive': serializer.toJson<bool?>(templateActive),
     };
   }
 
@@ -835,6 +908,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     Value<String?> description = const Value.absent(),
     int? estimatedDurationMinutes,
     String? plannedFor,
+    Value<int?> plannedTime = const Value.absent(),
     Value<String?> deadline = const Value.absent(),
     Value<String?> assignedMemberId = const Value.absent(),
     Value<String?> pinnedMemberId = const Value.absent(),
@@ -852,6 +926,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     Value<String?> recurrenceEndDate = const Value.absent(),
     Value<int?> reminderMinutesBefore = const Value.absent(),
     Value<String?> categoryId = const Value.absent(),
+    Value<bool?> templateActive = const Value.absent(),
   }) => TaskOccurrence(
     id: id ?? this.id,
     householdId: householdId ?? this.householdId,
@@ -860,6 +935,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     estimatedDurationMinutes:
         estimatedDurationMinutes ?? this.estimatedDurationMinutes,
     plannedFor: plannedFor ?? this.plannedFor,
+    plannedTime: plannedTime.present ? plannedTime.value : this.plannedTime,
     deadline: deadline.present ? deadline.value : this.deadline,
     assignedMemberId: assignedMemberId.present
         ? assignedMemberId.value
@@ -889,6 +965,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
         ? reminderMinutesBefore.value
         : this.reminderMinutesBefore,
     categoryId: categoryId.present ? categoryId.value : this.categoryId,
+    templateActive: templateActive.present
+        ? templateActive.value
+        : this.templateActive,
   );
   TaskOccurrence copyWithCompanion(TaskOccurrencesCompanion data) {
     return TaskOccurrence(
@@ -906,6 +985,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       plannedFor: data.plannedFor.present
           ? data.plannedFor.value
           : this.plannedFor,
+      plannedTime: data.plannedTime.present
+          ? data.plannedTime.value
+          : this.plannedTime,
       deadline: data.deadline.present ? data.deadline.value : this.deadline,
       assignedMemberId: data.assignedMemberId.present
           ? data.assignedMemberId.value
@@ -945,6 +1027,9 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
       categoryId: data.categoryId.present
           ? data.categoryId.value
           : this.categoryId,
+      templateActive: data.templateActive.present
+          ? data.templateActive.value
+          : this.templateActive,
     );
   }
 
@@ -957,6 +1042,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           ..write('description: $description, ')
           ..write('estimatedDurationMinutes: $estimatedDurationMinutes, ')
           ..write('plannedFor: $plannedFor, ')
+          ..write('plannedTime: $plannedTime, ')
           ..write('deadline: $deadline, ')
           ..write('assignedMemberId: $assignedMemberId, ')
           ..write('pinnedMemberId: $pinnedMemberId, ')
@@ -973,7 +1059,8 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           ..write('recurrenceStartDate: $recurrenceStartDate, ')
           ..write('recurrenceEndDate: $recurrenceEndDate, ')
           ..write('reminderMinutesBefore: $reminderMinutesBefore, ')
-          ..write('categoryId: $categoryId')
+          ..write('categoryId: $categoryId, ')
+          ..write('templateActive: $templateActive')
           ..write(')'))
         .toString();
   }
@@ -986,6 +1073,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     description,
     estimatedDurationMinutes,
     plannedFor,
+    plannedTime,
     deadline,
     assignedMemberId,
     pinnedMemberId,
@@ -1003,6 +1091,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
     recurrenceEndDate,
     reminderMinutesBefore,
     categoryId,
+    templateActive,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -1014,6 +1103,7 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           other.description == this.description &&
           other.estimatedDurationMinutes == this.estimatedDurationMinutes &&
           other.plannedFor == this.plannedFor &&
+          other.plannedTime == this.plannedTime &&
           other.deadline == this.deadline &&
           other.assignedMemberId == this.assignedMemberId &&
           other.pinnedMemberId == this.pinnedMemberId &&
@@ -1030,7 +1120,8 @@ class TaskOccurrence extends DataClass implements Insertable<TaskOccurrence> {
           other.recurrenceStartDate == this.recurrenceStartDate &&
           other.recurrenceEndDate == this.recurrenceEndDate &&
           other.reminderMinutesBefore == this.reminderMinutesBefore &&
-          other.categoryId == this.categoryId);
+          other.categoryId == this.categoryId &&
+          other.templateActive == this.templateActive);
 }
 
 class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
@@ -1040,6 +1131,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
   final Value<String?> description;
   final Value<int> estimatedDurationMinutes;
   final Value<String> plannedFor;
+  final Value<int?> plannedTime;
   final Value<String?> deadline;
   final Value<String?> assignedMemberId;
   final Value<String?> pinnedMemberId;
@@ -1057,6 +1149,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
   final Value<String?> recurrenceEndDate;
   final Value<int?> reminderMinutesBefore;
   final Value<String?> categoryId;
+  final Value<bool?> templateActive;
   final Value<int> rowid;
   const TaskOccurrencesCompanion({
     this.id = const Value.absent(),
@@ -1065,6 +1158,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     this.description = const Value.absent(),
     this.estimatedDurationMinutes = const Value.absent(),
     this.plannedFor = const Value.absent(),
+    this.plannedTime = const Value.absent(),
     this.deadline = const Value.absent(),
     this.assignedMemberId = const Value.absent(),
     this.pinnedMemberId = const Value.absent(),
@@ -1082,6 +1176,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     this.recurrenceEndDate = const Value.absent(),
     this.reminderMinutesBefore = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.templateActive = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TaskOccurrencesCompanion.insert({
@@ -1091,6 +1186,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     this.description = const Value.absent(),
     required int estimatedDurationMinutes,
     required String plannedFor,
+    this.plannedTime = const Value.absent(),
     this.deadline = const Value.absent(),
     this.assignedMemberId = const Value.absent(),
     this.pinnedMemberId = const Value.absent(),
@@ -1108,6 +1204,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     this.recurrenceEndDate = const Value.absent(),
     this.reminderMinutesBefore = const Value.absent(),
     this.categoryId = const Value.absent(),
+    this.templateActive = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        householdId = Value(householdId),
@@ -1124,6 +1221,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     Expression<String>? description,
     Expression<int>? estimatedDurationMinutes,
     Expression<String>? plannedFor,
+    Expression<int>? plannedTime,
     Expression<String>? deadline,
     Expression<String>? assignedMemberId,
     Expression<String>? pinnedMemberId,
@@ -1141,6 +1239,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     Expression<String>? recurrenceEndDate,
     Expression<int>? reminderMinutesBefore,
     Expression<String>? categoryId,
+    Expression<bool>? templateActive,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1151,6 +1250,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
       if (estimatedDurationMinutes != null)
         'estimated_duration_minutes': estimatedDurationMinutes,
       if (plannedFor != null) 'planned_for': plannedFor,
+      if (plannedTime != null) 'planned_time': plannedTime,
       if (deadline != null) 'deadline': deadline,
       if (assignedMemberId != null) 'assigned_member_id': assignedMemberId,
       if (pinnedMemberId != null) 'pinned_member_id': pinnedMemberId,
@@ -1170,6 +1270,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
       if (reminderMinutesBefore != null)
         'reminder_minutes_before': reminderMinutesBefore,
       if (categoryId != null) 'category_id': categoryId,
+      if (templateActive != null) 'template_active': templateActive,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1181,6 +1282,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     Value<String?>? description,
     Value<int>? estimatedDurationMinutes,
     Value<String>? plannedFor,
+    Value<int?>? plannedTime,
     Value<String?>? deadline,
     Value<String?>? assignedMemberId,
     Value<String?>? pinnedMemberId,
@@ -1198,6 +1300,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     Value<String?>? recurrenceEndDate,
     Value<int?>? reminderMinutesBefore,
     Value<String?>? categoryId,
+    Value<bool?>? templateActive,
     Value<int>? rowid,
   }) {
     return TaskOccurrencesCompanion(
@@ -1208,6 +1311,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
       estimatedDurationMinutes:
           estimatedDurationMinutes ?? this.estimatedDurationMinutes,
       plannedFor: plannedFor ?? this.plannedFor,
+      plannedTime: plannedTime ?? this.plannedTime,
       deadline: deadline ?? this.deadline,
       assignedMemberId: assignedMemberId ?? this.assignedMemberId,
       pinnedMemberId: pinnedMemberId ?? this.pinnedMemberId,
@@ -1226,6 +1330,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
       reminderMinutesBefore:
           reminderMinutesBefore ?? this.reminderMinutesBefore,
       categoryId: categoryId ?? this.categoryId,
+      templateActive: templateActive ?? this.templateActive,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1252,6 +1357,9 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     }
     if (plannedFor.present) {
       map['planned_for'] = Variable<String>(plannedFor.value);
+    }
+    if (plannedTime.present) {
+      map['planned_time'] = Variable<int>(plannedTime.value);
     }
     if (deadline.present) {
       map['deadline'] = Variable<String>(deadline.value);
@@ -1308,6 +1416,9 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
     if (categoryId.present) {
       map['category_id'] = Variable<String>(categoryId.value);
     }
+    if (templateActive.present) {
+      map['template_active'] = Variable<bool>(templateActive.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1323,6 +1434,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
           ..write('description: $description, ')
           ..write('estimatedDurationMinutes: $estimatedDurationMinutes, ')
           ..write('plannedFor: $plannedFor, ')
+          ..write('plannedTime: $plannedTime, ')
           ..write('deadline: $deadline, ')
           ..write('assignedMemberId: $assignedMemberId, ')
           ..write('pinnedMemberId: $pinnedMemberId, ')
@@ -1340,6 +1452,7 @@ class TaskOccurrencesCompanion extends UpdateCompanion<TaskOccurrence> {
           ..write('recurrenceEndDate: $recurrenceEndDate, ')
           ..write('reminderMinutesBefore: $reminderMinutesBefore, ')
           ..write('categoryId: $categoryId, ')
+          ..write('templateActive: $templateActive, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3230,6 +3343,7 @@ typedef $$TaskOccurrencesTableCreateCompanionBuilder =
       Value<String?> description,
       required int estimatedDurationMinutes,
       required String plannedFor,
+      Value<int?> plannedTime,
       Value<String?> deadline,
       Value<String?> assignedMemberId,
       Value<String?> pinnedMemberId,
@@ -3247,6 +3361,7 @@ typedef $$TaskOccurrencesTableCreateCompanionBuilder =
       Value<String?> recurrenceEndDate,
       Value<int?> reminderMinutesBefore,
       Value<String?> categoryId,
+      Value<bool?> templateActive,
       Value<int> rowid,
     });
 typedef $$TaskOccurrencesTableUpdateCompanionBuilder =
@@ -3257,6 +3372,7 @@ typedef $$TaskOccurrencesTableUpdateCompanionBuilder =
       Value<String?> description,
       Value<int> estimatedDurationMinutes,
       Value<String> plannedFor,
+      Value<int?> plannedTime,
       Value<String?> deadline,
       Value<String?> assignedMemberId,
       Value<String?> pinnedMemberId,
@@ -3274,6 +3390,7 @@ typedef $$TaskOccurrencesTableUpdateCompanionBuilder =
       Value<String?> recurrenceEndDate,
       Value<int?> reminderMinutesBefore,
       Value<String?> categoryId,
+      Value<bool?> templateActive,
       Value<int> rowid,
     });
 
@@ -3313,6 +3430,11 @@ class $$TaskOccurrencesTableFilterComposer
 
   ColumnFilters<String> get plannedFor => $composableBuilder(
     column: $table.plannedFor,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get plannedTime => $composableBuilder(
+    column: $table.plannedTime,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3400,6 +3522,11 @@ class $$TaskOccurrencesTableFilterComposer
     column: $table.categoryId,
     builder: (column) => ColumnFilters(column),
   );
+
+  ColumnFilters<bool> get templateActive => $composableBuilder(
+    column: $table.templateActive,
+    builder: (column) => ColumnFilters(column),
+  );
 }
 
 class $$TaskOccurrencesTableOrderingComposer
@@ -3438,6 +3565,11 @@ class $$TaskOccurrencesTableOrderingComposer
 
   ColumnOrderings<String> get plannedFor => $composableBuilder(
     column: $table.plannedFor,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get plannedTime => $composableBuilder(
+    column: $table.plannedTime,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -3525,6 +3657,11 @@ class $$TaskOccurrencesTableOrderingComposer
     column: $table.categoryId,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get templateActive => $composableBuilder(
+    column: $table.templateActive,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TaskOccurrencesTableAnnotationComposer
@@ -3559,6 +3696,11 @@ class $$TaskOccurrencesTableAnnotationComposer
 
   GeneratedColumn<String> get plannedFor => $composableBuilder(
     column: $table.plannedFor,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get plannedTime => $composableBuilder(
+    column: $table.plannedTime,
     builder: (column) => column,
   );
 
@@ -3634,6 +3776,11 @@ class $$TaskOccurrencesTableAnnotationComposer
     column: $table.categoryId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<bool> get templateActive => $composableBuilder(
+    column: $table.templateActive,
+    builder: (column) => column,
+  );
 }
 
 class $$TaskOccurrencesTableTableManager
@@ -3679,6 +3826,7 @@ class $$TaskOccurrencesTableTableManager
                 Value<String?> description = const Value.absent(),
                 Value<int> estimatedDurationMinutes = const Value.absent(),
                 Value<String> plannedFor = const Value.absent(),
+                Value<int?> plannedTime = const Value.absent(),
                 Value<String?> deadline = const Value.absent(),
                 Value<String?> assignedMemberId = const Value.absent(),
                 Value<String?> pinnedMemberId = const Value.absent(),
@@ -3696,6 +3844,7 @@ class $$TaskOccurrencesTableTableManager
                 Value<String?> recurrenceEndDate = const Value.absent(),
                 Value<int?> reminderMinutesBefore = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
+                Value<bool?> templateActive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TaskOccurrencesCompanion(
                 id: id,
@@ -3704,6 +3853,7 @@ class $$TaskOccurrencesTableTableManager
                 description: description,
                 estimatedDurationMinutes: estimatedDurationMinutes,
                 plannedFor: plannedFor,
+                plannedTime: plannedTime,
                 deadline: deadline,
                 assignedMemberId: assignedMemberId,
                 pinnedMemberId: pinnedMemberId,
@@ -3721,6 +3871,7 @@ class $$TaskOccurrencesTableTableManager
                 recurrenceEndDate: recurrenceEndDate,
                 reminderMinutesBefore: reminderMinutesBefore,
                 categoryId: categoryId,
+                templateActive: templateActive,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -3731,6 +3882,7 @@ class $$TaskOccurrencesTableTableManager
                 Value<String?> description = const Value.absent(),
                 required int estimatedDurationMinutes,
                 required String plannedFor,
+                Value<int?> plannedTime = const Value.absent(),
                 Value<String?> deadline = const Value.absent(),
                 Value<String?> assignedMemberId = const Value.absent(),
                 Value<String?> pinnedMemberId = const Value.absent(),
@@ -3748,6 +3900,7 @@ class $$TaskOccurrencesTableTableManager
                 Value<String?> recurrenceEndDate = const Value.absent(),
                 Value<int?> reminderMinutesBefore = const Value.absent(),
                 Value<String?> categoryId = const Value.absent(),
+                Value<bool?> templateActive = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TaskOccurrencesCompanion.insert(
                 id: id,
@@ -3756,6 +3909,7 @@ class $$TaskOccurrencesTableTableManager
                 description: description,
                 estimatedDurationMinutes: estimatedDurationMinutes,
                 plannedFor: plannedFor,
+                plannedTime: plannedTime,
                 deadline: deadline,
                 assignedMemberId: assignedMemberId,
                 pinnedMemberId: pinnedMemberId,
@@ -3773,6 +3927,7 @@ class $$TaskOccurrencesTableTableManager
                 recurrenceEndDate: recurrenceEndDate,
                 reminderMinutesBefore: reminderMinutesBefore,
                 categoryId: categoryId,
+                templateActive: templateActive,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

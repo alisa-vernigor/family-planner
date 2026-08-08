@@ -8,6 +8,7 @@ import 'package:family_planner/features/tasks/tasks.dart';
 import 'package:family_planner/features/households/households.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_cubit.dart';
 import 'package:family_planner/features/scheduled/presentation/cubit/scheduled_tasks_state.dart';
+import 'package:family_planner/features/scheduled/presentation/widgets/calendar_view.dart';
 import 'package:family_planner/features/scheduled/presentation/widgets/scheduled_task_card.dart';
 
 final class ScheduledPage extends StatelessWidget {
@@ -19,6 +20,18 @@ final class ScheduledPage extends StatelessWidget {
 
   final String householdId;
   final String currentMemberId;
+
+  /// Case-insensitive поиск по названию и описанию задачи.
+  /// Статический — для тестируемости без рендера страницы.
+  static bool matchesSearchQuery(Task task, String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return true;
+    final titleMatches = task.title.toLowerCase().contains(q);
+    final descriptionMatches =
+        task.description != null &&
+        task.description!.toLowerCase().contains(q);
+    return titleMatches || descriptionMatches;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +67,9 @@ final class _ScheduledView extends StatefulWidget {
 final class _ScheduledViewState extends State<_ScheduledView>
     with RealtimeTasksSubscriptionMixin<_ScheduledView> {
   String _taskFilter = 'all'; // all, mine, unassigned
-  bool _showMatrix = false;
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  _ViewMode _viewMode = _ViewMode.list;
   TaskSortOption _sortOption = TaskSortOption.plannedFor;
   bool _sortAscending = true;
   Map<String, TaskCategory> _categoriesById = {};
@@ -102,6 +117,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
 
   @override
   void dispose() {
+    _searchController.dispose();
     unsubscribeFromTaskChanges();
     super.dispose();
   }
@@ -230,6 +246,40 @@ final class _ScheduledViewState extends State<_ScheduledView>
     }
   }
 
+  /// Перенос задачи на конкретную дату (drag & drop в календаре).
+  ///
+  /// Без диалога: серия переносится целиком, обычная — только этот экземпляр.
+  Future<void> _rescheduleTaskToDay(Task task, DateTime day) async {
+    final tasksCubit = context.read<ScheduledTasksCubit>();
+    final repository = context.read<TaskRepository>();
+    final useCase = RescheduleTaskUseCase(repository: repository);
+
+    // Оптимистичное обновление
+    final optimistic = task.copyWith(plannedFor: day);
+    tasksCubit.replaceTask(optimistic);
+
+    try {
+      await useCase.call(
+        task: task,
+        newDate: day,
+        scope: task.isRecurring ? RecurrenceEditScope.all : null,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Задача перенесена на ${_formatDate(day)}')),
+        );
+      }
+    } catch (exception, stackTrace) {
+      // Откат — перезагружаем
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось перенести задачу.')),
+      );
+      AppLogger.error('Ошибка переноса задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
   Future<void> _completeTask(
     Task task,
     List<HouseholdMember> members,
@@ -333,6 +383,54 @@ final class _ScheduledViewState extends State<_ScheduledView>
     }
   }
 
+  Future<void> _skipTask(Task task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Пропустить задачу?'),
+        content: Text('«${task.title}» будет пропущена и исчезнет из списков.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Пропустить'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final tasksCubit = context.read<ScheduledTasksCubit>();
+    final repository = context.read<TaskRepository>();
+    final useCase = SkipTaskUseCase(repository: repository);
+
+    // Оптимистично убираем задачу из списка (как при удалении).
+    tasksCubit.removeTask(task.id);
+
+    try {
+      await useCase(task: task);
+      tasksCubit.confirmDelete(task.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Задача пропущена.')),
+        );
+      }
+    } catch (exception, stackTrace) {
+      // Откат — перезагружаем
+      tasksCubit.cancelDelete(task.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось пропустить задачу.')),
+      );
+      AppLogger.error('Ошибка пропуска задачи', error: exception, stackTrace: stackTrace);
+      _reloadTasks();
+    }
+  }
+
   Future<void> _duplicateTask(Task task) async {
     final repository = context.read<TaskRepository>();
     final useCase = DuplicateTaskUseCase(repository: repository);
@@ -359,6 +457,52 @@ final class _ScheduledViewState extends State<_ScheduledView>
       _reloadTasks();
     }
   }
+
+  Future<void> _togglePauseTask(Task task) async {
+    if (task.templateId == null) return;
+    final repository = context.read<TaskRepository>();
+
+    final isPausing = !task.isSeriesPaused;
+    try {
+      if (isPausing) {
+        await PauseTaskTemplateUseCase(repository: repository).call(
+          templateId: task.templateId!,
+        );
+      } else {
+        await ResumeTaskTemplateUseCase(repository: repository).call(
+          templateId: task.templateId!,
+        );
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isPausing ? 'Серия поставлена на паузу.' : 'Серия возобновлена.',
+            ),
+          ),
+        );
+        // Перезагружаем: пауза удаляет будущие экземпляры на сервере.
+        _silentReload();
+      }
+    } catch (exception, stackTrace) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось изменить состояние серии.')),
+      );
+      AppLogger.error(
+        'Ошибка паузы/возобновления серии',
+        error: exception,
+        stackTrace: stackTrace,
+      );
+      _reloadTasks();
+    }
+  }
+
+  /// Case-insensitive поиск по названию и описанию задачи.
+  bool _matchesSearch(Task task) => ScheduledPage.matchesSearchQuery(
+    task,
+    _searchQuery,
+  );
 
   String _formatDate(DateTime value) {
     final day = value.day.toString().padLeft(2, '0');
@@ -444,13 +588,21 @@ final class _ScheduledViewState extends State<_ScheduledView>
                   'mine' => tasks.where((t) => t.assignedMemberId == widget.currentMemberId).toList(),
                   'unassigned' => tasks.where((t) => t.assignedMemberId == null).toList(),
                   _ => tasks,
-                };
+                }
+                    .where((t) => _matchesSearch(t))
+                    .toList();
 
                 if (filteredTasks.isEmpty) {
                   return _emptyState(
-                    icon: Icons.calendar_month_outlined,
-                    title: 'Нет задач по выбранному фильтру',
-                    subtitle: 'Попробуйте другой фильтр',
+                    icon: _searchQuery.isNotEmpty
+                        ? Icons.search_off
+                        : Icons.calendar_month_outlined,
+                    title: _searchQuery.isNotEmpty
+                        ? 'Ничего не найдено'
+                        : 'Нет задач по выбранному фильтру',
+                    subtitle: _searchQuery.isNotEmpty
+                        ? 'Попробуйте изменить поисковый запрос'
+                        : 'Попробуйте другой фильтр',
                     onCreate: _openCreateTaskSheet,
                   );
                 }
@@ -486,7 +638,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
                               onSelected: () => setState(() => _taskFilter = 'unassigned'),
                             ),
                             const Spacer(),
-                            if (!_showMatrix)
+                            if (_viewMode == _ViewMode.list)
                               SortSelector(
                                 current: _sortOption,
                                 onChanged: (option) {
@@ -497,19 +649,80 @@ final class _ScheduledViewState extends State<_ScheduledView>
                                   setState(() => _sortAscending = ascending);
                                 },
                               ),
-                            IconButton(
-                              icon: Icon(
-                                _showMatrix ? Icons.list_alt : Icons.grid_view_outlined,
+                            if (_viewMode == _ViewMode.list)
+                              IconButton(
+                                icon: const Icon(Icons.grid_view_outlined),
+                                tooltip: 'Матрица Эйзенхауэра',
+                                onPressed: () =>
+                                    setState(() => _viewMode = _ViewMode.matrix),
                               ),
-                              tooltip: _showMatrix ? 'Список' : 'Матрица Эйзенхауэра',
-                              onPressed: () => setState(() => _showMatrix = !_showMatrix),
-                            ),
+                            if (_viewMode == _ViewMode.list)
+                              IconButton(
+                                icon: const Icon(Icons.calendar_month_outlined),
+                                tooltip: 'Календарь',
+                                onPressed: () =>
+                                    setState(() => _viewMode = _ViewMode.calendar),
+                              ),
+                            if (_viewMode == _ViewMode.matrix) ...[
+                              IconButton(
+                                icon: const Icon(Icons.calendar_month_outlined),
+                                tooltip: 'Календарь',
+                                onPressed: () =>
+                                    setState(() => _viewMode = _ViewMode.calendar),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.list_alt),
+                                tooltip: 'Список',
+                                onPressed: () =>
+                                    setState(() => _viewMode = _ViewMode.list),
+                              ),
+                            ],
+                            if (_viewMode == _ViewMode.calendar) ...[
+                              IconButton(
+                                icon: const Icon(Icons.list_alt),
+                                tooltip: 'Список',
+                                onPressed: () =>
+                                    setState(() => _viewMode = _ViewMode.list),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.grid_view_outlined),
+                                tooltip: 'Матрица Эйзенхауэра',
+                                onPressed: () =>
+                                    setState(() => _viewMode = _ViewMode.matrix),
+                              ),
+                            ],
                           ]),
+                          const SizedBox(height: 8),
+                          // Поиск по названию/описанию
+                          TextField(
+                            key: const Key('task_search_field'),
+                            controller: _searchController,
+                            onChanged: (value) =>
+                                setState(() => _searchQuery = value),
+                            decoration: InputDecoration(
+                              hintText: 'Поиск задач…',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _searchQuery.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      tooltip: 'Очистить',
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                    )
+                                  : null,
+                              isDense: true,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    if (_showMatrix)
-                      Expanded(
+                    switch (_viewMode) {
+                      _ViewMode.matrix => Expanded(
                         child: EisenhowerMatrixView(
                           tasks: sortedTasks,
                           members: members,
@@ -527,9 +740,28 @@ final class _ScheduledViewState extends State<_ScheduledView>
                           onDuplicate: _duplicateTask,
                           onUpdatePriority: _updateTaskPriority,
                         ),
-                      )
-                    else
-                      Expanded(
+                      ),
+                      _ViewMode.calendar => Expanded(
+                        child: CalendarView(
+                          tasks: filteredTasks,
+                          members: members,
+                          currentMemberId: widget.currentMemberId,
+                          categoriesById: _categoriesById,
+                          onEdit: _openEditTaskSheet,
+                          onDelete: _deleteTask,
+                          onAssign: _assignTask,
+                          onTogglePin: _togglePinTask,
+                          onReschedule: _rescheduleTask,
+                          onRescheduleToDay: _rescheduleTaskToDay,
+                          onDuplicate: _duplicateTask,
+                          onTogglePause: _togglePauseTask,
+                          onSkip: _skipTask,
+                          onComplete: (task) => _completeTask(task, members, context),
+                          onUncomplete: (task) => _uncompleteTask(task, members, context),
+                          onCreate: _openCreateTaskSheet,
+                        ),
+                      ),
+                      _ViewMode.list => Expanded(
                       child: RefreshIndicator(
                         onRefresh: () async => _reloadTasks(),
                         child: ListView(
@@ -561,6 +793,8 @@ final class _ScheduledViewState extends State<_ScheduledView>
                                     onDelete: () => _deleteTask(task),
                                     onReschedule: () => _rescheduleTask(task),
                                     onDuplicate: () => _duplicateTask(task),
+                                    onTogglePause: () => _togglePauseTask(task),
+                                    onSkip: () => _skipTask(task),
                                     category: _categoriesById[task.categoryId],
                                   ),
                                 ),
@@ -569,6 +803,7 @@ final class _ScheduledViewState extends State<_ScheduledView>
                         ),
                       ),
                     ),
+                    },
                   ],
                 );
             }
@@ -631,3 +866,6 @@ final class _ScheduledViewState extends State<_ScheduledView>
     );
   }
 }
+
+/// Режим отображения задач на экране «Запланированные».
+enum _ViewMode { list, matrix, calendar }

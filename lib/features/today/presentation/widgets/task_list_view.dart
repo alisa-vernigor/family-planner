@@ -20,6 +20,8 @@ final class TaskListView extends StatelessWidget {
     required this.onUncomplete,
     this.onReschedule,
     this.onDuplicate,
+    this.onTogglePause,
+    this.onSkip,
     this.categoriesById = const {},
     this.isSelectionMode = false,
     this.selectedTaskIds = const {},
@@ -47,6 +49,8 @@ final class TaskListView extends StatelessWidget {
   final void Function(Task) onUncomplete;
   final void Function(Task)? onReschedule;
   final void Function(Task)? onDuplicate;
+  final void Function(Task)? onTogglePause;
+  final void Function(Task)? onSkip;
   final Map<String, TaskCategory> categoriesById;
   final void Function(Task)? onLongPress;
   final void Function(Task)? onSwipeComplete;
@@ -147,6 +151,9 @@ final class TaskListView extends StatelessWidget {
                     onReschedule != null ? () => onReschedule!(t) : null,
                 onDuplicate:
                     onDuplicate != null ? () => onDuplicate!(t) : null,
+                onTogglePause:
+                    onTogglePause != null ? () => onTogglePause!(t) : null,
+                onSkip: onSkip != null ? () => onSkip!(t) : null,
                 category: categoriesById[t.categoryId],
               ),
             ),
@@ -213,6 +220,9 @@ final class TaskListView extends StatelessWidget {
                     onReschedule != null ? () => onReschedule!(t) : null,
                 onDuplicate:
                     onDuplicate != null ? () => onDuplicate!(t) : null,
+                onTogglePause:
+                    onTogglePause != null ? () => onTogglePause!(t) : null,
+                onSkip: onSkip != null ? () => onSkip!(t) : null,
                 category: categoriesById[t.categoryId],
               ),
             ),
@@ -279,6 +289,9 @@ final class TaskListView extends StatelessWidget {
                     onReschedule != null ? () => onReschedule!(t) : null,
                 onDuplicate:
                     onDuplicate != null ? () => onDuplicate!(t) : null,
+                onTogglePause:
+                    onTogglePause != null ? () => onTogglePause!(t) : null,
+                onSkip: onSkip != null ? () => onSkip!(t) : null,
                 category: categoriesById[t.categoryId],
               ),
             ),

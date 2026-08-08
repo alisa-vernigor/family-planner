@@ -207,6 +207,11 @@ class _SlowTaskRepo implements TaskRepository {
   Future<void> updateTemplate({
     required UpdateRecurringTaskParams params,
   }) async {}
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {}
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {}
 
   @override Future<Task> create({required CreateTaskParams params}) => throw UnimplementedError();
   @override Future<void> delete({required String taskId}) async {}
@@ -226,6 +231,11 @@ class _KeepTaskRepo implements TaskRepository {
   Future<void> updateTemplate({
     required UpdateRecurringTaskParams params,
   }) async {}
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {}
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {}
 
   final _saved = <Task>[];
   @override Future<List<Task>> getForDay({required String householdId, required DateTime day}) async =>

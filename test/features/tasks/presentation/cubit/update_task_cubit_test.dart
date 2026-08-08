@@ -151,6 +151,12 @@ final class _FakeTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> pauseTemplate({required String templateId}) async {}
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {}
+
+  @override
   Future<Task> create({required CreateTaskParams params}) {
     throw UnimplementedError();
   }

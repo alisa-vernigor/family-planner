@@ -105,10 +105,27 @@ class SyncProcessor {
 
     switch (entry.operation) {
       case 'CREATE':
-        await _supabase.rpc('create_task_occurrence', params: payload);
+        // Служебный флаг is_recurring не является параметром RPC — убираем.
+        // Повторяющиеся задачи создаются отдельным RPC (создаёт шаблон +
+        // первый экземпляр), обычные — через create_task_occurrence.
+        final isRecurring = payload['is_recurring'] == true;
+        final rpcParams = Map<String, dynamic>.from(payload)
+          ..remove('is_recurring');
+        if (isRecurring) {
+          await _supabase
+              .rpc('create_recurring_task_template', params: rpcParams);
+        } else {
+          await _supabase.rpc('create_task_occurrence', params: rpcParams);
+        }
       case 'UPDATE_TEMPLATE':
         // Обновление повторяющейся задачи: RPC с областью применения.
         await _supabase.rpc('update_task_template', params: payload);
+      case 'PAUSE_TEMPLATE':
+        // Пауза повторяющейся задачи (серии).
+        await _supabase.rpc('pause_task_template', params: payload);
+      case 'RESUME_TEMPLATE':
+        // Возобновление повторяющейся задачи (серии).
+        await _supabase.rpc('resume_task_template', params: payload);
       case 'UPDATE':
         await _supabase
             .from('task_occurrences')

@@ -21,6 +21,7 @@ import 'package:family_planner/features/tasks/presentation/widgets/priority_sele
 import 'package:family_planner/features/tasks/presentation/widgets/recurrence_edit_scope_dialog.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/recurrence_editor.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/reminder_selector.dart';
+import 'package:family_planner/features/tasks/presentation/widgets/start_time_field.dart';
 import 'package:family_planner/features/tasks/presentation/widgets/subtask_editor.dart';
 
 Future<bool?> showEditTaskSheet({
@@ -104,6 +105,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   bool _isPinned = false;
   bool _isSubmitting = false;
   EisenhowerPriority? _priority;
+  Duration? _plannedTime;
   List<HouseholdMember> _members = [];
   List<TaskSubtask> _subtasks = [];
 
@@ -129,6 +131,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
     _assignedMemberId = widget.task.assignedMemberId;
     _isPinned = widget.task.isPinned;
     _priority = widget.task.priority;
+    _plannedTime = widget.task.plannedTime;
 
     final recurrence = widget.task.recurrence;
     _recurrenceDraft = recurrence == null
@@ -340,6 +343,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
       estimatedDurationMinutes: duration,
       plannedFor: widget.task.plannedFor,
       deadline: _deadline,
+      plannedTime: _plannedTime,
       allowedMemberIds: allowedIds,
       assignedMemberId: assignedId,
       pinnedMemberId: _isPinned ? assignedId : null,
@@ -500,6 +504,15 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                           }
 
                           return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      StartTimeField(
+                        key: const Key('edit_start_time_field'),
+                        value: _plannedTime,
+                        enabled: !isLoading,
+                        onChanged: (time) {
+                          setState(() => _plannedTime = time);
                         },
                       ),
                       const SizedBox(height: 16),

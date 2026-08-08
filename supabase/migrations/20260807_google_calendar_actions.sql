@@ -16,6 +16,18 @@
 -- ============================================================
 -- 1. update_task_template: перенос серии на новую дату
 -- ============================================================
+--
+-- Старая 16-параметровая версия update_task_template могла быть создана
+-- более ранним применением 20260807_recurrence_editing.sql (у неё сигнатура
+-- до p_add_allowed_member_ids, без p_new_start_date/p_category_id). Если она
+-- есть, снимаем её: иначе имя не уникально (ошибка 42725) и весь блок ниже
+-- (включая COMMENT ON FUNCTION) падает. На свежей БД ничего не найдётся —
+-- recurrence_editing применяется после (по алфавиту) и больше не создаёт
+-- свою версию функции.
+DROP FUNCTION IF EXISTS public.update_task_template(
+  UUID, TEXT, TEXT, TEXT, INTEGER, TIME, TIMESTAMPTZ, recurrence_type,
+  INTEGER, SMALLINT[], DATE, DATE, INTEGER, UUID, UUID, UUID[]
+);
 
 CREATE OR REPLACE FUNCTION update_task_template(
   p_task_occurrence_id UUID,

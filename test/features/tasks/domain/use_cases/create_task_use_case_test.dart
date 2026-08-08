@@ -237,6 +237,11 @@ final class FakeTaskRepository implements TaskRepository {
   Future<void> updateTemplate({
     required UpdateRecurringTaskParams params,
   }) async {}
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {}
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {}
 
   FakeTaskRepository({required this.taskToCreate});
 

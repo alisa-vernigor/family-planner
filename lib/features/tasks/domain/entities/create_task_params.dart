@@ -19,6 +19,7 @@ final class CreateTaskParams extends Equatable {
     this.priority,
     this.reminderMinutesBefore,
     this.categoryId,
+    this.plannedTime,
   });
 
   final String householdId;
@@ -48,6 +49,9 @@ final class CreateTaskParams extends Equatable {
   /// ID категории задачи. `null` — без категории.
   final String? categoryId;
 
+  /// Время начала (минуты от полуночи). `null` — без времени / весь день.
+  final Duration? plannedTime;
+
   bool get isRecurring => recurrence != null;
 
   @override
@@ -66,5 +70,6 @@ final class CreateTaskParams extends Equatable {
     priority,
     reminderMinutesBefore,
     categoryId,
+    plannedTime,
   ];
 }

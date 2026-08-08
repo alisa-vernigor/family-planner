@@ -23,6 +23,8 @@ final class TaskCard extends StatelessWidget {
     this.onTogglePin,
     this.onReschedule,
     this.onDuplicate,
+    this.onTogglePause,
+    this.onSkip,
     this.category,
     this.isSelected = false,
     this.onLongPress,
@@ -43,6 +45,12 @@ final class TaskCard extends StatelessWidget {
   final VoidCallback? onTogglePin;
   final VoidCallback? onReschedule;
   final VoidCallback? onDuplicate;
+
+  /// Пауза/возобновление серии повторяющейся задачи (если не `null`).
+  final VoidCallback? onTogglePause;
+
+  /// Пропустить задачу (статус `skipped`). Если не `null` — пункт меню.
+  final VoidCallback? onSkip;
   final TaskCategory? category;
   final bool isSelected;
   final VoidCallback? onLongPress;
@@ -180,6 +188,10 @@ final class TaskCard extends StatelessWidget {
                         onReschedule?.call();
                       case 'duplicate':
                         onDuplicate?.call();
+                      case 'togglePause':
+                        onTogglePause?.call();
+                      case 'skip':
+                        onSkip?.call();
                     }
                   },
                   itemBuilder: (context) => [
@@ -204,6 +216,26 @@ final class TaskCard extends StatelessWidget {
                         child: _MenuRow(
                           icon: Icons.copy_outlined,
                           label: 'Дублировать',
+                        ),
+                      ),
+                    if (onTogglePause != null)
+                      PopupMenuItem(
+                        value: 'togglePause',
+                        child: _MenuRow(
+                          icon: task.isSeriesPaused
+                              ? Icons.play_arrow_outlined
+                              : Icons.pause_outlined,
+                          label: task.isSeriesPaused
+                              ? 'Возобновить серию'
+                              : 'Поставить на паузу',
+                        ),
+                      ),
+                    if (onSkip != null)
+                      const PopupMenuItem(
+                        value: 'skip',
+                        child: _MenuRow(
+                          icon: Icons.skip_next_outlined,
+                          label: 'Пропустить',
                         ),
                       ),
                     PopupMenuItem(
@@ -250,11 +282,23 @@ final class TaskCard extends StatelessWidget {
                     label: '${task.estimatedDurationMinutes} мин',
                     color: cs.tertiary,
                   ),
+                  if (task.plannedTimeLabel != null)
+                    InfoChip(
+                      icon: Icons.schedule_outlined,
+                      label: task.plannedTimeLabel!,
+                      color: cs.tertiary,
+                    ),
                   if (task.isRecurring)
                     InfoChip(
                       icon: Icons.repeat_outlined,
                       label: 'Повтор',
                       color: cs.tertiary,
+                    ),
+                  if (task.isSeriesPaused)
+                    InfoChip(
+                      icon: Icons.pause_circle_outline,
+                      label: 'Серия на паузе',
+                      color: cs.error,
                     ),
                   if (task.isPinned)
                     InfoChip(

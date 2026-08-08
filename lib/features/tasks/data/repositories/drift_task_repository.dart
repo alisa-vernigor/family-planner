@@ -54,6 +54,32 @@ class DriftTaskRepository implements TaskRepository {
   static DateTime? _parseDt(String? s) =>
       s != null ? DateTime.parse(s) : null;
 
+  /// Minutes since midnight → `HH:MM:SS` for Supabase `TIME` columns.
+  /// `null` — задача без времени / весь день.
+  static String? _timeToString(Duration? plannedTime) {
+    if (plannedTime == null) return null;
+    final h = plannedTime.inHours.toString().padLeft(2, '0');
+    final m = (plannedTime.inMinutes % 60).toString().padLeft(2, '0');
+    return '$h:$m:00';
+  }
+
+  /// Supabase `TIME` string (`HH:MM:SS`) → minutes since midnight for Drift.
+  static int? _minutesFromTime(String? time) {
+    if (time == null) return null;
+    final parts = time.split(':');
+    if (parts.length < 2) return null;
+    final h = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    if (h == null || m == null) return null;
+    return h * 60 + m;
+  }
+
+  /// Drift `plannedTime` (minutes) → domain [Duration]. `null` — весь день.
+  static Duration? _durationFromMinutes(int? minutes) {
+    if (minutes == null) return null;
+    return Duration(minutes: minutes);
+  }
+
   // ── READ ─────────────────────────────────────────────────
 
   @override
@@ -110,13 +136,13 @@ class DriftTaskRepository implements TaskRepository {
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
-          'estimated_duration_minutes, planned_for, deadline_at, '
+          'estimated_duration_minutes, planned_for, planned_time, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
           'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
-          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date, is_active)',
         )
         .eq('household_id', householdId)
         .eq('planned_for', _dateOnly(day));
@@ -129,18 +155,18 @@ class DriftTaskRepository implements TaskRepository {
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
-          'estimated_duration_minutes, planned_for, deadline_at, '
+          'estimated_duration_minutes, planned_for, planned_time, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
           'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
-          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date, is_active)',
         )
         .eq('household_id', householdId)
         .gte('planned_for', _dateOnly(startOfTomorrow))
         .lte('planned_for', _dateOnly(day.add(const Duration(days: 180))))
-        .neq('status', 'completed');
+        .not('status', 'in', ['completed', 'skipped']);
     await _upsertRemoteRows(rows, householdId);
   }
 
@@ -149,16 +175,16 @@ class DriftTaskRepository implements TaskRepository {
         .from('task_occurrences')
         .select(
           'id, household_id, title, description, '
-          'estimated_duration_minutes, planned_for, deadline_at, '
+          'estimated_duration_minutes, planned_for, planned_time, deadline_at, '
           'assigned_member_id, pinned_member_id, status, '
           'created_at, completed_at, updated_at, priority, '
           'reminder_minutes_before, category_id, '
           'template_id, '
           'task_occurrence_allowed_members(profile_id), '
-          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date)',
+          'task_templates(recurrence_type, interval_days, weekdays, recurrence_start_date, recurrence_end_date, is_active)',
         )
         .eq('household_id', householdId)
-        .neq('status', 'completed')
+        .not('status', 'in', ['completed', 'skipped'])
         .gte(
           'planned_for',
           _dateOnly(DateTime.now().subtract(const Duration(days: 7))),
@@ -199,6 +225,7 @@ class DriftTaskRepository implements TaskRepository {
         estimatedDurationMinutes:
             Value(row['estimated_duration_minutes'] as int),
         plannedFor: Value(row['planned_for'] as String),
+        plannedTime: Value(_minutesFromTime(row['planned_time'] as String?)),
         deadline: Value(row['deadline_at'] as String?),
         assignedMemberId: Value(row['assigned_member_id'] as String?),
         pinnedMemberId: Value(row['pinned_member_id'] as String?),
@@ -220,6 +247,7 @@ class DriftTaskRepository implements TaskRepository {
         ),
         reminderMinutesBefore: Value(row['reminder_minutes_before'] as int?),
         categoryId: Value(row['category_id'] as String?),
+        templateActive: Value(rawTemplate?['is_active'] as bool?),
       ));
     }
 
@@ -258,6 +286,7 @@ class DriftTaskRepository implements TaskRepository {
       priority: params.priority,
       reminderMinutesBefore: params.reminderMinutesBefore,
       categoryId: params.categoryId,
+      plannedTime: params.plannedTime,
     );
 
     // Write to local DB
@@ -268,6 +297,7 @@ class DriftTaskRepository implements TaskRepository {
       description: Value(params.description),
       estimatedDurationMinutes: Value(params.estimatedDurationMinutes),
       plannedFor: Value(plannedForStr),
+      plannedTime: Value(_minutesFromTime(_timeToString(params.plannedTime))),
       deadline: Value(_toIso(params.deadline)),
       assignedMemberId: Value(params.assignedMemberId),
       pinnedMemberId: Value(params.pinnedMemberId),
@@ -281,26 +311,42 @@ class DriftTaskRepository implements TaskRepository {
       categoryId: Value(params.categoryId),
     ));
 
-    // Enqueue sync operation
+    // Enqueue sync operation.
+    // Обычные задачи создаются RPC `create_task_occurrence` (нужен p_planned_for),
+    // повторяющиеся — RPC `create_recurring_task_template` (нужны p_start_date,
+    // p_deadline_time, p_end_date, p_reminder_minutes_before). is_recurring
+    // остаётся в payload, чтобы SyncProcessor выбрал правильный RPC.
+    final recurrence = params.recurrence;
     final payload = <String, dynamic>{
-      'local_id': localId,
       'p_household_id': params.householdId,
       'p_title': params.title,
       'p_description': params.description ?? '',
       'p_estimated_duration_minutes': params.estimatedDurationMinutes,
-      'p_planned_for': plannedForStr,
       'p_deadline_at': _toIso(params.deadline),
       'p_priority': params.priority?.value,
+      'p_reminder_minutes_before': params.reminderMinutesBefore,
       'p_category_id': params.categoryId,
+      'p_planned_time': _timeToString(params.plannedTime),
       'is_recurring': params.isRecurring,
     };
 
     if (params.isRecurring) {
-      payload['p_start_date'] = plannedForStr;
-      payload['p_recurrence_type'] =
-          params.recurrence!.type.databaseValue;
-      payload['p_interval_days'] = params.recurrence!.intervalDays;
-      payload['p_weekdays'] = params.recurrence!.weekdays;
+      payload.addAll({
+        'p_start_date':
+            _dateOnly(params.recurrenceStartDate ?? params.plannedFor),
+        'p_recurrence_type': recurrence!.type.databaseValue,
+        'p_interval_days': recurrence.intervalDays,
+        'p_weekdays': recurrence.weekdays,
+        'p_end_date': params.recurrenceEndDate == null
+            ? null
+            : _dateOnly(params.recurrenceEndDate!),
+        'p_deadline_time': params.deadline == null
+            ? null
+            : '${params.deadline!.hour.toString().padLeft(2, '0')}:'
+                  '${params.deadline!.minute.toString().padLeft(2, '0')}:00',
+      });
+    } else {
+      payload['p_planned_for'] = plannedForStr;
     }
 
     await _syncQueueDao.enqueue(
@@ -328,6 +374,7 @@ class DriftTaskRepository implements TaskRepository {
       description: Value(task.description),
       estimatedDurationMinutes: Value(task.estimatedDurationMinutes),
       plannedFor: Value(_dateOnly(task.plannedFor)),
+      plannedTime: Value(_minutesFromTime(_timeToString(task.plannedTime))),
       deadline: Value(_toIso(task.deadline)),
       assignedMemberId: Value(task.assignedMemberId),
       pinnedMemberId: Value(task.pinnedMemberId),
@@ -379,6 +426,7 @@ class DriftTaskRepository implements TaskRepository {
             ? null
             : '${task.deadline!.hour.toString().padLeft(2, '0')}:'
                   '${task.deadline!.minute.toString().padLeft(2, '0')}:00',
+        'p_planned_time': _timeToString(task.plannedTime),
         'p_recurrence_type': params.recurrence.type.databaseValue,
         'p_interval_days': params.recurrence.intervalDays,
         'p_weekdays': params.recurrence.weekdays,
@@ -400,6 +448,44 @@ class DriftTaskRepository implements TaskRepository {
     );
 
     AppLogger.info('Template update queued for task: ${task.id}');
+  }
+
+  // ── PAUSE / RESUME (recurring series) ─────────────────────
+
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {
+    // Помечаем все локальные экземпляры серии как «на паузе».
+    await _taskDao.pauseTemplateLocally(templateId);
+    final householdId =
+        await _taskDao.getHouseholdIdByTemplate(templateId) ?? '';
+
+    await _syncQueueDao.enqueue(
+      entityType: 'task_occurrence',
+      operation: 'PAUSE_TEMPLATE',
+      entityId: templateId,
+      householdId: householdId,
+      payload: {'p_task_template_id': templateId},
+    );
+
+    AppLogger.info('Template pause queued: $templateId');
+  }
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {
+    // Снимаем пометку паузы со всех локальных экземпляров серии.
+    await _taskDao.resumeTemplateLocally(templateId);
+    final householdId =
+        await _taskDao.getHouseholdIdByTemplate(templateId) ?? '';
+
+    await _syncQueueDao.enqueue(
+      entityType: 'task_occurrence',
+      operation: 'RESUME_TEMPLATE',
+      entityId: templateId,
+      householdId: householdId,
+      payload: {'p_task_template_id': templateId},
+    );
+
+    AppLogger.info('Template resume queued: $templateId');
   }
 
   // ── PATCH STATUS ─────────────────────────────────────────
@@ -536,6 +622,7 @@ class DriftTaskRepository implements TaskRepository {
       description: Value(task.description),
       estimatedDurationMinutes: Value(task.estimatedDurationMinutes),
       plannedFor: Value(_dateOnly(task.plannedFor)),
+      plannedTime: Value(_minutesFromTime(_timeToString(task.plannedTime))),
       deadline: Value(_toIso(task.deadline)),
       assignedMemberId: Value(task.assignedMemberId),
       pinnedMemberId: Value(task.pinnedMemberId),
@@ -553,6 +640,7 @@ class DriftTaskRepository implements TaskRepository {
       recurrenceEndDate: Value(_toIso(task.recurrenceEndDate)),
       reminderMinutesBefore: Value(task.reminderMinutesBefore),
       categoryId: Value(task.categoryId),
+      templateActive: Value(task.templateActive),
     );
   }
 
@@ -564,6 +652,7 @@ class DriftTaskRepository implements TaskRepository {
       description: row.description,
       estimatedDurationMinutes: row.estimatedDurationMinutes,
       plannedFor: DateTime.parse(row.plannedFor),
+      plannedTime: _durationFromMinutes(row.plannedTime),
       deadline: _parseDt(row.deadline),
       allowedMemberIds: (jsonDecode(row.allowedMemberIds) as List<dynamic>)
           .cast<String>(),
@@ -589,6 +678,7 @@ class DriftTaskRepository implements TaskRepository {
       recurrenceEndDate: _parseDt(row.recurrenceEndDate),
       reminderMinutesBefore: row.reminderMinutesBefore,
       categoryId: row.categoryId,
+      templateActive: row.templateActive,
     );
   }
 
@@ -637,6 +727,7 @@ class DriftTaskRepository implements TaskRepository {
       description: Value(task.description),
       estimatedDurationMinutes: Value(task.estimatedDurationMinutes),
       plannedFor: Value(_dateOnly(task.plannedFor)),
+      plannedTime: Value(_minutesFromTime(_timeToString(task.plannedTime))),
       deadline: Value(_toIso(task.deadline)),
       assignedMemberId: Value(task.assignedMemberId),
       pinnedMemberId: Value(task.pinnedMemberId),

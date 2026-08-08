@@ -46,6 +46,15 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
         .getSingleOrNull();
   }
 
+  /// Household ID любого экземпляра серии (для sync-очереди при паузе).
+  Future<String?> getHouseholdIdByTemplate(String templateId) {
+    return (select(taskOccurrences)
+          ..where((t) => t.templateId.equals(templateId))
+          ..limit(1))
+        .getSingleOrNull()
+        .then((row) => row?.householdId);
+  }
+
   /// One-shot: get all pending tasks (non-completed) for a household.
   Future<List<TaskOccurrence>> getAllPending(String householdId) {
     return (select(taskOccurrences)
@@ -58,14 +67,18 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
         .get();
   }
 
-  /// One-shot: get all tasks for a specific day.
+  /// One-shot: get all tasks for a specific day (Today page).
+  ///
+  /// Показываем pending и completed (с зачёркиванием), но НЕ skipped —
+  /// пропущенные задачи исчезают из активных списков.
   Future<List<TaskOccurrence>> getForDay(
     String householdId,
     String plannedFor,
   ) {
     return (select(taskOccurrences)
           ..where((t) => t.householdId.equals(householdId))
-          ..where((t) => t.plannedFor.equals(plannedFor)))
+          ..where((t) => t.plannedFor.equals(plannedFor))
+          ..where((t) => t.status.isIn(['pending', 'completed'])))
         .get();
   }
 
@@ -126,5 +139,17 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
           ..where((t) => t.householdId.equals(householdId))
           ..where((t) => t.plannedFor.equals(plannedFor)))
         .go();
+  }
+
+  /// Помечает все локальные экземпляры серии как «на паузе» (is_active = false).
+  Future<void> pauseTemplateLocally(String templateId) {
+    return (update(taskOccurrences)..where((t) => t.templateId.equals(templateId)))
+        .write(const TaskOccurrencesCompanion(templateActive: Value(false)));
+  }
+
+  /// Снимает пометку паузы со всех локальных экземпляров серии.
+  Future<void> resumeTemplateLocally(String templateId) {
+    return (update(taskOccurrences)..where((t) => t.templateId.equals(templateId)))
+        .write(const TaskOccurrencesCompanion(templateActive: Value(true)));
   }
 }

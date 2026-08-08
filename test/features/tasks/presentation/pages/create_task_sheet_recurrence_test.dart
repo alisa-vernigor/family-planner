@@ -88,10 +88,21 @@ void main() {
     await tester.tap(find.byKey(const Key('recurrence_switch')));
     await tester.pumpAndSettle();
 
+    // Прокручиваем до dropdown (форма стала длиннее — StartTimeField).
+    await tester.ensureVisible(
+      find.byKey(const Key('recurrence_type_dropdown')),
+    );
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('recurrence_type_dropdown')));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('В выбранные дни недели').last);
+    // Опция в выпадающем списке может быть вне экрана — прокручиваем.
+    final weeklyOption = find.text('В выбранные дни недели');
+    await tester.ensureVisible(weeklyOption.last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(weeklyOption.last);
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('weekday_chip_1')), findsOneWidget);
@@ -116,6 +127,11 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<void> updateTemplate({
     required UpdateRecurringTaskParams params,
   }) async {}
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {}
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {}
 
   @override
   Future<Task> create({required CreateTaskParams params}) {

@@ -5,6 +5,7 @@ import 'package:family_planner/features/tasks/domain/entities/create_task_params
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
 import 'package:family_planner/features/tasks/domain/repositories/task_repository.dart';
+import 'package:family_planner/features/tasks/domain/use_cases/skip_task_use_case.dart';
 import 'package:family_planner/features/tasks/domain/use_cases/uncomplete_task_use_case.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_actions_cubit.dart';
 import 'package:family_planner/features/tasks/presentation/cubit/task_action_state.dart';
@@ -31,6 +32,7 @@ void main() {
     repository = _FakeTaskRepository();
     cubit = TaskActionsCubit(
       uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+      skipTaskUseCase: SkipTaskUseCase(repository: repository),
       taskRepository: repository,
     );
   });
@@ -68,6 +70,7 @@ void main() {
         final repository = _FakeTaskRepository();
         return TaskActionsCubit(
           uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+          skipTaskUseCase: SkipTaskUseCase(repository: repository),
           taskRepository: repository,
         );
       },
@@ -112,6 +115,7 @@ void main() {
         final repository = _FakeTaskRepository(shouldThrowOnSave: true);
         return TaskActionsCubit(
           uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+          skipTaskUseCase: SkipTaskUseCase(repository: repository),
           taskRepository: repository,
         );
       },
@@ -143,6 +147,7 @@ void main() {
         final repository = _FakeTaskRepository(shouldThrowOnDelete: true);
         return TaskActionsCubit(
           uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+          skipTaskUseCase: SkipTaskUseCase(repository: repository),
           taskRepository: repository,
         );
       },
@@ -162,10 +167,52 @@ void main() {
       final repository = _FakeTaskRepository(shouldThrowOnDelete: true);
       final cubit = TaskActionsCubit(
         uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+        skipTaskUseCase: SkipTaskUseCase(repository: repository),
         taskRepository: repository,
       );
       final result = await cubit.deleteTask(taskId: 'task-1');
       expect(result, isFalse);
+      await cubit.close();
+    });
+  });
+
+  group('skipTask', () {
+    final pendingTask = task.copyWith(
+      status: TaskStatus.pending,
+      assignedMemberId: null,
+      completedAt: null,
+    );
+
+    blocTest<TaskActionsCubit, TaskActionState>(
+      'помечает задачу как пропущенную и переводит в Initial',
+      build: () => cubit,
+      act: (cubit) => cubit.skipTask(task: pendingTask),
+      expect: () => const [
+        TaskActionInProgress(),
+        TaskActionInitial(),
+      ],
+      verify: (_) {
+        expect(repository.savedTask, isNotNull);
+        expect(repository.savedTask!.status, TaskStatus.skipped);
+      },
+    );
+
+    test('возвращает Task со статусом skipped при успехе', () async {
+      final result = await cubit.skipTask(task: pendingTask);
+      expect(result, isA<Task>());
+      expect(result!.status, TaskStatus.skipped);
+      expect(result.id, task.id);
+    });
+
+    test('возвращает null при ошибке репозитория', () async {
+      final repository = _FakeTaskRepository(shouldThrowOnSave: true);
+      final cubit = TaskActionsCubit(
+        uncompleteTaskUseCase: UncompleteTaskUseCase(repository: repository),
+        skipTaskUseCase: SkipTaskUseCase(repository: repository),
+        taskRepository: repository,
+      );
+      final result = await cubit.skipTask(task: pendingTask);
+      expect(result, isNull);
       await cubit.close();
     });
   });
@@ -176,6 +223,11 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<void> updateTemplate({
     required UpdateRecurringTaskParams params,
   }) async {}
+  @override
+  Future<void> pauseTemplate({required String templateId}) async {}
+
+  @override
+  Future<void> resumeTemplate({required String templateId}) async {}
 
   _FakeTaskRepository({
     this.shouldThrowOnDelete = false,
@@ -246,10 +298,16 @@ final class _FakeTaskRepository implements TaskRepository {
     if (shouldThrowOnSave) {
       throw Exception('Ошибка сети');
     }
-    // UncompleteTaskUseCase вызывает patchStatus, а не save
+    // Сохраняем точный статус (pending/completed/skipped), чтобы тесты
+    // skipTask могли проверить TaskStatus.skipped.
+    final mappedStatus = switch (status) {
+      'completed' => TaskStatus.completed,
+      'skipped' => TaskStatus.skipped,
+      _ => TaskStatus.pending,
+    };
     if (savedTask != null) {
       savedTask = savedTask!.copyWith(
-        status: status == 'completed' ? TaskStatus.completed : TaskStatus.pending,
+        status: mappedStatus,
         assignedMemberId: assignedMemberId,
       );
     } else {
@@ -261,7 +319,7 @@ final class _FakeTaskRepository implements TaskRepository {
         estimatedDurationMinutes: 0,
         plannedFor: DateTime.now(),
         allowedMemberIds: const [],
-        status: status == 'completed' ? TaskStatus.completed : TaskStatus.pending,
+        status: mappedStatus,
         assignedMemberId: assignedMemberId,
         createdAt: DateTime.now(),
       );

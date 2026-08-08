@@ -28,7 +28,8 @@
 - **cubit/household_invitations_state.dart** — состояния: `Initial`, `Loading`, `Loaded`, `ActionInProgress`, `Failure`.
 - **cubit/household_members_cubit.dart** — `HouseholdMembersCubit`: `load`, `inviteByEmail`, `leaveHousehold`, `removeMember`.
 - **cubit/household_members_state.dart** — состояния: `Initial`, `Loading`, `Loaded`, `InvitationSending`, `InvitationSent`, `Failure`.
-- **pages/household_gate.dart** — главный навигационный экран после авторизации. `_AppShell` с `IndexedStack` (TodayPage + ScheduledPage), `NavigationBar`, dropdown выбора семьи. `_EmptyShell` для случая без семей + приглашения.
+- **pages/household_gate.dart** — главный навигационный экран после авторизации. `_AppShell` с `IndexedStack` (TodayPage + ScheduledPage + NotificationsPage), `NavigationBar`, dropdown выбора семьи. `_EmptyShell` для случая без семей + приглашения.
+- **widgets/app_shell.dart** — `AppShell`: **оборачивает весь Scaffold в `BlocProvider<AppNotificationsCubit>`** (создаёт `..load()`), чтобы бейдж в NavigationBar видел `unreadCount`. 3 таба (Сегодня / Запланированные / Уведомления). При переключении на таб уведомлений (index == 2) вызывает `cubit.refresh()`.
 - **pages/create_household_page.dart** — форма создания семьи.
 - **pages/household_invitations_page.dart** — список приглашений с кнопками принять/отклонить.
 - **pages/household_members_page.dart** — управление участниками: приглашение (для owner), удаление/выход.
@@ -40,4 +41,5 @@
 - `HouseholdMembersCubit` создаётся локально в `HouseholdMembersPage`.
 - Зависит от `SupabaseClient` (через `SupabaseHouseholdRepository`).
 - Зависит от `AuthCubit` для выхода (sign out).
-- Использует `TodayPage`, `ScheduledPage`, `ProfileSettingsPage`, `ProfilePage` из других фич.
+- `AppShell` предоставляет `AppNotificationsCubit` (BlocProvider) из фичи notifications и использует `NotificationsPage`.
+- Использует `TodayPage`, `ScheduledPage`, `NotificationsPage`, `ProfileSettingsPage`, `ProfilePage` из других фич.

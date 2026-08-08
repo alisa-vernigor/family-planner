@@ -27,6 +27,8 @@ final class Task extends Equatable {
     this.recurrenceEndDate,
     this.reminderMinutesBefore,
     this.categoryId,
+    this.plannedTime,
+    this.templateActive,
   });
 
   final String id;
@@ -65,9 +67,32 @@ final class Task extends Equatable {
   /// ID категории задачи (`task_categories.id`). `null` — без категории.
   final String? categoryId;
 
+  /// Время начала задачи (минуты от полуночи). `null` — без времени / весь день.
+  final Duration? plannedTime;
+
+  /// Активна ли серия повторений (`task_templates.is_active`). Для обычных
+  /// задач — `null`. `false` — серия на паузе (экземпляры больше не
+  /// генерируются, UI показывает бейдж и позволяет возобновить).
+  final bool? templateActive;
+
   bool get isRecurring => templateId != null && recurrence != null;
 
+  /// Серия повторяющихся задач приостановлена (но ещё существует).
+  bool get isSeriesPaused => templateActive == false;
+
   bool get isCompleted => status == TaskStatus.completed;
+
+  /// Задача пропущена (статус `skipped`) — исчезает из списков, остаётся в истории.
+  bool get isSkipped => status == TaskStatus.skipped;
+
+  /// Время начала в виде `HH:MM` для отображения (или `null` — весь день).
+  String? get plannedTimeLabel {
+    final time = plannedTime;
+    if (time == null) return null;
+    final h = time.inHours.toString().padLeft(2, '0');
+    final m = (time.inMinutes % 60).toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 
   bool get isPinned => pinnedMemberId != null;
 
@@ -122,6 +147,8 @@ final class Task extends Equatable {
     Object? recurrenceEndDate = _sentinel,
     Object? reminderMinutesBefore = _sentinel,
     Object? categoryId = _sentinel,
+    Object? plannedTime = _sentinel,
+    Object? templateActive = _sentinel,
   }) {
     return Task(
       id: id ?? this.id,
@@ -162,6 +189,12 @@ final class Task extends Equatable {
       categoryId: identical(categoryId, _sentinel)
           ? this.categoryId
           : categoryId as String?,
+      plannedTime: identical(plannedTime, _sentinel)
+          ? this.plannedTime
+          : plannedTime as Duration?,
+      templateActive: identical(templateActive, _sentinel)
+          ? this.templateActive
+          : templateActive as bool?,
     );
   }
 
@@ -191,6 +224,8 @@ final class Task extends Equatable {
       recurrenceEndDate,
       reminderMinutesBefore,
       categoryId,
+      plannedTime,
+      templateActive,
     ];
   }
 }
