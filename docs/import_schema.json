@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FamilyPlanner Tasks Import",
+  "description": "Формат импорта задач в Family Planner. Сгенерируй список задач по дому в этом формате.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "default": 1
+    },
+    "tasks": {
+      "type": "array",
+      "description": "Задачи для семьи. Минимум 1 элемент.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Название задачи. ОБЯЗАТЕЛЬНО, непустое.",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string",
+            "description": "Подробное описание (необязательно)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Дата задачи, YYYY-MM-DD. Если нет — задача будет создана на сегодня.",
+            "examples": ["2026-08-09"]
+          },
+          "time": {
+            "type": "string",
+            "pattern": "^([01]?[0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Время начала, HH:MM (24-часовой). Если нет — весь день.",
+            "examples": ["18:00"]
+          },
+          "deadline": {
+            "type": "string",
+            "description": "Дедлайн, формат YYYY-MM-DDTHH:MM. Необязательно.",
+            "examples": ["2026-08-09T20:00"]
+          },
+          "duration_minutes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "default": 30,
+            "description": "Длительность в минутах. Если ≤0 или нет — 30."
+          },
+          "priority": {
+            "type": "integer",
+            "enum": [1, 2, 3, 4],
+            "description": "Матрица Эйзенхауэра: 1=срочно и важно, 2=не срочно но важно, 3=срочно но не важно, 4=не срочно и не важно. Если нет — 4."
+          },
+          "assignee": {
+            "type": "string",
+            "description": "Имя ответственного (должно совпадать с именем участника семьи). Если нет — без исполнителя."
+          },
+          "category": {
+            "type": "string",
+            "description": "Название категории. Если такой нет в семье — будет создана автоматически."
+          },
+          "subtasks": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Подзадачи (необязательно)."
+          }
+        },
+        "required": ["title"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["tasks"],
+  "additionalProperties": false
+}
