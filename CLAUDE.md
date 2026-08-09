@@ -59,7 +59,7 @@ family-planner/
 │       ├── profile/       # Профиль (настройки, аватар, публичная страница со статистикой)
 │       └── import_export/ # Импорт/экспорт задач в JSON (нейросеть → задачи; entry в меню «Ещё»)
 ├── supabase/
-│   └── migrations/        # 11 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing → google_calendar_actions → planned_time → pause_resume)
+│   └── migrations/        # 12 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing → google_calendar_actions → planned_time → pause_resume → fix_recurring_overloads)
 ├── test/
 │   ├── app/               # Тесты App и AppBlocObserver
 │   ├── core/              # Тесты logging, database, sync
@@ -122,10 +122,11 @@ main.dart → FamilyPlannerApp → AuthGate
 `create_household`, `delete_household`, `update_household_name`,
 `create_household_invitation`, `accept_household_invitation`, `decline_household_invitation`,
 `leave_household`, `remove_household_member`,
-`create_task_occurrence`, `create_recurring_task_template`, `generate_recurring_task_occurrences`,
+`create_task_occurrence`, `create_recurring_task_template`, `generate_recurring_task_occurrences` (принимает `p_from_date DATE` — генерация начинается с этой даты, не с начала серии; миграция `20260809_fix_recurring_overloads_and_duplicates.sql`),
 `pause_task_template`, `resume_task_template` (пауза/возобновление серии — миграция `20260808_pause_resume.sql`), `update_task_template`,
-`get_household_name_for_invitation`, `get_profile_stats`
+`get_household_name_for_invitation` (имя семьи только приглашённому/владельцу), `get_profile_stats`
 
+> **Примечание:** три ранние миграции (`20260726_add_pinned_member_id`, `20260727_fix_leave_household`, `20260727_fix_rls_security`) сортируются по имени ДО `20260727_initial_schema` и на свежей БД `db reset` являются no-op (guard-блоки). Их канонические версии (RLS-hardening, `leave_household`/`remove_household_member` с очисткой) продублированы в последнюю миграцию `20260809_fix_recurring_overloads_and_duplicates.sql` — она применяется последней и задаёт правильное итоговое состояние.
 > **Примечание:** подзадачи (`task_subtasks`) и категории (`task_categories`)
 > читаются/пишутся напрямую через RLS — RPC для них не нужны.
 

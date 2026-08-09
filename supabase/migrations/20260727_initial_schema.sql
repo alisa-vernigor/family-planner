@@ -608,7 +608,7 @@ CREATE FUNCTION create_recurring_task_template(
   p_estimated_duration_minutes INTEGER,
   p_start_date DATE,
   p_deadline_time TIME DEFAULT NULL,
-  p_recurrence_type recurrence_type,
+  p_recurrence_type recurrence_type DEFAULT 'none',
   p_interval_days INTEGER DEFAULT NULL,
   p_weekdays SMALLINT[] DEFAULT '{}',
   p_end_date DATE DEFAULT NULL
