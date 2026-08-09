@@ -103,6 +103,7 @@ final class MemberTile extends StatelessWidget {
                 builder: (_) => ProfilePage(
                   profileId: member.profileId,
                   displayName: member.displayName,
+                  viewerId: isCurrentUser ? member.profileId : null,
                 ),
               ),
             );

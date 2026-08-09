@@ -15,11 +15,18 @@ final class ProfilePage extends StatefulWidget {
   const ProfilePage({
     required this.profileId,
     required this.displayName,
+    this.viewerId,
     super.key,
   });
 
   final String profileId;
   final String displayName;
+
+  /// ID текущего зрителя (того, кто открыл страницу). Если совпадает с
+  /// [profileId] — показываем «Это вы» и кнопку редактирования.
+  ///
+  /// `null` — зритель неизвестен, страница ведёт себя как чужая.
+  final String? viewerId;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -60,6 +67,7 @@ final class _ProfilePageState extends State<ProfilePage> {
       child: _ProfileScaffold(
         profileId: widget.profileId,
         displayName: widget.displayName,
+        viewerId: widget.viewerId,
         stats: _stats,
         onRefresh: _refreshProfile,
       ),
@@ -71,12 +79,14 @@ final class _ProfileScaffold extends StatelessWidget {
   const _ProfileScaffold({
     required this.profileId,
     required this.displayName,
+    this.viewerId,
     this.stats,
     required this.onRefresh,
   });
 
   final String profileId;
   final String displayName;
+  final String? viewerId;
   final ProfileStats? stats;
   final Future<void> Function() onRefresh;
 
@@ -84,7 +94,7 @@ final class _ProfileScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final cubitState = context.watch<ProfileCubit>().state;
-    final isOwn = cubitState is ProfileLoaded && cubitState.profile.id == profileId;
+    final isOwn = viewerId != null && cubitState is ProfileLoaded && cubitState.profile.id == viewerId;
 
     return Scaffold(
       appBar: AppBar(

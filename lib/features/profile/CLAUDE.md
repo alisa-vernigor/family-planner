@@ -25,7 +25,7 @@
 
 - **cubit/profile_cubit.dart** — `ProfileCubit`: `load`, `updateProfile`, `uploadAvatar`, `removeAvatar`, `getStats`. Оптимистичные обновления.
 - **cubit/profile_state.dart** — состояния: `Initial`, `Loading`, `Loaded`, `UpdateSuccess`, `AvatarUploading`, `Failure`.
-- **pages/profile_page.dart** — `ProfilePage`: публичная страница профиля (доступна всем членам семьи). Аватар, имя, био (+ «Это вы» если свой), статистика (`_StatsGrid`: выполнено/назначено/за неделю/за месяц + прогресс-бар).
+- **pages/profile_page.dart** — `ProfilePage(profileId, displayName, viewerId?)`: публичная страница профиля (доступна всем членам семьи). Аватар, имя, био (+ «Это вы» если свой), статистика (`_StatsGrid`: выполнено/назначено/за неделю/за месяц + прогресс-бар). **`viewerId`** — ID текущего зрителя; «Это вы» и кнопка редактирования показываются только когда `viewerId != null && profile.id == viewerId`. `null` → страница ведёт себя как чужая. Вызывающие места передают `viewerId` (в `member_tile.dart` и `task_card.dart` `_AssigneeChip` — `viewerId: isMine ? profileId : null`).
 - **pages/profile_settings_page.dart** — `ProfileSettingsPage`: редактирование имени, био, загрузка/удаление аватара через `ImagePicker`. Превью pending-изменений. Кнопка «Сохранить» появляется только при наличии изменений.
 - **widgets/avatar_widget.dart** — `AvatarWidget`: переиспользуемый аватар. Поддерживает `imageBytes` (pending preview), URL (NetworkImage), инициалы. 3 named конструктора: `AvatarWidget()`, `AvatarWidget.fromMember()`, `AvatarWidget.url()`.
 

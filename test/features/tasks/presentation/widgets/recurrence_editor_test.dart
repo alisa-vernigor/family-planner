@@ -114,6 +114,191 @@ void main() {
 
       expect(lastDraft?.buildRecurrence(), isNull);
     });
+
+    testWidgets('intervalDays-повтор: поле N дней и значение в onChanged', (
+      tester,
+    ) async {
+      RecurrenceDraft? lastDraft;
+      await tester.pumpWidget(
+        buildSubject(onChanged: (draft) => lastDraft = draft),
+      );
+
+      await tester.tap(find.byKey(const Key('recurrence_switch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recurrence_type_dropdown')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Раз в несколько дней').last);
+      await tester.pumpAndSettle();
+
+      final field = find.byKey(const Key('recurrence_interval_field'));
+      expect(field, findsOneWidget);
+
+      await tester.enterText(field, '5');
+      await tester.pumpAndSettle();
+
+      final recurrence = lastDraft?.buildRecurrence();
+      expect(recurrence, isA<TaskRecurrence>());
+      expect(recurrence!.intervalDays, 5);
+    });
+
+    testWidgets('start date: выбор даты отдаёт startDate через onChanged', (
+      tester,
+    ) async {
+      RecurrenceDraft? lastDraft;
+      await tester.pumpWidget(
+        buildSubject(onChanged: (draft) => lastDraft = draft),
+      );
+
+      await tester.tap(find.byKey(const Key('recurrence_switch')));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('recurrence_start_date_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recurrence_start_date_button')));
+      await tester.pumpAndSettle();
+
+      // Дата-пикер открылся.
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+
+      // Выбираем первый день месяца и подтверждаем кнопкой OK
+      // (Material 3: тап по дню лишь подсвечивает его).
+      await tester.tap(find.text('1').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('OK').last);
+      await tester.pumpAndSettle();
+
+      expect(lastDraft?.startDate, isNotNull);
+      // Появляется кнопка очистки.
+      await tester.ensureVisible(find.byKey(const Key('clear_recurrence_start_date_button')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('clear_recurrence_start_date_button')), findsOneWidget);
+
+      // Очищаем.
+      await tester.tap(find.byKey(const Key('clear_recurrence_start_date_button')));
+      await tester.pumpAndSettle();
+      expect(lastDraft?.startDate, isNull);
+    });
+
+    testWidgets('end date: выбор даты и очистка', (tester) async {
+      RecurrenceDraft? lastDraft;
+      await tester.pumpWidget(
+        buildSubject(onChanged: (draft) => lastDraft = draft),
+      );
+
+      await tester.tap(find.byKey(const Key('recurrence_switch')));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('recurrence_end_date_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recurrence_end_date_button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DatePickerDialog), findsOneWidget);
+
+      await tester.tap(find.text('1').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('OK').last);
+      await tester.pumpAndSettle();
+
+      expect(lastDraft?.endDate, isNotNull);
+
+      await tester.ensureVisible(find.byKey(const Key('clear_recurrence_end_date_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('clear_recurrence_end_date_button')));
+      await tester.pumpAndSettle();
+      expect(lastDraft?.endDate, isNull);
+    });
+
+    testWidgets('отмена в дата-пикере не меняет состояние', (tester) async {
+      RecurrenceDraft? lastDraft;
+      await tester.pumpWidget(
+        buildSubject(onChanged: (draft) => lastDraft = draft),
+      );
+
+      await tester.tap(find.byKey(const Key('recurrence_switch')));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('recurrence_start_date_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('recurrence_start_date_button')));
+      await tester.pumpAndSettle();
+
+      // В Material 3 дата-пикере кнопка отмены называется Cancel (англ.).
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(lastDraft?.startDate, isNull);
+    });
+  });
+
+  group('RecurrenceDraft', () {
+    test('buildRecurrence возвращает null при выключенном повторе', () {
+      const draft = RecurrenceDraft(
+        type: TaskRecurrenceType.daily,
+        isEnabled: false,
+      );
+      expect(draft.buildRecurrence(), isNull);
+    });
+
+    test('buildRecurrence: weekly сортирует weekdays', () {
+      const draft = RecurrenceDraft(
+        type: TaskRecurrenceType.weekly,
+        isEnabled: true,
+        weekdays: [5, 1, 3],
+      );
+      final recurrence = draft.buildRecurrence();
+      expect(recurrence, isA<TaskRecurrence>());
+      expect(recurrence!.weekdays, [1, 3, 5]);
+    });
+
+    test('buildRecurrence: intervalDays сохраняет interval', () {
+      const draft = RecurrenceDraft(
+        type: TaskRecurrenceType.intervalDays,
+        isEnabled: true,
+        intervalDays: 7,
+      );
+      expect(draft.buildRecurrence(), isA<TaskRecurrence>());
+      expect(draft.buildRecurrence()!.intervalDays, 7);
+    });
+
+    test('copyWith меняет поля и сбрасывает nullable даты', () {
+      final draft = RecurrenceDraft(
+        type: TaskRecurrenceType.daily,
+        isEnabled: true,
+        startDate: DateTime(2026, 8, 1),
+        endDate: DateTime(2026, 9, 1),
+      );
+
+      final changed = draft.copyWith(
+        type: TaskRecurrenceType.weekly,
+        isEnabled: false,
+        intervalDays: 3,
+        weekdays: const [1],
+        startDate: null,
+        endDate: null,
+      );
+
+      expect(changed.type, TaskRecurrenceType.weekly);
+      expect(changed.isEnabled, isFalse);
+      expect(changed.intervalDays, 3);
+      expect(changed.weekdays, [1]);
+      expect(changed.startDate, isNull);
+      expect(changed.endDate, isNull);
+
+      // Неизменённые поля остаются.
+      final partial = draft.copyWith(intervalDays: 10);
+      expect(partial.type, TaskRecurrenceType.daily);
+      expect(partial.startDate, DateTime(2026, 8, 1));
+    });
+
+    test('equatable учитывает все поля', () {
+      const a = RecurrenceDraft(type: TaskRecurrenceType.daily, isEnabled: true);
+      const b = RecurrenceDraft(type: TaskRecurrenceType.daily, isEnabled: true);
+      const c = RecurrenceDraft(type: TaskRecurrenceType.weekly, isEnabled: true);
+      expect(a, b);
+      expect(a, isNot(c));
+      expect(a.hashCode, b.hashCode);
+    });
   });
 
   group('showRecurrenceEditScopeDialog', () {

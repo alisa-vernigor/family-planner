@@ -7,11 +7,12 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 /// Uses [connectivity_plus] under the hood. Caches the last known
 /// state so synchronous reads are cheap.
 class ConnectivityService {
-  ConnectivityService() {
+  ConnectivityService({Connectivity? connectivity})
+      : _connectivity = connectivity ?? Connectivity() {
     _init();
   }
 
-  final Connectivity _connectivity = Connectivity();
+  final Connectivity _connectivity;
 
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 

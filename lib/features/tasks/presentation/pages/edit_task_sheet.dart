@@ -223,6 +223,23 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
     }
   }
 
+  Future<void> _reorderSubtask(String taskId, List<String> orderedIds) async {
+    try {
+      final repository = context.read<TaskSubtaskRepository>();
+      await repository.reorder(taskId, orderedIds);
+      if (mounted) {
+        final subtasks = await repository.getForTask(widget.task.id);
+        setState(() => _subtasks = subtasks);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось изменить порядок подзадач.')),
+        );
+      }
+    }
+  }
+
   Future<void> _loadMembers() async {
     try {
       final members = await widget.householdRepository.getMembers(
@@ -612,6 +629,7 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
                           onAdd: _addSubtask,
                           onToggle: _toggleSubtask,
                           onDelete: _deleteSubtask,
+                          onReorder: _reorderSubtask,
                         ),
                         const SizedBox(height: 8),
                       ],

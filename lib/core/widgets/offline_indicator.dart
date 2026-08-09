@@ -18,9 +18,15 @@ class OfflineIndicator extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return MaterialBanner(
+        return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          content: Row(
+          color: state.isOnline
+              ? Theme.of(context).colorScheme.primaryContainer
+              : Theme.of(context)
+                  .colorScheme
+                  .errorContainer
+                  .withValues(alpha: 0.3),
+          child: Row(
             children: [
               Icon(
                 state.isOnline ? Icons.sync : Icons.cloud_off,
@@ -42,25 +48,20 @@ class OfflineIndicator extends StatelessWidget {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
+              if (!state.isOnline)
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Изменения будут синхронизированы при подключении к интернету.'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                  child: const Text('Ок'),
+                ),
             ],
           ),
-          backgroundColor: state.isOnline
-              ? Theme.of(context).colorScheme.primaryContainer
-              : Theme.of(context).colorScheme.errorContainer.withValues(alpha: 0.3),
-          actions: [
-            if (!state.isOnline)
-              TextButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Изменения будут синхронизированы при подключении к интернету.'),
-                      duration: Duration(seconds: 3),
-                    ),
-                  );
-                },
-                child: const Text('Ок'),
-              ),
-          ],
         );
       },
     );

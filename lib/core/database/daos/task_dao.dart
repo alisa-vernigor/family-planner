@@ -114,6 +114,16 @@ class TaskDao extends DatabaseAccessor<AppDatabase> with _$TaskDaoMixin {
     return into(taskOccurrences).insertOnConflictUpdate(task);
   }
 
+  /// Обновляет только колонку allowed_member_ids у задачи.
+  /// Используется вместо полного upsert, чтобы не требовать все NOT NULL-поля.
+  Future<void> updateAllowedMembers(String taskId, String allowedMemberIds) {
+    return (update(taskOccurrences)
+          ..where((t) => t.id.equals(taskId)))
+        .write(TaskOccurrencesCompanion(
+          allowedMemberIds: Value(allowedMemberIds),
+        ));
+  }
+
   /// Batch upsert — used after initial sync or realtime updates.
   Future<void> upsertTasks(List<TaskOccurrencesCompanion> tasks) {
     return batch((batch) {

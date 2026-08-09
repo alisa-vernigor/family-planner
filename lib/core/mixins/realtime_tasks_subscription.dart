@@ -33,6 +33,22 @@ mixin RealtimeTasksSubscriptionMixin<S extends StatefulWidget> on State<S> {
     required String channelPrefix,
     required VoidCallback onChanged,
   }) {
+    // Realtime — опциональное улучшение. Если Supabase ещё не инициализирован
+    // (тесты, веб-встраивание без бэкенда) — просто пропускаем подписку,
+    // списки задач работают без live-обновлений.
+    //
+    // ВАЖНО: геттер `Supabase.instance` в debug-режиме бросает AssertionError,
+    // если экземпляр не инициализирован (assert внутри геттера, см. supabase_flutter).
+    // Поэтому проверка через try/catch — иначе guard сам падает вместо раннего
+    // выхода, а списки задач без live-обновлений (и тесты) ломаются.
+    bool isSupabaseReady;
+    try {
+      isSupabaseReady = Supabase.instance.isInitialized;
+    } on AssertionError {
+      isSupabaseReady = false;
+    }
+    if (!isSupabaseReady) return;
+
     _realtimeChannel = Supabase.instance.client
         .channel('$channelPrefix-$householdId')
         .onPostgresChanges(

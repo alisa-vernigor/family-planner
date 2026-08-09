@@ -4,13 +4,17 @@ final class SupabaseConfig {
   SupabaseConfig._();
 
   static String get url {
-    final value = dotenv.maybeGet('SUPABASE_URL');
+    final value = dotenv.isInitialized
+        ? dotenv.maybeGet('SUPABASE_URL')
+        : null;
     if (value != null && value.isNotEmpty) return value;
     return const String.fromEnvironment('SUPABASE_URL');
   }
 
   static String get publishableKey {
-    final value = dotenv.maybeGet('SUPABASE_PUBLISHABLE_KEY');
+    final value = dotenv.isInitialized
+        ? dotenv.maybeGet('SUPABASE_PUBLISHABLE_KEY')
+        : null;
     if (value != null && value.isNotEmpty) return value;
     return const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
   }

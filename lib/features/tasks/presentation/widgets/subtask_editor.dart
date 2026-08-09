@@ -55,6 +55,90 @@ final class _SubtaskEditorState extends State<SubtaskEditor> {
     }
   }
 
+  /// Рисует список подзадач.
+  ///
+  /// Если передан [SubtaskEditor.onReorder] — `ReorderableListView` с
+  /// drag&drop перестановкой. Иначе — простой `ListView` (без drag&drop).
+  ///
+  /// ВАЖНО: нельзя передавать `onReorder: null` в `ReorderableListView` с
+  /// непустым списком — Flutter требует (assert) заданный `onReorder` или
+  /// `onReorderItem` (`The onReorder callback is obsolete and is replaced by
+  /// onReorderItem.`). Раньше при `onReorder == null` и подзадачах виджет
+  /// падал с этим assertion — отсюда и развилка на обычный ListView.
+  Widget _buildSubtaskList(ColorScheme cs, List<TaskSubtask> subtasks) {
+    final tiles = [
+      for (final subtask in subtasks)
+        Dismissible(
+          key: ValueKey(subtask.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            color: cs.error,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 16),
+            child: const Icon(Icons.delete_outline, color: Colors.white),
+          ),
+          onDismissed: (_) => widget.onDelete(subtask.id),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            leading: ReorderableDragStartListener(
+              index: subtasks.indexOf(subtask),
+              enabled: widget.onReorder != null,
+              child: Icon(
+                Icons.drag_indicator,
+                size: 18,
+                color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+              ),
+            ),
+            title: Text(
+              subtask.title,
+              style: TextStyle(
+                decoration: subtask.isCompleted
+                    ? TextDecoration.lineThrough
+                    : null,
+                color: subtask.isCompleted ? cs.onSurfaceVariant : cs.onSurface,
+              ),
+            ),
+            trailing: IconButton(
+              tooltip: subtask.isCompleted ? 'Вернуть в работу' : 'Отметить выполненной',
+              icon: Icon(
+                subtask.isCompleted
+                    ? Icons.check_circle
+                    : Icons.radio_button_unchecked_outlined,
+                color: subtask.isCompleted ? cs.primary : cs.onSurfaceVariant,
+              ),
+              onPressed: () => widget.onToggle(subtask),
+            ),
+          ),
+        ),
+    ];
+
+    if (widget.onReorder == null) {
+      return ListView(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        children: tiles,
+      );
+    }
+
+    return ReorderableListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      onReorderItem: (oldIndex, newIndex) {
+        // onReorderItem сам корректирует newIndex для удалённого элемента
+        // (в отличие от устаревшего onReorder) — повторная поправка не нужна.
+        final ids = [
+          for (final s in subtasks) s.id,
+        ];
+        final item = ids.removeAt(oldIndex);
+        ids.insert(newIndex, item);
+        widget.onReorder!(widget.subtasks.first.taskId, ids);
+      },
+      children: tiles,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -83,74 +167,7 @@ final class _SubtaskEditorState extends State<SubtaskEditor> {
         ),
         const SizedBox(height: 8),
         if (subtasks.isNotEmpty)
-          ReorderableListView(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            buildDefaultDragHandles: false,
-            onReorder: widget.onReorder == null
-                ? null
-                : (oldIndex, newIndex) {
-                    if (newIndex > oldIndex) newIndex--;
-                    final ids = [
-                      for (final s in subtasks) s.id,
-                    ];
-                    final item = ids.removeAt(oldIndex);
-                    ids.insert(newIndex, item);
-                    widget.onReorder!(widget.subtasks.first.taskId, ids);
-                  },
-            children: [
-              for (final subtask in subtasks)
-                Dismissible(
-                  key: ValueKey(subtask.id),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    color: cs.error,
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    child: const Icon(Icons.delete_outline, color: Colors.white),
-                  ),
-                  onDismissed: (_) => widget.onDelete(subtask.id),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    dense: true,
-                    leading: ReorderableDragStartListener(
-                      index: subtasks.indexOf(subtask),
-                      enabled: widget.onReorder != null,
-                      child: Icon(
-                        Icons.drag_indicator,
-                        size: 18,
-                        color: cs.onSurfaceVariant.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    title: Text(
-                      subtask.title,
-                      style: TextStyle(
-                        decoration: subtask.isCompleted
-                            ? TextDecoration.lineThrough
-                            : null,
-                        color: subtask.isCompleted
-                            ? cs.onSurfaceVariant
-                            : cs.onSurface,
-                      ),
-                    ),
-                    trailing: IconButton(
-                      tooltip: subtask.isCompleted
-                          ? 'Вернуть в работу'
-                          : 'Отметить выполненной',
-                      icon: Icon(
-                        subtask.isCompleted
-                            ? Icons.check_circle
-                            : Icons.radio_button_unchecked_outlined,
-                        color: subtask.isCompleted
-                            ? cs.primary
-                            : cs.onSurfaceVariant,
-                      ),
-                      onPressed: () => widget.onToggle(subtask),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          _buildSubtaskList(cs, subtasks),
         if (subtasks.isNotEmpty) const SizedBox(height: 4),
         Row(
           children: [

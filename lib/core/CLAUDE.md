@@ -4,8 +4,14 @@
 
 ## Содержимое
 
-- **config/supabase_config.dart** — `SupabaseConfig`: читает SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY из `.env` файла или `--dart-define` (compile-time). Использует `flutter_dotenv`.
-- **logging/app_logger.dart** — `AppLogger`: обёртка над `logger` package (debug/info/warning/error). Статические методы, единый экземпляр `Logger()`.
+- **config/supabase_config.dart** — `SupabaseConfig`: читает SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY из `.env` файла или `--dart-define` (compile-time). Использует `flutter_dotenv`. Проверяет `dotenv.isInitialized` перед чтением (иначе в тестах без dotenv падает).
+- **services/connectivity_service.dart** — `ConnectivityService`: мониторит связь (online/offline), кэширует состояние, поток `isOnline`.
+  - **DI:** конструктор принимает `Connectivity?` (пакет `connectivity_plus` — синглтон, хардкодит платформу при первом обращении). Для тестов передавай `Mock implements Connectivity` с управляемым stream. См. `test/core/services/connectivity_service_test.dart`.
+- **widgets/offline_indicator.dart** — `OfflineIndicator`: баннер офлайна/синхронизации на основе `SyncCubit`.
+  - **Не использует `MaterialBanner`** (тот требует непустой `actions`, падал при online+syncing с пустым actions) — рисует собственный `Container`+`Row`. Не менять обратно.
+- **mixins/realtime_tasks_subscription.dart** — `RealtimeTasksSubscriptionMixin`: подписка на realtime-изменения `task_occurrences` для `State`-виджетов (Today, Scheduled). Debounce 1.5с перед `onChanged`.
+  - **ВАЖНО:** проверка «инициализирован ли Supabase» — через try/catch вокруг `Supabase.instance.isInitialized`, потому что сам геттер `Supabase.instance` в debug бросает AssertionError, если экземпляр не инициализирован (assert внутри геттера). Раньше guard `if (!Supabase.instance.isInitialized) return;` сам падал в тестах/без бэкенда.
+  - `reattachTaskSubscription` — пересоздание канала при смене household; `unsubscribeFromTaskChanges` — отписка.
 - **services/home_widget_service.dart** — `HomeWidgetService`: интеграция с Android Home Widget через `home_widget` package.
   - `initialize()` — регистрация `interactiveCallback` для фоновых коллбэков.
   - `syncTasks(tasks, currentMemberId, householdId)` — обновление данных виджета.
@@ -21,12 +27,14 @@
   - Таблицы: `TaskOccurrences` (включая nullable-колонки `category_id`, `reminder_minutes_before`, `planned_time`, **`template_active`** — кэш `task_templates.is_active` для паузы серии), `TaskTemplates`, `TaskCategories`, `TaskSubtasks`, `SyncQueue`, а также household/профильные.
   - **Важно:** row-классы `TaskCategory` / `TaskSubtask` конфликтуют с доменными сущностями tasks — в drift-репозиториях доменный импорт алиасится (`import '...task_category.dart' as domain;`).
   - DAO категорий: `TaskCategoriesDao` — метод удаления называется `deleteCategory` (избегает конфликта с базовым `DatabaseConnectionUser.delete`). Аналогично `deleteSubtask` в `TaskSubtasksDao`.
+  - DAO задач (`TaskDao`): `upsertTask` использует `insertOnConflictUpdate` (требует все NOT NULL-колонки в Companion). Для точечного обновления одной колонки (например, `allowed_member_ids` в `addAllowedMember`/`removeAllowedMember`) есть `updateAllowedMembers(taskId, allowedMemberIds)` — обычный `UPDATE`, не требующий полного companion.
 
 ## Связи
 
 - `app_bloc_observer.dart` использует `AppLogger`.
 - `main.dart` вызывает `SupabaseConfig`, `AppLogger`, `HomeWidgetService.initialize()`, `ReminderService.instance.initialize()`.
 - `HomeWidgetService` импортирует `Task` из tasks feature.
+- `RealtimeTasksSubscriptionMixin` используется в `TodayPage` и `ScheduledPage`.
 - Не зависит от других модулей приложения (кроме HomeWidgetService → tasks).
 
 ## Drift-миграции (локальная БД SQLite)

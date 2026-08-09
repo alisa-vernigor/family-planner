@@ -565,10 +565,10 @@ class DriftTaskRepository implements TaskRepository {
       final ids = jsonDecode(existing.allowedMemberIds) as List<dynamic>;
       if (!ids.contains(memberId)) {
         ids.add(memberId);
-        await _taskDao.upsertTask(TaskOccurrencesCompanion(
-          id: Value(taskId),
-          allowedMemberIds: Value(jsonEncode(ids)),
-        ));
+        await _taskDao.updateAllowedMembers(
+          taskId,
+          jsonEncode(ids),
+        );
       }
     }
 
@@ -593,10 +593,10 @@ class DriftTaskRepository implements TaskRepository {
     if (existing != null) {
       final ids = jsonDecode(existing.allowedMemberIds) as List<dynamic>;
       ids.remove(memberId);
-      await _taskDao.upsertTask(TaskOccurrencesCompanion(
-        id: Value(taskId),
-        allowedMemberIds: Value(jsonEncode(ids)),
-      ));
+      await _taskDao.updateAllowedMembers(
+        taskId,
+        jsonEncode(ids),
+      );
     }
 
     await _syncQueueDao.enqueue(

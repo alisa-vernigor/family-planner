@@ -497,6 +497,7 @@ final class _AssigneeChip extends StatelessWidget {
             builder: (_) => ProfilePage(
               profileId: profileId,
               displayName: name,
+              viewerId: isMine ? profileId : null,
             ),
           ),
         );

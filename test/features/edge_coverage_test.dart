@@ -156,13 +156,36 @@ void main() {
       cubit.close();
     });
 
-    test('confirmDelete/cancelDelete safe', () {
+    test('confirmDelete снимает pending — задача снова в refresh', () async {
       final cubit = ScheduledTasksCubit(
-        taskRepository: _FakeTaskRepo(),
+        taskRepository: _FakeTaskRepo(tasks: [task]),
         householdRepository: _EmptyHHRepo(),
       );
+      await cubit.load(householdId: 'h1');
+      cubit.removeTask('t1');
+      await cubit.refresh(householdId: 'h1');
+      expect((cubit.state as ScheduledTasksLoaded).tasks, isEmpty);
+
+      // confirmDelete снимает pending-метку — задача снова возвращается.
       cubit.confirmDelete('t1');
+      await cubit.refresh(householdId: 'h1');
+      expect((cubit.state as ScheduledTasksLoaded).tasks, [task]);
+      cubit.close();
+    });
+
+    test('cancelDelete снимает pending — задача снова в refresh', () async {
+      final cubit = ScheduledTasksCubit(
+        taskRepository: _FakeTaskRepo(tasks: [task]),
+        householdRepository: _EmptyHHRepo(),
+      );
+      await cubit.load(householdId: 'h1');
+      cubit.removeTask('t1');
+      await cubit.refresh(householdId: 'h1');
+      expect((cubit.state as ScheduledTasksLoaded).tasks, isEmpty);
+
       cubit.cancelDelete('t1');
+      await cubit.refresh(householdId: 'h1');
+      expect((cubit.state as ScheduledTasksLoaded).tasks, [task]);
       cubit.close();
     });
   });

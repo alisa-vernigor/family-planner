@@ -58,6 +58,7 @@
   - `_toTask`, `_taskFromCreatedRow`, `_recurrenceFromRow`, `_parseNullableDateTime`, `_dateOnly`, `_parseTime`/`_timeToString`.
   - `TaskUserNotAuthenticatedException`.
 - **drift_task_repository.dart** — offline-first имплементация `TaskRepository` через Drift/SQLite: читает из кэша, при онлайне фетчит с Supabase; пишет в SQLite + очередь `SyncQueueDao`. Обрабатывает `CREATE`, `UPDATE`, `DELETE`, `PATCH_STATUS`, `ADD_ALLOWED`, `REMOVE_ALLOWED`, `UPDATE_TEMPLATE`, **`PAUSE_TEMPLATE`, `RESUME_TEMPLATE`** (payload = `{'p_task_template_id': templateId}` + householdId). `category_id`, `reminder_minutes_before`, `planned_time` (минуты от полуночи в Drift-колонке `plannedTime`) и **`template_active`** (`templateActive`, nullable bool) маппятся в/из Drift-колонок через хелперы `_timeToString`/`_minutesFromTime`/`_durationFromMinutes`. Локальные запросы (`TaskDao.getForDay`/`getScheduledAfter`/`getAllPending`) исключают `skipped`.
+  - **addAllowedMember/removeAllowedMember** обновляют `allowed_member_ids` через `TaskDao.updateAllowedMembers` (точечный `UPDATE` колонки, а не полный `insertOnConflictUpdate`): частичный `TaskOccurrencesCompanion` в `upsertTask` падает с `InvalidDataException` (Drift требует все NOT NULL-поля).
 - **supabase_task_category_repository.dart** — `TaskCategoryRepository` напрямую через Supabase (RLS).
 - **drift_task_category_repository.dart** — кэш категорий в SQLite; чтение из кэша с фетчем на сервер при онлайне, записи напрямую в Supabase (без offline-очереди). **Доменный `TaskCategory` алиасится `as domain`** из-за конфликта с Drift row.
 - **supabase_task_subtask_repository.dart** — `TaskSubtaskRepository` напрямую через Supabase (RLS).
@@ -103,11 +104,12 @@
 - **category_picker.dart** — `showCategoryPicker`: bottom sheet выбора категории + создание новой (диалог с палитрой).
 - **category_field.dart** — `CategoryField`: поле выбора категории для форм (само загружает список, поддерживает создание).
 - **subtask_editor.dart** — `SubtaskEditor`: инлайн-список подзадач (чекбоксы, добавление, удаление свайпом, drag&drop) для `EditTaskSheet`.
+  - **ВАЖНО:** при `onReorder == null` рендерит обычный `ListView` (без drag&drop). НЕ передавать `onReorder: null` в `ReorderableListView` с непустым списком — Flutter требует (assert) заданный `onReorder`/`onReorderItem`. Раньше `SubtaskEditor` без `onReorder` + подзадачи падал с assertion.
 
 ### presentation/pages/
 
 - **create_task_sheet.dart** — `showCreateTaskSheet`: модальный bottom sheet создания задачи. `CreateTaskSheet` (StatefulWidget): форма с полями (название, описание, длительность, **время начала** через `StartTimeField`, ответственный, повторение, дедлайн, приоритет, **напоминание** через `ReminderSelector`, **категория** через `CategoryField`). Повторение — через `RecurrenceEditor`.
-- **edit_task_sheet.dart** — `showEditTaskSheet`: модальный bottom sheet редактирования задачи. Аналогично create, но предзаполнено из `Task` (включая `plannedTime` → `StartTimeField`). Для повторяющейся задачи сначала показывает scope-диалог, при `thisAndFollowing`/`all` показывает `RecurrenceEditor` (без переключателя) и сохраняет через `updateTemplate`. Для обычных задач показывает **`SubtaskEditor`** (подзадачи) и категорию через `CategoryField`.
+- **edit_task_sheet.dart** — `showEditTaskSheet`: модальный bottom sheet редактирования задачи. Аналогично create, но предзаполнено из `Task` (включая `plannedTime` → `StartTimeField`). Для повторяющейся задачи сначала показывает scope-диалог, при `thisAndFollowing`/`all` показывает `RecurrenceEditor` (без переключателя) и сохраняет через `updateTemplate`. Для обычных задач показывает **`SubtaskEditor`** (подзадачи) и категорию через `CategoryField`. Подзадачи передаются в `SubtaskEditor` с `onReorder: _reorderSubtask` (drag&drop → `TaskSubtaskRepository.reorder`).
 
 ## Связи
 
