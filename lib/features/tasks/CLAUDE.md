@@ -32,7 +32,7 @@
 
 ### domain/use_cases/
 
-- **create_task_use_case.dart** — `CreateTaskUseCase`: валидация title, duration, recurrence (weekly нужны weekdays, intervalDays > 0, даты). Делегирует `repository.create`.
+- **create_task_use_case.dart** — `CreateTaskUseCase`: валидация title, duration, recurrence (weekly нужны weekdays, intervalDays > 0, даты). Делегирует `repository.create`. **`validateCreateTaskParams(CreateTaskParams)`** — вынесенная top-level функция-валидатор (возвращает params с обрезанными title/description); переиспользуется в `TaskImportUseCase` (импорт создаёт задачу напрямую через repository, но валидация та же). **Важно:** при изменении полей `CreateTaskParams` проверь, что они прокидываются и в `validateCreateTaskParams` (лакуна ранее теряла priority/plannedTime/categoryId и др.).
 - **complete_task_use_case.dart** — `CompleteTaskUseCase`: проверка `isCompleted` и `canBeCompletedBy`. Использует `patchStatus` (3 поля).
 - **uncomplete_task_use_case.dart** — `UncompleteTaskUseCase`: проверка `isCompleted`, `patchStatus` в pending.
 - **skip_task_use_case.dart** — `SkipTaskUseCase`: пометить задачу как пропущенную (`patchStatus` в `skipped`). Исчезает из Today/Scheduled, остаётся в истории. `TaskAlreadySkippedException`.

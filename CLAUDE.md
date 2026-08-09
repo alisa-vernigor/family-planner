@@ -56,7 +56,8 @@ family-planner/
 │       ├── today/         # Экран «Сегодня» (задачи на день)
 │       ├── scheduled/     # Экран «Запланированные» (все будущие задачи; список/матрица/календарь)
 │       ├── notifications/ # Центр уведомлений / inbox (лента активности: назначено мне, выполнено/пропущено другими, приглашения)
-│       └── profile/       # Профиль (настройки, аватар, публичная страница со статистикой)
+│       ├── profile/       # Профиль (настройки, аватар, публичная страница со статистикой)
+│       └── import_export/ # Импорт/экспорт задач в JSON (нейросеть → задачи; entry в меню «Ещё»)
 ├── supabase/
 │   └── migrations/        # 11 миграций (initial → pinned_member → fix_leave → fix_rls → avatars → priority → recurrence_editing → google_calendar_actions → planned_time → pause_resume)
 ├── test/

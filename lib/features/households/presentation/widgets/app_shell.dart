@@ -23,6 +23,7 @@ import 'package:family_planner/core/logging/app_logger.dart';
 import 'package:family_planner/core/services/connectivity_service.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
 import 'package:family_planner/core/widgets/offline_indicator.dart';
+import 'package:family_planner/features/import_export/presentation/pages/import_export_page.dart';
 
 /// Основной каркас приложения с навигацией (табы, выбор семьи, меню).
 ///
@@ -53,6 +54,11 @@ final class AppShell extends StatefulWidget {
 final class _AppShellState extends State<AppShell> {
   String? _lastSyncedHouseholdId;
   late final AppNotificationsCubit _notificationsCubit;
+
+  /// Инкрементируется после импорта задач, чтобы Today/Scheduled полностью
+  /// пересоздали своё состояние (списки + категории, которые импорт мог
+  /// добавить). Ключ добавляется к ValueKey табов.
+  int _dataVersion = 0;
 
   @override
   void initState() {
@@ -126,6 +132,25 @@ final class _AppShellState extends State<AppShell> {
 
   void _onHouseholdActionDone() {
     context.read<HouseholdCubit>().refresh();
+  }
+
+  /// После импорта задач пересоздаём состояние табов, чтобы новые задачи
+  /// (и созданные импортом категории) появились сразу.
+  void _onImported() {
+    setState(() {
+      _dataVersion++;
+    });
+  }
+
+  Future<void> _openImportExport() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ImportExportPage(
+          householdId: _selectedHousehold.id,
+          onImported: _onImported,
+        ),
+      ),
+    );
   }
 
   Future<void> _showRenameDialog(Household household) async {
@@ -304,6 +329,8 @@ final class _AppShellState extends State<AppShell> {
                     ),
                   );
                   _onHouseholdActionDone();
+                case 'import_export':
+                  await _openImportExport();
               }
             },
             itemBuilder: (context) => [
@@ -328,6 +355,15 @@ final class _AppShellState extends State<AppShell> {
                 child: ListTile(
                   leading: Icon(Icons.delete_outline),
                   title: Text('Удалить семью'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'import_export',
+                child: ListTile(
+                  leading: Icon(Icons.sync_alt),
+                  title: Text('Импорт / экспорт задач'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -360,13 +396,15 @@ final class _AppShellState extends State<AppShell> {
               index: widget.currentTab,
               children: [
                 TodayPage(
-                  key: ValueKey('today_${_selectedHousehold.id}'),
+                  key: ValueKey('today_${_selectedHousehold.id}_$_dataVersion'),
                   householdId: _selectedHousehold.id,
                   householdName: _selectedHousehold.name,
                   currentMemberId: widget.currentMemberId,
                 ),
                 ScheduledPage(
-                  key: ValueKey('scheduled_${_selectedHousehold.id}'),
+                  key: ValueKey(
+                    'scheduled_${_selectedHousehold.id}_$_dataVersion',
+                  ),
                   householdId: _selectedHousehold.id,
                   currentMemberId: widget.currentMemberId,
                 ),

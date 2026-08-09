@@ -29,7 +29,7 @@
 - **cubit/household_members_cubit.dart** — `HouseholdMembersCubit`: `load`, `inviteByEmail`, `leaveHousehold`, `removeMember`.
 - **cubit/household_members_state.dart** — состояния: `Initial`, `Loading`, `Loaded`, `InvitationSending`, `InvitationSent`, `Failure`.
 - **pages/household_gate.dart** — главный навигационный экран после авторизации. `_AppShell` с `IndexedStack` (TodayPage + ScheduledPage + NotificationsPage), `NavigationBar`, dropdown выбора семьи. `_EmptyShell` для случая без семей + приглашения.
-- **widgets/app_shell.dart** — `AppShell`: **оборачивает весь Scaffold в `BlocProvider<AppNotificationsCubit>`** (создаёт `..load()`), чтобы бейдж в NavigationBar видел `unreadCount`. 3 таба (Сегодня / Запланированные / Уведомления). При переключении на таб уведомлений (index == 2) вызывает `cubit.refresh()`.
+- **widgets/app_shell.dart** — `AppShell`: **оборачивает весь Scaffold в `BlocProvider<AppNotificationsCubit>`** (создаёт `..load()`), чтобы бейдж в NavigationBar видел `unreadCount`. 3 таба (Сегодня / Запланированные / Уведомления). При переключении на таб уведомлений (index == 2) вызывает `cubit.refresh()`. Меню «Ещё» (`PopupMenuButton`): Переименовать / Создать семью / Удалить семью / **Импорт и экспорт задач** (`value: 'import_export'` → `ImportExportPage`) / Настройки профиля / Выйти. После импорта `onImported` инкрементирует `_dataVersion`, добавленный в `ValueKey` табов Today/Scheduled — страницы пересоздаются (обновляются списки и карта категорий).
 - **pages/create_household_page.dart** — форма создания семьи.
 - **pages/household_invitations_page.dart** — список приглашений с кнопками принять/отклонить.
 - **pages/household_members_page.dart** — управление участниками: приглашение (для owner), удаление/выход.

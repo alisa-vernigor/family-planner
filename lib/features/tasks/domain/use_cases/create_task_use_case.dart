@@ -9,79 +9,95 @@ final class CreateTaskUseCase {
   final TaskRepository repository;
 
   Future<Task> call({required CreateTaskParams params}) {
-    final title = params.title.trim();
+    final validated = validateCreateTaskParams(params);
 
-    if (title.isEmpty) {
-      throw const TaskTitleEmptyException();
-    }
+    return repository.create(params: validated);
+  }
+}
 
-    if (params.estimatedDurationMinutes <= 0) {
-      throw const TaskDurationInvalidException();
-    }
+/// Валидирует [CreateTaskParams] и возвращает их с обрезанными
+/// title/description (то, что потом уходит в repository).
+///
+/// Вынесено из [CreateTaskUseCase.call], чтобы переиспользовать при импорте
+/// задач из JSON (там задача создаётся напрямую через repository, но
+/// валидация нужна та же).
+CreateTaskParams validateCreateTaskParams(CreateTaskParams params) {
+  final title = params.title.trim();
 
-    _validateRecurrence(params.recurrence);
-
-    _validateRecurrenceDates(
-      recurrence: params.recurrence,
-      startDate: params.recurrenceStartDate ?? params.plannedFor,
-      endDate: params.recurrenceEndDate,
-    );
-
-    return repository.create(
-      params: CreateTaskParams(
-        householdId: params.householdId,
-        title: title,
-        description: params.description?.trim(),
-        estimatedDurationMinutes: params.estimatedDurationMinutes,
-        plannedFor: params.plannedFor,
-        deadline: params.deadline,
-        recurrence: params.recurrence,
-        recurrenceStartDate: params.recurrenceStartDate,
-        recurrenceEndDate: params.recurrenceEndDate,
-      ),
-    );
+  if (title.isEmpty) {
+    throw const TaskTitleEmptyException();
   }
 
-  void _validateRecurrence(TaskRecurrence? recurrence) {
-    if (recurrence == null) {
-      return;
-    }
-
-    if (recurrence.type == TaskRecurrenceType.weekly &&
-        recurrence.weekdays.isEmpty) {
-      throw const TaskRecurrenceWeekdaysEmptyException();
-    }
-
-    if (recurrence.type == TaskRecurrenceType.weekly &&
-        recurrence.weekdays.any((day) => day < 1 || day > 7)) {
-      throw const TaskRecurrenceWeekdaysInvalidException();
-    }
-
-    if (recurrence.type == TaskRecurrenceType.intervalDays &&
-        (recurrence.intervalDays == null || recurrence.intervalDays! <= 0)) {
-      throw const TaskRecurrenceIntervalInvalidException();
-    }
+  if (params.estimatedDurationMinutes <= 0) {
+    throw const TaskDurationInvalidException();
   }
 
-  void _validateRecurrenceDates({
-    required TaskRecurrence? recurrence,
-    required DateTime startDate,
-    required DateTime? endDate,
-  }) {
-    if (recurrence == null || endDate == null) {
-      return;
-    }
+  _validateRecurrence(params.recurrence);
 
-    final startDateOnly = DateTime(
-      startDate.year,
-      startDate.month,
-      startDate.day,
-    );
-    final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
+  _validateRecurrenceDates(
+    recurrence: params.recurrence,
+    startDate: params.recurrenceStartDate ?? params.plannedFor,
+    endDate: params.recurrenceEndDate,
+  );
 
-    if (endDateOnly.isBefore(startDateOnly)) {
-      throw const TaskRecurrenceDatesInvalidException();
-    }
+  return CreateTaskParams(
+    householdId: params.householdId,
+    title: title,
+    description: params.description?.trim(),
+    estimatedDurationMinutes: params.estimatedDurationMinutes,
+    plannedFor: params.plannedFor,
+    deadline: params.deadline,
+    recurrence: params.recurrence,
+    recurrenceStartDate: params.recurrenceStartDate,
+    recurrenceEndDate: params.recurrenceEndDate,
+    priority: params.priority,
+    assignedMemberId: params.assignedMemberId,
+    pinnedMemberId: params.pinnedMemberId,
+    reminderMinutesBefore: params.reminderMinutesBefore,
+    categoryId: params.categoryId,
+    plannedTime: params.plannedTime,
+  );
+}
+
+void _validateRecurrence(TaskRecurrence? recurrence) {
+  if (recurrence == null) {
+    return;
+  }
+
+  if (recurrence.type == TaskRecurrenceType.weekly &&
+      recurrence.weekdays.isEmpty) {
+    throw const TaskRecurrenceWeekdaysEmptyException();
+  }
+
+  if (recurrence.type == TaskRecurrenceType.weekly &&
+      recurrence.weekdays.any((day) => day < 1 || day > 7)) {
+    throw const TaskRecurrenceWeekdaysInvalidException();
+  }
+
+  if (recurrence.type == TaskRecurrenceType.intervalDays &&
+      (recurrence.intervalDays == null || recurrence.intervalDays! <= 0)) {
+    throw const TaskRecurrenceIntervalInvalidException();
+  }
+}
+
+void _validateRecurrenceDates({
+  required TaskRecurrence? recurrence,
+  required DateTime startDate,
+  required DateTime? endDate,
+}) {
+  if (recurrence == null || endDate == null) {
+    return;
+  }
+
+  final startDateOnly = DateTime(
+    startDate.year,
+    startDate.month,
+    startDate.day,
+  );
+  final endDateOnly = DateTime(endDate.year, endDate.month, endDate.day);
+
+  if (endDateOnly.isBefore(startDateOnly)) {
+    throw const TaskRecurrenceDatesInvalidException();
   }
 }
 
