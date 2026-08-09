@@ -8,7 +8,12 @@ import 'package:timezone/timezone.dart' as tz;
 import '../logging/app_logger.dart';
 import 'package:family_planner/features/tasks/tasks.dart';
 
-bool get _isSupportedPlatform {
+/// Проверка платформы для напоминаний — только Android/iOS.
+///
+/// Вынесена в глобальную функцию, чтобы тесты могли переопределить её
+/// через параметр [ReminderService.initialize] (на macOS/host-тестах
+/// [Platform.isAndroid] всегда false и до реальной логики не дойти).
+bool defaultSupportedPlatform() {
   if (kIsWeb) return false;
   return Platform.isAndroid || Platform.isIOS;
 }
@@ -20,12 +25,21 @@ bool get _isSupportedPlatform {
 ///
 /// Уведомления локальные — работают офлайн, но только на этом устройстве.
 final class ReminderService {
-  ReminderService._();
+  ReminderService._({FlutterLocalNotificationsPlugin? plugin})
+      : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   static final ReminderService instance = ReminderService._();
 
-  final FlutterLocalNotificationsPlugin _plugin =
-      FlutterLocalNotificationsPlugin();
+  /// Для тестов: позволяет подменить плагин, чтобы пройти реальную логику
+  /// планирования, не трогая метод-канал.
+  @visibleForTesting
+  factory ReminderService.forTesting({
+    FlutterLocalNotificationsPlugin? plugin,
+  }) {
+    return ReminderService._(plugin: plugin);
+  }
+
+  final FlutterLocalNotificationsPlugin _plugin;
 
   bool _initialized = false;
 
@@ -34,8 +48,13 @@ final class ReminderService {
   static const _channelDescription = 'Уведомления о задачах перед дедлайном';
 
   /// Инициализирует плагин и запрашивает разрешение на уведомления.
-  Future<void> initialize() async {
-    if (!_isSupportedPlatform || _initialized) return;
+  ///
+  /// [isSupportedPlatform] позволяет тестам на хосте (macOS) принудительно
+  /// пройти платформенный guard и покрыть реальную логику планирования.
+  Future<void> initialize({bool Function()? isSupportedPlatform}) async {
+    if (!(isSupportedPlatform ?? defaultSupportedPlatform)() || _initialized) {
+      return;
+    }
 
     try {
       tz.initializeTimeZones();

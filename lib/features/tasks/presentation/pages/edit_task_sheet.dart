@@ -207,6 +207,14 @@ final class _EditTaskSheetState extends State<EditTaskSheet> {
   }
 
   Future<void> _deleteSubtask(String subtaskId) async {
+    // Немедленно убираем удалённый элемент из локального списка, чтобы
+    // Dismissible (уже завершивший анимацию свайпа) не остался в дереве.
+    // Иначе Flutter кидает «A dismissed Dismissible widget is still part of the tree».
+    setState(() {
+      _subtasks = List.of(_subtasks)
+        ..removeWhere((s) => s.id == subtaskId);
+    });
+
     try {
       final repository = context.read<TaskSubtaskRepository>();
       await repository.delete(subtaskId);

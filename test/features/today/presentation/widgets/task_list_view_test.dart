@@ -73,7 +73,15 @@ void main() {
     bool sortAscending = true,
     ValueChanged<bool>? onSortAscendingChanged,
     void Function(Task)? onComplete,
+    void Function(Task)? onUncomplete,
+    void Function(Task)? onEdit,
+    void Function(Task)? onDelete,
+    void Function(Task, List<HouseholdMember>)? onAssign,
+    void Function(Task)? onTogglePin,
     void Function(Task)? onLongPress,
+    void Function(Task)? onSwipeComplete,
+    void Function(Task)? onSwipeUncomplete,
+    void Function(Task)? onSwipeDelete,
   }) {
     return MockRepoProvider(
       child: MaterialApp(
@@ -82,16 +90,19 @@ void main() {
             tasks: tasks,
             members: members ?? [member, otherMember],
             currentMemberId: currentMemberId ?? 'user-1',
-            onEdit: (_) {},
-            onDelete: (_) {},
-            onAssign: (_, _) {},
-            onTogglePin: (_) {},
+            onEdit: onEdit ?? (_) {},
+            onDelete: onDelete ?? (_) {},
+            onAssign: onAssign ?? (_, _) {},
+            onTogglePin: onTogglePin ?? (_) {},
             onComplete: onComplete ?? (_) {},
-            onUncomplete: (_) {},
+            onUncomplete: onUncomplete ?? (_) {},
             categoriesById: categoriesById,
             isSelectionMode: isSelectionMode,
             selectedTaskIds: selectedTaskIds,
             onLongPress: onLongPress,
+            onSwipeComplete: onSwipeComplete,
+            onSwipeUncomplete: onSwipeUncomplete,
+            onSwipeDelete: onSwipeDelete,
             sortOption: sortOption,
             onSortChanged: onSortChanged,
             sortAscending: sortAscending,
@@ -233,6 +244,281 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(selected, TaskSortOption.priority);
+  });
+
+  group('мои задачи — колбэки карточки', () {
+    void enlargeSurface(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('меню «Назначить» для моей задачи вызывает onAssign', (
+      tester,
+    ) async {
+      enlargeSurface(tester);
+      List<HouseholdMember>? assignedMembers;
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [myTask],
+          onAssign: (_, members) => assignedMembers = members,
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Назначить'));
+      await tester.pumpAndSettle();
+
+      expect(assignedMembers, isNotNull);
+      expect(assignedMembers!.map((m) => m.profileId), containsAll(['user-1', 'user-2']));
+    });
+  });
+
+  group('задачи семьи — колбэки карточки', () {
+    void enlargeSurface(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('complete/onComplete для «Задачи семьи»', (tester) async {
+      Task? completed;
+      await tester.pumpWidget(
+        buildSubject(tasks: [otherTask], onComplete: (t) => completed = t),
+      );
+
+      await tester.tap(find.byKey(const Key('complete_task_button_other-1')));
+      await tester.pump();
+
+      expect(completed?.id, 'other-1');
+    });
+
+    testWidgets('свайп вправо/влево для «Задачи семьи» вызывает колбэки', (
+      tester,
+    ) async {
+      var swipedComplete = false;
+      var swipedDelete = false;
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [otherTask],
+          onComplete: (_) {},
+          onSwipeComplete: (_) => swipedComplete = true,
+          onSwipeDelete: (_) => swipedDelete = true,
+        ),
+      );
+
+      await tester.drag(find.text('Задача семьи'), const Offset(400, 0));
+      await tester.pumpAndSettle();
+      expect(swipedComplete, isTrue);
+
+      await tester.drag(find.text('Задача семьи'), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      expect(swipedDelete, isTrue);
+    });
+
+    testWidgets('выполненная задача семьи: uncomplete через чекбокс и свайп', (
+      tester,
+    ) async {
+      final completedOther = otherTask.copyWith(
+        status: TaskStatus.completed,
+        completedAt: DateTime(2026, 8, 2),
+      );
+      final called = <String>[];
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [completedOther],
+          onUncomplete: (_) => called.add('uncomplete'),
+          onSwipeUncomplete: (_) => called.add('swipe-uncomplete'),
+        ),
+      );
+
+      // Чекбокс «Отменить выполнение».
+      await tester.tap(find.byKey(const Key('uncomplete_task_button_other-1')));
+      await tester.pump();
+      expect(called, contains('uncomplete'));
+
+      // Свайп вправо выполненной задачи → onSwipeUncomplete.
+      await tester.drag(find.text('Задача семьи'), const Offset(400, 0));
+      await tester.pumpAndSettle();
+      expect(called, contains('swipe-uncomplete'));
+    });
+
+    testWidgets('onComplete/onUncomplete/onEdit/onDelete/onAssign/onTogglePin для «Задачи семьи»', (
+      tester,
+    ) async {
+      enlargeSurface(tester);
+      // Закреплённая чужая задача: меню показывает «Открепить» и
+      // «Изменить ответственного».
+      final pinnedOther = otherTask.copyWith(pinnedMemberId: 'user-2');
+      final called = <String>[];
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [pinnedOther],
+          onComplete: (_) => called.add('complete'),
+          onUncomplete: (_) => called.add('uncomplete'),
+          onEdit: (_) => called.add('edit'),
+          onDelete: (_) => called.add('delete'),
+          onAssign: (_, _) => called.add('assign'),
+          onTogglePin: (_) => called.add('pin'),
+        ),
+      );
+
+      // complete через чекбокс
+      await tester.tap(find.byKey(const Key('complete_task_button_other-1')));
+      await tester.pump();
+
+      // Меню действий.
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Редактировать'));
+      await tester.pumpAndSettle();
+      expect(called, contains('edit'));
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Изменить ответственного'));
+      await tester.pumpAndSettle();
+      expect(called, contains('assign'));
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Открепить'));
+      await tester.pumpAndSettle();
+      expect(called, contains('pin'));
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Удалить'));
+      await tester.pumpAndSettle();
+      expect(called, contains('delete'));
+
+      expect(called, contains('complete'));
+      expect(called, isNot(contains('uncomplete')));
+    });
+  });
+
+  group('неназначенные — колбэки карточки', () {
+    void enlargeSurface(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1080, 2340);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+    }
+
+    testWidgets('complete/onComplete для «Неназначенные»', (tester) async {
+      Task? completed;
+      await tester.pumpWidget(
+        buildSubject(tasks: [unassignedTask], onComplete: (t) => completed = t),
+      );
+
+      await tester.tap(find.byKey(const Key('complete_task_button_un-1')));
+      await tester.pump();
+
+      expect(completed?.id, 'un-1');
+    });
+
+    testWidgets('свайп вправо для «Неназначенные» вызывает onSwipeUncomplete', (
+      tester,
+    ) async {
+      final completed = unassignedTask.copyWith(
+        status: TaskStatus.completed,
+        completedAt: DateTime(2026, 8, 2),
+      );
+      var swipedUncomplete = false;
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [completed],
+          onSwipeUncomplete: (_) => swipedUncomplete = true,
+        ),
+      );
+
+      await tester.drag(find.text('Неназначенная'), const Offset(400, 0));
+      await tester.pumpAndSettle();
+      expect(swipedUncomplete, isTrue);
+    });
+
+    testWidgets('onComplete/onUncomplete/onEdit/onDelete/onAssign/onTogglePin для «Неназначенные»', (
+      tester,
+    ) async {
+      enlargeSurface(tester);
+      final called = <String>[];
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [unassignedTask],
+          onComplete: (_) => called.add('complete'),
+          onUncomplete: (_) => called.add('uncomplete'),
+          onEdit: (_) => called.add('edit'),
+          onDelete: (_) => called.add('delete'),
+          onAssign: (_, _) => called.add('assign'),
+          onTogglePin: (_) => called.add('pin'),
+        ),
+      );
+
+      // Меню действий.
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Редактировать'));
+      await tester.pumpAndSettle();
+      expect(called, contains('edit'));
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Назначить'));
+      await tester.pumpAndSettle();
+      expect(called, contains('assign'));
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Удалить'));
+      await tester.pumpAndSettle();
+      expect(called, contains('delete'));
+
+      // Неназначенная задача — не закреплена, поэтому «Открепить» нет.
+      expect(called, isNot(contains('uncomplete')));
+      expect(called, isNot(contains('pin')));
+    });
+
+    testWidgets('выполненная неназначенная задача: uncomplete через чекбокс', (
+      tester,
+    ) async {
+      final completedUnassigned = unassignedTask.copyWith(
+        status: TaskStatus.completed,
+        completedAt: DateTime(2026, 8, 2),
+      );
+      var uncompleted = false;
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [completedUnassigned],
+          onUncomplete: (_) => uncompleted = true,
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('uncomplete_task_button_un-1')));
+      await tester.pump();
+
+      expect(uncompleted, isTrue);
+    });
+
+    testWidgets('закреплённая неназначенная задача: меню «Открепить» → onTogglePin', (
+      tester,
+    ) async {
+      enlargeSurface(tester);
+      final pinnedUnassigned = unassignedTask.copyWith(pinnedMemberId: 'user-1');
+      var pinned = false;
+      await tester.pumpWidget(
+        buildSubject(
+          tasks: [pinnedUnassigned],
+          onTogglePin: (_) => pinned = true,
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Открепить'));
+      await tester.pumpAndSettle();
+
+      expect(pinned, isTrue);
+    });
   });
 }
 

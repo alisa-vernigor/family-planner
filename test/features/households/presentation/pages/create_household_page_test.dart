@@ -155,4 +155,119 @@ void main() {
 
     expect(find.text('Зачем нужна семья?'), findsNothing);
   });
+
+  testWidgets('тап по фону убирает фокус с поля ввода', (tester) async {
+    await tester.pumpWidget(buildSubject());
+
+    final field = find.widgetWithText(TextFormField, 'Название семьи');
+    await tester.tap(field);
+    await tester.pumpAndSettle();
+    expect(FocusScope.of(tester.element(field)).hasFocus, isTrue);
+
+    // Тап по заголовку (вне поля) — фокус должен уйти.
+    await tester.tap(find.text('Как назвать вашу семью?'));
+    await tester.pumpAndSettle();
+
+    expect(FocusScope.of(tester.element(field)).hasFocus, isFalse);
+  });
+
+  testWidgets('onFieldSubmitted с валидным именем создаёт семью', (
+    tester,
+  ) async {
+    when(() => mocks.household.create(name: 'Моя семья')).thenAnswer(
+      (_) async => const Household(id: 'h-1', name: 'Моя семья'),
+    );
+    when(() => mocks.household.getMyHouseholds()).thenAnswer(
+      (_) async => const [Household(id: 'h-1', name: 'Моя семья')],
+    );
+
+    await tester.pumpWidget(buildSubject());
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Название семьи'),
+      'Моя семья',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    verify(() => mocks.household.create(name: 'Моя семья')).called(1);
+  });
+
+  testWidgets('onFieldSubmitted с невалидным именем не создаёт семью', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject());
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Название семьи'),
+      '',
+    );
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    verifyNever(() => mocks.household.create(name: any(named: 'name')));
+    expect(find.text('Введите название семьи.'), findsOneWidget);
+  });
+
+  testWidgets('closeAfterCreate: при успешном создании страница закрывается', (
+    tester,
+  ) async {
+    when(() => mocks.household.create(name: 'Моя семья')).thenAnswer(
+      (_) async => const Household(id: 'h-1', name: 'Моя семья'),
+    );
+    when(() => mocks.household.getMyHouseholds()).thenAnswer(
+      (_) async => const [Household(id: 'h-1', name: 'Моя семья')],
+    );
+
+    // Провайдеры выше MaterialApp, чтобы дочерний роут их видел.
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<AuthCubit>(
+            create: (_) => AuthCubit(
+              authRepository: mocks.auth,
+              enableAuthListener: false,
+            ),
+          ),
+          BlocProvider<HouseholdCubit>(
+            create: (_) => HouseholdCubit(
+              householdRepository: mocks.household,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) =>
+                          const CreateHouseholdPage(closeAfterCreate: true),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CreateHouseholdPage), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Название семьи'),
+      'Моя семья',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Создать семью'));
+    await tester.pumpAndSettle();
+
+    // Страница закрылась после создания.
+    expect(find.byType(CreateHouseholdPage), findsNothing);
+  });
 }

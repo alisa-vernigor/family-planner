@@ -19,9 +19,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
     required this.onAssign,
     required this.onTogglePin,
     required this.onComplete,
-    required this.onUncomplete,
     required this.onSwipeComplete,
-    required this.onSwipeUncomplete,
     required this.onSwipeDelete,
     this.onReschedule,
     this.onDuplicate,
@@ -37,9 +35,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
   final void Function(Task, List<HouseholdMember>) onAssign;
   final void Function(Task) onTogglePin;
   final void Function(Task) onComplete;
-  final void Function(Task) onUncomplete;
   final void Function(Task)? onSwipeComplete;
-  final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
 
   /// Вызывается при переносе задачи на другую дату.
@@ -92,9 +88,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
             onAssign: onAssign,
             onTogglePin: onTogglePin,
             onComplete: onComplete,
-            onUncomplete: onUncomplete,
             onSwipeComplete: onSwipeComplete,
-            onSwipeUncomplete: onSwipeUncomplete,
             onSwipeDelete: onSwipeDelete,
             onReschedule: onReschedule,
             onDuplicate: onDuplicate,
@@ -122,9 +116,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onAssign: onAssign,
                 onTogglePin: onTogglePin,
                 onComplete: onComplete,
-                onUncomplete: onUncomplete,
                 onSwipeComplete: onSwipeComplete,
-                onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
                 onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -146,9 +138,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onAssign: onAssign,
                 onTogglePin: onTogglePin,
                 onComplete: onComplete,
-                onUncomplete: onUncomplete,
                 onSwipeComplete: onSwipeComplete,
-                onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
                 onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -170,9 +160,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onAssign: onAssign,
                 onTogglePin: onTogglePin,
                 onComplete: onComplete,
-                onUncomplete: onUncomplete,
                 onSwipeComplete: onSwipeComplete,
-                onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
                 onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -194,9 +182,7 @@ final class EisenhowerMatrixView extends StatelessWidget {
                 onAssign: onAssign,
                 onTogglePin: onTogglePin,
                 onComplete: onComplete,
-                onUncomplete: onUncomplete,
                 onSwipeComplete: onSwipeComplete,
-                onSwipeUncomplete: onSwipeUncomplete,
                 onSwipeDelete: onSwipeDelete,
                 onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -226,9 +212,7 @@ final class _QuadGrid extends StatelessWidget {
     required this.onAssign,
     required this.onTogglePin,
     required this.onComplete,
-    required this.onUncomplete,
     required this.onSwipeComplete,
-    required this.onSwipeUncomplete,
     required this.onSwipeDelete,
     required this.onReschedule,
     required this.onDuplicate,
@@ -247,9 +231,7 @@ final class _QuadGrid extends StatelessWidget {
   final void Function(Task, List<HouseholdMember>) onAssign;
   final void Function(Task) onTogglePin;
   final void Function(Task) onComplete;
-  final void Function(Task) onUncomplete;
   final void Function(Task)? onSwipeComplete;
-  final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
   final void Function(Task)? onReschedule;
   final void Function(Task)? onDuplicate;
@@ -279,9 +261,7 @@ final class _QuadGrid extends StatelessWidget {
                     onAssign: onAssign,
                     onTogglePin: onTogglePin,
                     onComplete: onComplete,
-                    onUncomplete: onUncomplete,
                     onSwipeComplete: onSwipeComplete,
-                    onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
                     onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -304,9 +284,7 @@ final class _QuadGrid extends StatelessWidget {
                     onAssign: onAssign,
                     onTogglePin: onTogglePin,
                     onComplete: onComplete,
-                    onUncomplete: onUncomplete,
                     onSwipeComplete: onSwipeComplete,
-                    onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
                     onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -335,9 +313,7 @@ final class _QuadGrid extends StatelessWidget {
                     onAssign: onAssign,
                     onTogglePin: onTogglePin,
                     onComplete: onComplete,
-                    onUncomplete: onUncomplete,
                     onSwipeComplete: onSwipeComplete,
-                    onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
                     onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -360,9 +336,7 @@ final class _QuadGrid extends StatelessWidget {
                     onAssign: onAssign,
                     onTogglePin: onTogglePin,
                     onComplete: onComplete,
-                    onUncomplete: onUncomplete,
                     onSwipeComplete: onSwipeComplete,
-                    onSwipeUncomplete: onSwipeUncomplete,
                     onSwipeDelete: onSwipeDelete,
                     onReschedule: onReschedule,
                 onDuplicate: onDuplicate,
@@ -395,9 +369,7 @@ final class _QuadrantGridCell extends StatelessWidget {
     required this.onAssign,
     required this.onTogglePin,
     required this.onComplete,
-    required this.onUncomplete,
     required this.onSwipeComplete,
-    required this.onSwipeUncomplete,
     required this.onSwipeDelete,
     required this.onReschedule,
     required this.onDuplicate,
@@ -417,9 +389,7 @@ final class _QuadrantGridCell extends StatelessWidget {
   final void Function(Task, List<HouseholdMember>) onAssign;
   final void Function(Task) onTogglePin;
   final void Function(Task) onComplete;
-  final void Function(Task) onUncomplete;
   final void Function(Task)? onSwipeComplete;
-  final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
   final void Function(Task)? onReschedule;
   final void Function(Task)? onDuplicate;
@@ -502,7 +472,6 @@ final class _QuadrantGridCell extends StatelessWidget {
                       final card = _MiniTaskCard(
                         task: task,
                         onComplete: () => onComplete(task),
-                        onUncomplete: () => onUncomplete(task),
                         onEdit: () => onEdit(task),
                       );
                       if (!isDropTarget) {
@@ -523,7 +492,6 @@ final class _QuadrantGridCell extends StatelessWidget {
                               child: _MiniTaskCard(
                                 task: task,
                                 onComplete: () {},
-                                onUncomplete: () {},
                                 onEdit: () {},
                               ),
                             ),
@@ -586,9 +554,7 @@ final class _QuadrantSection extends StatelessWidget {
     required this.onAssign,
     required this.onTogglePin,
     required this.onComplete,
-    required this.onUncomplete,
     required this.onSwipeComplete,
-    required this.onSwipeUncomplete,
     required this.onSwipeDelete,
     required this.onReschedule,
     required this.onDuplicate,
@@ -609,9 +575,7 @@ final class _QuadrantSection extends StatelessWidget {
   final void Function(Task, List<HouseholdMember>) onAssign;
   final void Function(Task) onTogglePin;
   final void Function(Task) onComplete;
-  final void Function(Task) onUncomplete;
   final void Function(Task)? onSwipeComplete;
-  final void Function(Task)? onSwipeUncomplete;
   final void Function(Task)? onSwipeDelete;
   final void Function(Task)? onReschedule;
   final void Function(Task)? onDuplicate;
@@ -707,7 +671,7 @@ final class _QuadrantSection extends StatelessWidget {
                     members: members,
                     currentMemberId: currentMemberId,
                     onComplete: () => onComplete(task),
-                    onUncomplete: () => onUncomplete(task),
+                    onUncomplete: () {},
                     onEdit: () => onEdit(task),
                     onDelete: () => onDelete(task),
                     onAssign: () => onAssign(task, members),
@@ -717,7 +681,6 @@ final class _QuadrantSection extends StatelessWidget {
                     onDuplicate:
                         onDuplicate != null ? () => onDuplicate!(task) : null,
                     onSwipeComplete: onSwipeComplete != null ? () => onSwipeComplete!(task) : null,
-                    onSwipeUncomplete: onSwipeUncomplete != null ? () => onSwipeUncomplete!(task) : null,
                     onSwipeDelete: onSwipeDelete != null ? () => onSwipeDelete!(task) : null,
                   ),
                 );
@@ -784,13 +747,11 @@ final class _MiniTaskCard extends StatelessWidget {
   const _MiniTaskCard({
     required this.task,
     required this.onComplete,
-    required this.onUncomplete,
     required this.onEdit,
   });
 
   final Task task;
   final VoidCallback onComplete;
-  final VoidCallback onUncomplete;
   final VoidCallback onEdit;
 
   @override
@@ -812,11 +773,11 @@ final class _MiniTaskCard extends StatelessWidget {
           child: Row(
             children: [
               GestureDetector(
-                onTap: isCompleted ? onUncomplete : onComplete,
+                onTap: onComplete,
                 child: Icon(
-                  isCompleted ? Icons.check_circle : Icons.radio_button_unchecked_outlined,
+                  Icons.radio_button_unchecked_outlined,
                   size: 18,
-                  color: isCompleted ? cs.primary : cs.onSurfaceVariant,
+                  color: cs.onSurfaceVariant,
                 ),
               ),
               const SizedBox(width: 6),

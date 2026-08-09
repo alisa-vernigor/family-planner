@@ -301,6 +301,35 @@ void main() {
       );
       expect(await syncDao.getPendingCount('household-1'), 1);
     });
+
+    test('clearAll удаляет все записи очереди', () async {
+      await syncDao.enqueue(
+        entityType: 'task_occurrence',
+        operation: 'CREATE',
+        entityId: 't1',
+        householdId: 'household-1',
+        payload: {},
+      );
+      await syncDao.enqueue(
+        entityType: 'task_occurrence',
+        operation: 'UPDATE',
+        entityId: 't2',
+        householdId: 'household-2',
+        payload: {},
+      );
+
+      await syncDao.clearAll();
+
+      expect(await syncDao.hasPendingOperations(), isFalse);
+      expect(await syncDao.getPendingIds('household-1'), isEmpty);
+      expect(await syncDao.getPendingIds('household-2'), isEmpty);
+    });
+
+    test('markFailed для несуществующей записи — no-op', () async {
+      await syncDao.markFailed(999, 'error');
+      // Никакого исключения, очередь пуста.
+      expect(await syncDao.hasPendingOperations(), isFalse);
+    });
   });
 
   group('HouseholdMembersDao', () {

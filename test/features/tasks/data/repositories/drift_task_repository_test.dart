@@ -50,6 +50,7 @@ Map<String, dynamic> _remoteTaskRow({
   String? categoryId,
   bool? isActive,
   List<Map<String, dynamic>>? allowedMembers,
+  bool omitAllowedMembers = false,
 }) {
   return {
     'id': id,
@@ -70,8 +71,9 @@ Map<String, dynamic> _remoteTaskRow({
     'reminder_minutes_before': reminderMinutesBefore,
     'category_id': categoryId,
     'template_id': templateId,
-    'task_occurrence_allowed_members':
-        allowedMembers ?? [{'profile_id': 'user-1'}],
+    'task_occurrence_allowed_members': omitAllowedMembers
+        ? null
+        : allowedMembers ?? [{'profile_id': 'user-1'}],
     'task_templates': templateId == null
         ? null
         : {
@@ -372,6 +374,140 @@ void main() {
         expect(tasks.single.id, 'local-1');
       });
 
+      test('getScheduledAfter при онлайне фетчит будущие задачи и кэширует', () async {
+        when(() => connectivity.currentOnline).thenReturn(true);
+        supabase = _buildClient(capturedRequests,
+          onRequest: (request) {
+            if (request.url.path == '/rest/v1/task_occurrences' &&
+                request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  _remoteTaskRow(
+                    id: 'remote-future',
+                    title: 'Будущая',
+                    plannedFor: '2026-08-20',
+                    allowedMembers: [
+                      {'profile_id': 'user-1'},
+                    ],
+                  ),
+                ]),
+                200,
+                request: request,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            return http.Response(
+              '[]',
+              200,
+              request: request,
+              headers: {'content-type': 'application/json'},
+            );
+          },
+        );
+
+        final tasks = await repo().getScheduledAfter(
+          householdId: 'household-1',
+          day: DateTime(2026, 8, 10),
+        );
+
+        expect(tasks, hasLength(1));
+        expect(tasks.single.id, 'remote-future');
+        // Закэшировано.
+        final cached = await database.taskDao.getTaskById('remote-future');
+        expect(cached, isNotNull);
+      });
+
+      test('getAllPending при онлайне фетчит и кэширует', () async {
+        when(() => connectivity.currentOnline).thenReturn(true);
+        supabase = _buildClient(capturedRequests,
+          onRequest: (request) {
+            if (request.url.path == '/rest/v1/task_occurrences' &&
+                request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  _remoteTaskRow(
+                    id: 'remote-pending',
+                    title: 'Pending-задача',
+                    plannedFor: '2026-08-11',
+                  ),
+                ]),
+                200,
+                request: request,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            return http.Response(
+              '[]',
+              200,
+              request: request,
+              headers: {'content-type': 'application/json'},
+            );
+          },
+        );
+
+        final tasks = await repo().getAllPending(householdId: 'household-1');
+
+        expect(tasks, hasLength(1));
+        expect(tasks.single.id, 'remote-pending');
+        final cached = await database.taskDao.getTaskById('remote-pending');
+        expect(cached, isNotNull);
+      });
+
+      test('маппинг remote-строки с null-полями шаблона', () async {
+        when(() => connectivity.currentOnline).thenReturn(true);
+        supabase = _buildClient(capturedRequests,
+          onRequest: (request) {
+            if (request.url.path == '/rest/v1/task_occurrences' &&
+                request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  // template есть, но recurrence_start_date/end_date null →
+                  // fallback-ветки (243-246).
+                  _remoteTaskRow(
+                    id: 'remote-template',
+                    title: 'С шаблоном',
+                    templateId: 'template-1',
+                    recurrenceType: 'daily',
+                    recurrenceStartDate: null,
+                    recurrenceEndDate: null,
+                    isActive: false,
+                  ),
+                  // allowed_members отсутствует в ответе → fallback-ветка 211 (?? []).
+                  _remoteTaskRow(
+                    id: 'remote-no-allowed',
+                    title: 'Без исполнителей',
+                    omitAllowedMembers: true,
+                  ),
+                ]),
+                200,
+                request: request,
+                headers: {'content-type': 'application/json'},
+              );
+            }
+            return http.Response(
+              '[]',
+              200,
+              request: request,
+              headers: {'content-type': 'application/json'},
+            );
+          },
+        );
+
+        final tasks = await repo().getForDay(
+          householdId: 'household-1',
+          day: DateTime(2026, 8, 8),
+        );
+
+        expect(tasks, hasLength(2));
+        final templated = tasks.singleWhere((t) => t.id == 'remote-template');
+        expect(templated.isRecurring, isTrue);
+        expect(templated.isSeriesPaused, isTrue);
+        expect(templated.recurrenceStartDate, isNull);
+        expect(templated.recurrenceEndDate, isNull);
+        final noAllowed = tasks.singleWhere((t) => t.id == 'remote-no-allowed');
+        expect(noAllowed.allowedMemberIds, isEmpty);
+      });
+
       test('задачи с pending-операциями в очереди не перезатираются', () async {
         when(() => connectivity.currentOnline).thenReturn(true);
         await seedTask(
@@ -519,12 +655,14 @@ void main() {
           title: 'Серия',
           estimatedDurationMinutes: 10,
           plannedFor: DateTime(2026, 8, 8),
+          deadline: DateTime(2026, 8, 8, 18, 30),
           allowedMemberIds: const ['user-1'],
           status: TaskStatus.pending,
           createdAt: DateTime(2026, 8, 1),
           updatedAt: DateTime(2026, 8, 1, 12),
           templateId: 'tmpl-1',
           recurrence: const TaskRecurrence.daily(),
+          plannedTime: const Duration(hours: 9),
         );
 
         await repo().updateTemplate(
@@ -533,6 +671,8 @@ void main() {
             recurrence: const TaskRecurrence.daily(),
             scope: RecurrenceEditScope.thisAndFollowing,
             newStartDate: DateTime(2026, 8, 20),
+            recurrenceStartDate: DateTime(2026, 8, 8),
+            recurrenceEndDate: DateTime(2026, 9, 8),
           ),
         );
 
@@ -546,6 +686,11 @@ void main() {
         expect(payload['p_recurrence_type'], 'daily');
         expect(payload['p_new_start_date'], '2026-08-20');
         expect(payload['p_task_occurrence_id'], 'task-series');
+        // Ветки 427-438: deadline и recurrence даты в payload.
+        expect(payload['p_deadline_time'], '18:30:00');
+        expect(payload['p_planned_time'], '09:00:00');
+        expect(payload['p_start_date'], '2026-08-08');
+        expect(payload['p_end_date'], '2026-09-08');
       });
     });
 

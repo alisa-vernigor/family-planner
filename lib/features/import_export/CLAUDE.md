@@ -54,6 +54,7 @@
   - `readClipboard()` / `writeClipboard(String)` — системный буфер через `Clipboard`.
   - `pickJsonFile()` — выбор `.json` через `FilePicker` (v11: **статические** `FilePicker.pickFiles`, не `FilePicker.platform.*`). `withData` не поддерживается на macOS — читаем по `path`, fallback на `bytes`.
   - `saveJsonFile(content, {suggestedName})` — `FilePicker.saveFile`. На web (`kIsWeb`) обе функции пикеров возвращают `null`/`false`.
+  - **Тестовый шов:** `@visibleForTesting static JsonFileWriter writeJsonFile` — замена `File.writeAsString`. Реальный `dart:io` в FakeAsync-зоне `testWidgets` не завершается, поэтому виджет-тест экспорта в файл подменяет `writeJsonFile` на in-memory запись.
 
 ### presentation/pages/
 
@@ -61,6 +62,7 @@
   - Кнопки: «Импортировать из буфера», «Импортировать из файла» (скрыта на web), «Экспортировать в буфер», «Экспортировать в файл» (скрыта на web).
   - Читает репозитории через `context.read` и конструирует use case'ы на месте.
   - После импорта вызывает `onImported` (AppShell пересоздаёт табы).
+  - **Гварды «доступно только в мобильном приложении» внутри `_importFromFile`/`_exportToFile` удалены** — кнопки файлов скрыты при `kIsWeb`, поэтому обработчики на web недостижимы (были мёртвым кодом).
 
 ## UI-вход
 

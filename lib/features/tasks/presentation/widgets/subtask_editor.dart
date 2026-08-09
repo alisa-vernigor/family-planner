@@ -31,6 +31,12 @@ final class _SubtaskEditorState extends State<SubtaskEditor> {
   final _focusNode = FocusNode();
   bool _adding = false;
 
+  /// Локально удалённые подзадачи: `onDismissed` срабатывает сразу после
+  /// анимации свайпа, но родительский список обновляется асинхронно.
+  /// Без этого фильтра удалённый `Dismissible` перерисовывается до того, как
+  /// исчезнет из дерева → «A dismissed Dismissible widget is still part of the tree».
+  final _dismissedIds = <String>{};
+
   @override
   void dispose() {
     _controller.dispose();
@@ -66,8 +72,13 @@ final class _SubtaskEditorState extends State<SubtaskEditor> {
   /// onReorderItem.`). Раньше при `onReorder == null` и подзадачах виджет
   /// падал с этим assertion — отсюда и развилка на обычный ListView.
   Widget _buildSubtaskList(ColorScheme cs, List<TaskSubtask> subtasks) {
+    // Исключаем локально удалённые, чтобы Dismissible не перерисовался.
+    final visible = [
+      for (final s in subtasks)
+        if (!_dismissedIds.contains(s.id)) s,
+    ];
     final tiles = [
-      for (final subtask in subtasks)
+      for (final subtask in visible)
         Dismissible(
           key: ValueKey(subtask.id),
           direction: DismissDirection.endToStart,
@@ -77,12 +88,17 @@ final class _SubtaskEditorState extends State<SubtaskEditor> {
             padding: const EdgeInsets.only(right: 16),
             child: const Icon(Icons.delete_outline, color: Colors.white),
           ),
-          onDismissed: (_) => widget.onDelete(subtask.id),
+          onDismissed: (_) {
+            // Сразу убираем из локального состояния; родительский список
+            // обновится после async-операции.
+            setState(() => _dismissedIds.add(subtask.id));
+            widget.onDelete(subtask.id);
+          },
           child: ListTile(
             contentPadding: EdgeInsets.zero,
             dense: true,
             leading: ReorderableDragStartListener(
-              index: subtasks.indexOf(subtask),
+              index: visible.indexOf(subtask),
               enabled: widget.onReorder != null,
               child: Icon(
                 Icons.drag_indicator,
@@ -129,7 +145,7 @@ final class _SubtaskEditorState extends State<SubtaskEditor> {
         // onReorderItem сам корректирует newIndex для удалённого элемента
         // (в отличие от устаревшего onReorder) — повторная поправка не нужна.
         final ids = [
-          for (final s in subtasks) s.id,
+          for (final s in visible) s.id,
         ];
         final item = ids.removeAt(oldIndex);
         ids.insert(newIndex, item);

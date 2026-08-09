@@ -59,6 +59,14 @@ void main() {
       expect(updated.actorName, 'Мария');
     });
 
+    test('copyWith без аргументов оставляет taskStatus прежним', () {
+      final base = item('n1');
+      final updated = base.copyWith();
+      expect(updated.taskStatus, 'pending');
+      expect(updated.invitationStatus, isNull);
+      expect(updated.id, 'n1');
+    });
+
     test('props содержат все поля (equatable)', () {
       final a = item('n1');
       final b = item('n1');

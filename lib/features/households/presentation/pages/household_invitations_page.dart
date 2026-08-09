@@ -181,22 +181,26 @@ final class _InvitationsList extends StatelessWidget {
     BuildContext context,
     HouseholdInvitation invitation,
   ) async {
-    final householdId = await context.read<HouseholdInvitationsCubit>().accept(
+    // Захватываем зависимости ДО await'ов: после принятия приглашения список
+    // перестраивается (приглашение удалено), и контекст элемента становится
+    // размонтированным — использовать его для навигации уже нельзя.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final invitationsCubit = context.read<HouseholdInvitationsCubit>();
+    final householdCubit = context.read<HouseholdCubit>();
+
+    final householdId = await invitationsCubit.accept(
       invitation: invitation,
     );
 
-    if (!context.mounted || householdId == null) {
+    if (householdId == null) {
       return;
     }
 
-    await context.read<HouseholdCubit>().load();
-
-    if (!context.mounted) {
-      return;
-    }
+    await householdCubit.load();
 
     // SnackBar перед pop — успеет показаться
-    ScaffoldMessenger.of(context).showSnackBar(
+    messenger.showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 4),
         content: Text(
@@ -208,8 +212,7 @@ final class _InvitationsList extends StatelessWidget {
     // Небольшая задержка, чтобы SnackBar успел показаться
     await Future.delayed(const Duration(milliseconds: 300));
 
-    if (!context.mounted) return;
-    Navigator.of(context).pop(householdId);
+    navigator.pop(householdId);
   }
 
   Future<void> _decline(

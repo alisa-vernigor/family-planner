@@ -73,6 +73,10 @@ void main() {
     String? currentMemberId,
     void Function(Task, EisenhowerPriority)? onUpdatePriority,
     void Function(Task)? onComplete,
+    void Function(Task)? onEdit,
+    void Function(Task)? onDelete,
+    void Function(Task, List<HouseholdMember>)? onAssign,
+    void Function(Task)? onTogglePin,
   }) {
     return MockRepoProvider(
       child: MaterialApp(
@@ -81,14 +85,12 @@ void main() {
             tasks: tasks,
             members: members ?? [member, otherMember],
             currentMemberId: currentMemberId ?? 'user-1',
-            onEdit: (_) {},
-            onDelete: (_) {},
-            onAssign: (_, _) {},
-            onTogglePin: (_) {},
+            onEdit: onEdit ?? (_) {},
+            onDelete: onDelete ?? (_) {},
+            onAssign: onAssign ?? (_, _) {},
+            onTogglePin: onTogglePin ?? (_) {},
             onComplete: onComplete ?? (_) {},
-            onUncomplete: (_) {},
             onSwipeComplete: (_) {},
-            onSwipeUncomplete: (_) {},
             onSwipeDelete: (_) {},
             onUpdatePriority: onUpdatePriority,
           ),
@@ -288,6 +290,169 @@ void main() {
     await tester.pumpWidget(buildSubject(tasks: [zeroDuration]));
 
     expect(find.text('0м'), findsNothing);
+  });
+
+  testWidgets('клик по мини-карточке в grid вызывает onEdit', (tester) async {
+    setWidth(tester, 800);
+    Task? edited;
+    await tester.pumpWidget(
+      buildSubject(tasks: [urgentImportant], onEdit: (t) => edited = t),
+    );
+
+    await tester.tap(find.text('Срочно-важно'));
+    await tester.pump();
+
+    expect(edited?.id, 't-1');
+  });
+
+  testWidgets('в grid drag & drop: onAcceptWithDetails вызывает onUpdatePriority', (
+    tester,
+  ) async {
+    setWidth(tester, 800);
+    Task? dropped;
+    EisenhowerPriority? newPriority;
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [urgentImportant],
+        onUpdatePriority: (task, priority) {
+          dropped = task;
+          newPriority = priority;
+        },
+      ),
+    );
+
+    // Найти DragTarget (квадрант) и перетащить задачу.
+    final source = tester.getCenter(find.text('Срочно-важно'));
+    final targets = find.byType(DragTarget<Task>);
+    expect(targets, findsWidgets);
+    final destination = tester.getCenter(targets.first);
+
+    final gesture = await tester.startGesture(source);
+    await tester.pump(const Duration(milliseconds: 600)); // long-press
+    await gesture.moveTo(destination);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(dropped?.id, 't-1');
+    expect(newPriority, isNotNull);
+  });
+
+  testWidgets('drag & drop в узком режиме переносит задачу между квадрантами', (
+    tester,
+  ) async {
+    setWidth(tester, 400);
+    final called = <String>[];
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [urgentImportant],
+        onUpdatePriority: (task, priority) =>
+            called.add('${task.id}:${priority.name}'),
+      ),
+    );
+
+    final dragTarget = find.byType(DragTarget<Task>);
+    expect(dragTarget, findsWidgets);
+
+    // Квадрант 1 — «Срочно и важно» (содержит задачу), первый DragTarget.
+    final source = tester.getCenter(find.text('Срочно-важно').first);
+    final destination = tester.getCenter(dragTarget.at(1));
+
+    final gesture = await tester.startGesture(source);
+    await tester.pump(const Duration(milliseconds: 600)); // long-press
+    await gesture.moveTo(destination);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(called, isNotEmpty);
+    expect(called.first, startsWith('t-1:'));
+  });
+
+  testWidgets('клик по чекбоксу в узком режиме (TaskCard) вызывает onComplete', (
+    tester,
+  ) async {
+    setWidth(tester, 400);
+    Task? completed;
+    await tester.pumpWidget(
+      buildSubject(tasks: [urgentImportant], onComplete: (t) => completed = t),
+    );
+
+    // TaskCard в узком режиме: чекбокс с ключом complete_task_button_t-1.
+    await tester.tap(find.byKey(const Key('complete_task_button_t-1')));
+    await tester.pump();
+
+    expect(completed?.id, 't-1');
+  });
+
+  testWidgets('меню TaskCard в узком режиме вызывает onEdit/onDelete/onAssign', (
+    tester,
+  ) async {
+    setWidth(tester, 400);
+    final called = <String>[];
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [urgentImportant],
+        onEdit: (_) => called.add('edit'),
+        onDelete: (_) => called.add('delete'),
+        onAssign: (_, _) => called.add('assign'),
+      ),
+    );
+
+    // TaskCard: меню через tooltip «Действия» (PopupMenuButton без ключа).
+    await tester.tap(find.byTooltip('Действия'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Редактировать'));
+    await tester.pumpAndSettle();
+    expect(called, contains('edit'));
+
+    await tester.tap(find.byTooltip('Действия'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Удалить'));
+    await tester.pumpAndSettle();
+    expect(called, contains('delete'));
+
+    await tester.tap(find.byTooltip('Действия'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Назначить'));
+    await tester.pumpAndSettle();
+    expect(called, contains('assign'));
+    expect(called, ['edit', 'delete', 'assign']);
+  });
+
+  testWidgets('мини-карточка в grid: тап по чекбоксу вызывает onComplete', (
+    tester,
+  ) async {
+    setWidth(tester, 800);
+    Task? completed;
+    await tester.pumpWidget(
+      buildSubject(tasks: [urgentImportant], onComplete: (t) => completed = t),
+    );
+
+    // В grid-режиме _MiniTaskCard: иконка radio_button_unchecked_outlined.
+    await tester.tap(find.byIcon(Icons.radio_button_unchecked_outlined));
+    await tester.pump();
+
+    expect(completed?.id, 't-1');
+  });
+
+  testWidgets('закреплённая задача в узком режиме: пункт «Открепить» вызывает onTogglePin', (
+    tester,
+  ) async {
+    setWidth(tester, 400);
+    final pinned = urgentImportant.copyWith(pinnedMemberId: 'user-1');
+    bool? toggled;
+    await tester.pumpWidget(
+      buildSubject(tasks: [pinned], onTogglePin: (_) => toggled = true),
+    );
+
+    // TaskCard: меню → «Открепить» (задача закреплена).
+    await tester.tap(find.byTooltip('Действия'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Открепить'));
+    await tester.pumpAndSettle();
+
+    expect(toggled, isTrue);
   });
 }
 

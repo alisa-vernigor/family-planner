@@ -110,10 +110,6 @@ final class _ImportExportViewState extends State<_ImportExportView> {
 
   Future<void> _importFromFile() async {
     await _run(() async {
-      if (kIsWeb) {
-        _showSnack('Импорт из файла доступен только в мобильном приложении.');
-        return;
-      }
       final content = await TaskFileService.pickJsonFile();
       if (content == null || content.trim().isEmpty) {
         _showSnack('Файл пуст или выбор отменён.');
@@ -179,10 +175,6 @@ final class _ImportExportViewState extends State<_ImportExportView> {
 
   Future<void> _exportToFile() async {
     await _run(() async {
-      if (kIsWeb) {
-        _showSnack('Экспорт в файл доступен только в мобильном приложении.');
-        return;
-      }
       final json = await widget.exportUseCase.export(
         householdId: widget.householdId,
       );

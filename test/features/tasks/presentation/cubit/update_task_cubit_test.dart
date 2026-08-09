@@ -72,6 +72,35 @@ void main() {
     );
 
     blocTest<UpdateTaskCubit, UpdateTaskState>(
+      'update с напоминанием синхронизирует его (ReminderService no-op) '
+      'и завершается Success',
+      build: () => cubit,
+      act: (cubit) => cubit.update(
+        task: task.copyWith(reminderMinutesBefore: 30),
+      ),
+      expect: () => [
+        const UpdateTaskInProgress(),
+        UpdateTaskSuccess(task: task.copyWith(reminderMinutesBefore: 30)),
+      ],
+    );
+
+    blocTest<UpdateTaskCubit, UpdateTaskState>(
+      'updateTemplate с напоминанием синхронизирует его и завершается Success',
+      build: () => cubit,
+      act: (cubit) => cubit.updateTemplate(
+        params: UpdateRecurringTaskParams(
+          task: task.copyWith(reminderMinutesBefore: 15),
+          recurrence: const TaskRecurrence.daily(),
+          scope: RecurrenceEditScope.onlyThis,
+        ),
+      ),
+      expect: () => [
+        const UpdateTaskInProgress(),
+        UpdateTaskSuccess(task: task.copyWith(reminderMinutesBefore: 15)),
+      ],
+    );
+
+    blocTest<UpdateTaskCubit, UpdateTaskState>(
       'reset() returns to UpdateTaskInitial from any state',
       build: () => cubit,
       seed: () => UpdateTaskSuccess(task: task),

@@ -94,7 +94,7 @@
 ### presentation/widgets/
 
 - **task_card.dart** — `TaskCard`: полноценная карточка задачи с чекбоксом, меню действий, информационными чипами (длительность, дедлайн, приоритет, исполнитель, **категория** через `CategoryChip`, **время начала** `plannedTimeLabel`, **бейдж «Серия на паузе»**). Swipe-to-complete/uncomplete/delete через `Dismissible`. Принимает опциональный `category: TaskCategory?`, `onTogglePause: VoidCallback?` (пункт меню для серий) и `onSkip: VoidCallback?` (пункт «Пропустить»). Чипы: `_InfoChip`, `DeadlineChip`, `_AssigneeChip`, `_PriorityChip`.
-- **eisenhower_matrix_view.dart** — `EisenhowerMatrixView`: представление задач в 4 квадрантах (матрица Эйзенхауэра). Поддержка drag & drop для смены приоритета. Адаптивный layout: на широких экранах грид 2×2, на узких — вертикальный список. `_QuadGrid`, `_QuadrantSection`, `_MiniTaskCard`.
+- **eisenhower_matrix_view.dart** — `EisenhowerMatrixView`: представление задач в 4 квадрантах (матрица Эйзенхауэра). Поддержка drag & drop для смены приоритета. Адаптивный layout: на широких экранах грид 2×2, на узких — вертикальный список. `_QuadGrid`, `_QuadrantSection`, `_MiniTaskCard`. **Выполненные задачи в матрицу не попадают** (`if (task.isCompleted) continue`), поэтому параметров `onUncomplete`/`onSwipeUncomplete` нет (uncomplete в матрице невозможен по построению).
 - **priority_selector.dart** — `PrioritySelector`: горизонтальный выбор приоритета с визуальными стилями. Кнопка «Сбросить».
 - **sort_selector.dart** — `SortSelector`: горизонтальный выбор варианта сортировки задач.
 - **assignee_picker.dart** — `showAssigneePicker`: bottom sheet выбора ответственного.

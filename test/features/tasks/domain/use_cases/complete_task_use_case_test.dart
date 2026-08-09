@@ -76,6 +76,20 @@ void main() {
 
       expect(repository.savedTasks, isEmpty);
     });
+
+    test('сообщения исключений понятные', () {
+      expect(
+        const TaskAlreadyCompletedException().toString(),
+        contains('TaskAlreadyCompletedException'),
+      );
+      expect(
+        const TaskCompletionNotAllowedException(
+          taskId: 'task-1',
+          memberId: 'member-3',
+        ).toString(),
+        contains('TaskCompletionNotAllowedException'),
+      );
+    });
   });
 }
 

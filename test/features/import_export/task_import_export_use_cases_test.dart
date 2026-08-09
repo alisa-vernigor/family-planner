@@ -222,6 +222,83 @@ void main() {
       expect(result.skipped, 1);
       expect(result.errors, hasLength(1));
     });
+
+    test('сбой загрузки категорий не ломает импорт', () async {
+      final taskRepo = _FakeTaskRepository(taskToCreate: _task(id: 'task-1'));
+      final categoryRepo = _FakeCategoryRepository(
+        throwOnGetForHousehold: true,
+      );
+      final useCase = TaskImportUseCase(
+        taskRepository: taskRepo,
+        taskCategoryRepository: categoryRepo,
+        taskSubtaskRepository: _FakeSubtaskRepository(),
+        householdRepository: _FakeHouseholdRepository(members: [member]),
+        isOnline: () => true,
+      );
+
+      final result = await useCase.import(
+        jsonString: '{"tasks":[{"title":"t","category":"Кухня"}]}',
+        householdId: householdId,
+      );
+
+      expect(result.imported, 1);
+      expect(result.errors, isEmpty);
+      // Категория создана, т.к. список категорий был недоступен.
+      expect(categoryRepo.createdNames, ['Кухня']);
+      expect(taskRepo.receivedParams!.categoryId, categoryRepo.created[0].id);
+    });
+
+    test('сбой создания подзадачи не ломает импорт задачи', () async {
+      final taskRepo = _FakeTaskRepository(taskToCreate: _task(id: 'task-1'));
+      final subtaskRepo = _FakeSubtaskRepository(
+        failOnTitles: {'Мыло'},
+      );
+      final useCase = TaskImportUseCase(
+        taskRepository: taskRepo,
+        taskCategoryRepository: _FakeCategoryRepository(),
+        taskSubtaskRepository: subtaskRepo,
+        householdRepository: _FakeHouseholdRepository(members: [member]),
+        isOnline: () => true,
+      );
+
+      final result = await useCase.import(
+        jsonString: '{"tasks":[{"title":"t","subtasks":["Мыло","Губка"]}]}',
+        householdId: householdId,
+      );
+
+      expect(result.imported, 1);
+      expect(result.errors, isEmpty);
+      // Одна подзадача создана, вторая — нет.
+      expect(subtaskRepo.createdTitles, ['Губка']);
+    });
+
+    test('пустой список задач → TaskImportResult по умолчанию', () async {
+      final useCase = TaskImportUseCase(
+        taskRepository: _FakeTaskRepository(taskToCreate: _task(id: 'task-1')),
+        taskCategoryRepository: _FakeCategoryRepository(),
+        taskSubtaskRepository: _FakeSubtaskRepository(),
+        householdRepository: _FakeHouseholdRepository(members: [member]),
+        isOnline: () => true,
+      );
+
+      final result = await useCase.import(
+        jsonString: '{"tasks":[]}',
+        householdId: householdId,
+      );
+
+      expect(result.imported, 0);
+      expect(result.skipped, 0);
+      expect(result.errors, isEmpty);
+    });
+
+    test('исключения импорта имеют человекочитаемые toString', () {
+      const offline = TaskImportOfflineException();
+      expect(offline.toString(), contains('только при подключении к интернету'));
+
+      final format = TaskImportFormatException('корень не объект');
+      expect(format.toString(), contains('Не удалось разобрать JSON'));
+      expect(format.message, 'корень не объект');
+    });
   });
 
   group('TaskExportUseCase', () {
@@ -291,6 +368,34 @@ void main() {
       expect(jsonString, isNot(contains('task-1')));
       expect(jsonString, isNot(contains('user-1')));
       expect(jsonString, isNot(contains('cat-1')));
+    });
+
+    test('сбой загрузки подзадач не ломает экспорт (подзадачи пустые)', () async {
+      final task = Task(
+        id: 'task-1',
+        householdId: householdId,
+        title: 'Помыть посуду',
+        estimatedDurationMinutes: 30,
+        plannedFor: DateTime(2026, 8, 9),
+        allowedMemberIds: const [],
+        status: TaskStatus.pending,
+        createdAt: DateTime(2026, 8, 1),
+      );
+
+      final subtaskRepo = _FakeSubtaskRepository(throwOnGetForTask: true);
+      final useCase = TaskExportUseCase(
+        taskRepository: _FakeTaskRepository(pendingTasks: [task]),
+        taskCategoryRepository: _FakeCategoryRepository(),
+        taskSubtaskRepository: subtaskRepo,
+        householdRepository: _FakeHouseholdRepository(members: [member]),
+      );
+
+      final jsonString = await useCase.export(householdId: householdId);
+      final file = TaskTransferFile.fromJson(_decode(jsonString));
+
+      expect(file.tasks, hasLength(1));
+      expect(file.tasks.single.subtasks, isEmpty);
+      expect(file.tasks.single.title, 'Помыть посуду');
     });
   });
 }
@@ -395,14 +500,21 @@ final class _FakeTaskRepository implements TaskRepository {
 }
 
 final class _FakeCategoryRepository implements TaskCategoryRepository {
-  _FakeCategoryRepository({this.existing = const []});
+  _FakeCategoryRepository({
+    this.existing = const [],
+    this.throwOnGetForHousehold = false,
+  });
 
   final List<TaskCategory> existing;
+  final bool throwOnGetForHousehold;
   final List<TaskCategory> created = [];
   List<String> get createdNames => created.map((c) => c.name).toList();
 
   @override
   Future<List<TaskCategory>> getForHousehold(String householdId) async {
+    if (throwOnGetForHousehold) {
+      throw StateError('Список категорий недоступен');
+    }
     return existing;
   }
 
@@ -425,19 +537,31 @@ final class _FakeCategoryRepository implements TaskCategoryRepository {
 }
 
 final class _FakeSubtaskRepository implements TaskSubtaskRepository {
-  _FakeSubtaskRepository({this.subtasks = const []});
+  _FakeSubtaskRepository({
+    this.subtasks = const [],
+    this.failOnTitles = const {},
+    this.throwOnGetForTask = false,
+  });
 
   final List<TaskSubtask> subtasks;
+  final Set<String> failOnTitles;
+  final bool throwOnGetForTask;
   final List<String> createdTasks = [];
   final List<String> createdTitles = [];
 
   @override
   Future<List<TaskSubtask>> getForTask(String taskId) async {
+    if (throwOnGetForTask) {
+      throw StateError('Подзадачи недоступны');
+    }
     return subtasks.where((s) => s.taskId == taskId).toList();
   }
 
   @override
   Future<TaskSubtask> create(CreateTaskSubtaskParams params) async {
+    if (failOnTitles.contains(params.title)) {
+      throw StateError('Не удалось создать подзадачу');
+    }
     createdTasks.add(params.taskId);
     createdTitles.add(params.title);
     return TaskSubtask(

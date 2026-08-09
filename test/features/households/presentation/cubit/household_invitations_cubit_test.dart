@@ -155,5 +155,48 @@ void main() {
         ),
       ],
     );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '8) accept() из initial состояния работает с пустым списком',
+      setUp: () {
+        when(
+          () => mocks.household.acceptInvitation(invitationId: any(named: 'invitationId')),
+        ).thenAnswer((_) async => householdId);
+      },
+      build: createCubit,
+      act: (cubit) async {
+        final result = await cubit.accept(invitation: invitation);
+        expect(result, householdId);
+      },
+      expect: () => [
+        const HouseholdInvitationActionInProgress(
+          invitations: [],
+          invitationId: 'invitation-1',
+        ),
+        const HouseholdInvitationsLoaded(invitations: []),
+      ],
+    );
+
+    blocTest<HouseholdInvitationsCubit, HouseholdInvitationsState>(
+      '9) accept() из ActionInProgress берёт текущий список приглашений',
+      setUp: () {
+        when(
+          () => mocks.household.acceptInvitation(invitationId: any(named: 'invitationId')),
+        ).thenAnswer((_) async => householdId);
+      },
+      seed: () => const HouseholdInvitationActionInProgress(
+        invitations: [],
+        invitationId: 'invitation-1',
+      ),
+      build: createCubit,
+      act: (cubit) async {
+        final result = await cubit.accept(invitation: invitation);
+        expect(result, householdId);
+      },
+      // Первое ActionInProgress равно seed — bloc_test схлопывает дубликат.
+      expect: () => const [
+        HouseholdInvitationsLoaded(invitations: []),
+      ],
+    );
   });
 }

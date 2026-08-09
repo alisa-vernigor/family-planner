@@ -241,20 +241,60 @@ void main() {
       expect(p.title, 'Задача');
       expect(p.plannedFor, isNot(_task().plannedFor)); // следующий день
       expect(p.recurrence, isNull);
+      expect(p.recurrenceStartDate, isNull);
+      expect(p.priority, isNull);
     });
 
-    test('дублирует серию с сохранением расписания', () async {
+    test('дублирует серию с сохранением расписания и стартовой даты', () async {
       final repo = _SpyTaskRepository();
       final uc = DuplicateTaskUseCase(repository: repo);
 
-      await uc.call(task: _task(
+      final recurring = Task(
+        id: 'task-1',
+        householdId: 'household-1',
+        title: 'Задача',
+        estimatedDurationMinutes: 30,
+        plannedFor: DateTime.utc(2026, 8, 10),
+        allowedMemberIds: const ['alice'],
+        status: TaskStatus.pending,
         templateId: 'tmpl-1',
-        // recurrence задан через recurrenceStartDate
-      ));
+        recurrence: const TaskRecurrence.daily(),
+        recurrenceStartDate: DateTime.utc(2026, 8, 1),
+        recurrenceEndDate: DateTime.utc(2026, 9, 1),
+        createdAt: DateTime.utc(2026, 8, 1),
+      );
+
+      await uc.call(task: recurring);
 
       final p = repo.createdParams!;
-      expect(p.recurrence, isNull);
-      expect(p.recurrenceStartDate, isNull);
+      expect(p.recurrence, const TaskRecurrence.daily());
+      expect(p.recurrenceStartDate, DateTime.utc(2026, 8, 1));
+      expect(p.recurrenceEndDate, DateTime.utc(2026, 9, 1));
+      // plannedFor сохраняется у серии
+      expect(p.plannedFor, DateTime.utc(2026, 8, 10));
+    });
+
+    test('серия без recurrenceStartDate использует plannedFor', () async {
+      final repo = _SpyTaskRepository();
+      final uc = DuplicateTaskUseCase(repository: repo);
+
+      final recurring = Task(
+        id: 'task-1',
+        householdId: 'household-1',
+        title: 'Задача',
+        estimatedDurationMinutes: 30,
+        plannedFor: DateTime.utc(2026, 8, 10),
+        allowedMemberIds: const ['alice'],
+        status: TaskStatus.pending,
+        templateId: 'tmpl-1',
+        recurrence: const TaskRecurrence.daily(),
+        createdAt: DateTime.utc(2026, 8, 1),
+      );
+
+      await uc.call(task: recurring);
+
+      final p = repo.createdParams!;
+      expect(p.recurrenceStartDate, DateTime.utc(2026, 8, 10));
     });
   });
 

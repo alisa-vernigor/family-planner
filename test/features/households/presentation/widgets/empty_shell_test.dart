@@ -173,4 +173,118 @@ void main() {
 
     verify(() => mocks.auth.signOut()).called(1);
   });
+
+  testWidgets('иконка приглашений открывает список и перезагружает семьи', (
+    tester,
+  ) async {
+    when(() => mocks.household.getPendingInvitations()).thenAnswer(
+      (_) async => [
+        HouseholdInvitation(
+          id: 'inv-1',
+          householdId: 'h-1',
+          householdName: 'Семья Анны',
+          invitedByDisplayName: 'Анна',
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
+          expiresAt: DateTime.now().add(const Duration(days: 6)),
+        ),
+      ],
+    );
+    when(() => mocks.household.getMyHouseholds()).thenAnswer(
+      (_) async => const [],
+    );
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Иконка в AppBar (tooltip «Приглашения»).
+    await tester.tap(find.byTooltip('Приглашения'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HouseholdInvitationsPage), findsOneWidget);
+
+    // Возвращаемся — HouseholdCubit.load() вызван.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    verify(() => mocks.household.getMyHouseholds()).called(1);
+  });
+
+  testWidgets('кнопка «Создать свою семью» открывает форму и перезагружает', (
+    tester,
+  ) async {
+    when(() => mocks.household.getPendingInvitations()).thenAnswer(
+      (_) async => [
+        HouseholdInvitation(
+          id: 'inv-1',
+          householdId: 'h-1',
+          householdName: 'Семья Анны',
+          invitedByDisplayName: 'Анна',
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
+          expiresAt: DateTime.now().add(const Duration(days: 6)),
+        ),
+      ],
+    );
+    when(() => mocks.household.getMyHouseholds()).thenAnswer(
+      (_) async => const [],
+    );
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Создать свою семью'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CreateHouseholdPage), findsOneWidget);
+
+    // Возвращаемся — HouseholdCubit.load() вызывается после pop.
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    verify(() => mocks.household.getMyHouseholds()).called(1);
+  });
+
+  testWidgets('кнопка «Посмотреть приглашения» возвращает и перезагружает', (
+    tester,
+  ) async {
+    when(() => mocks.household.getPendingInvitations()).thenAnswer(
+      (_) async => [
+        HouseholdInvitation(
+          id: 'inv-1',
+          householdId: 'h-1',
+          householdName: 'Семья Анны',
+          invitedByDisplayName: 'Анна',
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
+          expiresAt: DateTime.now().add(const Duration(days: 6)),
+        ),
+      ],
+    );
+    when(() => mocks.household.getMyHouseholds()).thenAnswer(
+      (_) async => const [],
+    );
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Кнопка в InvitationsPrompt (не иконка AppBar).
+    await tester.tap(find.text('Посмотреть приглашения'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HouseholdInvitationsPage), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    verify(() => mocks.household.getMyHouseholds()).called(1);
+  });
+
+  testWidgets('ошибка загрузки приглашений показывает форму создания семьи', (
+    tester,
+  ) async {
+    when(() => mocks.household.getPendingInvitations()).thenThrow(
+      Exception('boom'),
+    );
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Состояние Failure → invitations пусто → CreateHouseholdPage.
+    expect(find.byType(CreateHouseholdPage), findsOneWidget);
+  });
 }

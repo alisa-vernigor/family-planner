@@ -179,6 +179,12 @@ void main() {
       ));
     });
 
+    test('NotificationsNotAuthenticatedException.toString человекочитаем',
+        () async {
+      const exception = NotificationsNotAuthenticatedException();
+      expect(exception.toString(), contains('пользователь не авторизован'));
+    });
+
     test('собирает taskAssigned для задач, назначенных мне другим', () async {
       await auth();
       mockRouter((request) {

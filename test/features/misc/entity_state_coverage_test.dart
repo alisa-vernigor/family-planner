@@ -142,12 +142,6 @@ void main() {
       expect(state.unreadCount, 1);
     });
 
-    test('isRead по id', () {
-      final state = NotificationsLoaded(items: items, readIds: const {'n2'});
-      expect(state.isRead(items[1]), isTrue);
-      expect(state.isRead(items[0]), isFalse);
-    });
-
     test('равенство учитывает items и readIds', () {
       final a = NotificationsLoaded(items: items, readIds: const {'n1'});
       final b = NotificationsLoaded(items: items, readIds: const {'n1'});

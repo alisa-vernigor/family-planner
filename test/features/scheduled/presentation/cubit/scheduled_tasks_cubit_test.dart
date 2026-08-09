@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:family_planner/features/households/domain/entities/household.dart';
@@ -120,6 +123,83 @@ void main() {
     cubit.confirmDelete('task-1');
     cubit.cancelDelete('task-1');
   });
+
+  test('load выдаёт Failure при таймауте 15 секунд', () {
+    fakeAsync((async) {
+      final tasksCompleter = Completer<List<Task>>();
+
+      final cubit = ScheduledTasksCubit(
+        taskRepository: _FakeTaskRepository(tasksCompleter: tasksCompleter),
+        householdRepository: _FakeHouseholdRepository(),
+      );
+      addTearDown(cubit.close);
+
+      // Не await — future не завершится, пока не пройдёт таймаут.
+      var loadCompleted = false;
+      final loadFuture = cubit.load(
+        householdId: 'household-1',
+      ).then((_) => loadCompleted = true);
+      async.elapse(const Duration(seconds: 16));
+      async.flushMicrotasks();
+
+      expect(
+        cubit.state,
+        const ScheduledTasksFailure(
+          message: 'Не удалось загрузить запланированные задачи.',
+        ),
+      );
+      expect(loadCompleted, isTrue);
+      expect(loadFuture, isA<Future<void>>());
+    });
+  });
+
+  test('refresh при таймауте возвращает предыдущий Loaded', () {
+    fakeAsync((async) {
+      final tasksCompleter = Completer<List<Task>>();
+
+      final repository = _FakeTaskRepository(
+        tasks: [task],
+        tasksCompleter: tasksCompleter,
+      );
+      final cubit = ScheduledTasksCubit(
+        taskRepository: repository,
+        householdRepository: _FakeHouseholdRepository(members: [member]),
+      );
+      addTearDown(cubit.close);
+
+      // Первая загрузка успешна.
+      final firstLoad = cubit.load(householdId: 'household-1');
+      async.flushMicrotasks();
+      expect(cubit.state, const ScheduledTasksLoading());
+
+      tasksCompleter.complete([task]);
+      async.flushMicrotasks();
+      expect(
+        cubit.state,
+        ScheduledTasksLoaded(tasks: [task], members: [member]),
+      );
+      expect(firstLoad, isA<Future<void>>());
+
+      // Второй вызов — тихая перезагрузка с неотвечающим future → таймаут.
+      final tasksCompleter2 = Completer<List<Task>>();
+      repository.nextTasksCompleter = tasksCompleter2;
+
+      var refreshCompleted = false;
+      final refreshFuture = cubit.refresh(
+        householdId: 'household-1',
+      ).then((_) => refreshCompleted = true);
+      async.elapse(const Duration(seconds: 16));
+      async.flushMicrotasks();
+
+      // onFailure вернул предыдущий Loaded.
+      expect(
+        cubit.state,
+        ScheduledTasksLoaded(tasks: [task], members: [member]),
+      );
+      expect(refreshCompleted, isTrue);
+      expect(refreshFuture, isA<Future<void>>());
+    });
+  });
 }
 
 final class _FakeTaskRepository implements TaskRepository {
@@ -137,11 +217,17 @@ final class _FakeTaskRepository implements TaskRepository {
     this.tasks = const [],
     this.shouldThrow = false,
     this.shouldThrowOnSecondCall = false,
+    this.tasksCompleter,
   });
 
   final List<Task> tasks;
   final bool shouldThrow;
   final bool shouldThrowOnSecondCall;
+
+  /// Если задан — [getAllPending] не завершается, пока его не закроют.
+  /// Позволяет проверить `.timeout(15s)` в cubit'е.
+  Completer<List<Task>>? tasksCompleter;
+  Completer<List<Task>>? nextTasksCompleter;
   int _callCount = 0;
 
   String? receivedHouseholdId;
@@ -159,13 +245,18 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<List<Task>> getScheduledAfter({required String householdId, required DateTime day}) => throw UnimplementedError();
 
   @override
-  Future<List<Task>> getAllPending({required String householdId}) async {
+  Future<List<Task>> getAllPending({required String householdId}) {
     _callCount++;
     if (shouldThrow || (shouldThrowOnSecondCall && _callCount > 1)) {
       throw Exception('Ошибка сети');
     }
     receivedHouseholdId = householdId;
-    return tasks;
+    if (tasksCompleter != null || nextTasksCompleter != null) {
+      final completer = nextTasksCompleter ?? tasksCompleter;
+      nextTasksCompleter = null;
+      return completer!.future;
+    }
+    return Future.value(tasks);
   }
 
   @override

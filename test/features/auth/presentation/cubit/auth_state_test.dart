@@ -107,4 +107,41 @@ void main() {
       expect(const AuthLoading(), isNot(AuthAuthenticated(user: _user)));
     });
   });
+
+  group('remaining states props', () {
+    test('AuthForgotPassword props empty', () {
+      expect(const AuthForgotPassword().props, []);
+    });
+
+    test('AuthPasswordResetSent props stores email', () {
+      const state = AuthPasswordResetSent(email: 'a@b.c');
+      expect(state.email, 'a@b.c');
+      expect(state.props, ['a@b.c']);
+    });
+
+    test('AuthPasswordResetReady props stores email', () {
+      const state = AuthPasswordResetReady(email: 'a@b.c');
+      expect(state.email, 'a@b.c');
+      expect(state.props, ['a@b.c']);
+    });
+
+    test('AuthPasswordResetSuccess props empty', () {
+      expect(const AuthPasswordResetSuccess().props, []);
+    });
+
+    test('AuthAuthenticated props stores user', () {
+      const state = AuthAuthenticated(user: _user);
+      expect(state.props, [_user]);
+    });
+
+    test('AuthEmailConfirmationRequired props stores email', () {
+      const state = AuthEmailConfirmationRequired(email: 'a@b.c');
+      expect(state.props, ['a@b.c']);
+    });
+
+    test('AuthFailure props stores message', () {
+      const state = AuthFailure(message: 'boom');
+      expect(state.props, ['boom']);
+    });
+  });
 }

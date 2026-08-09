@@ -12,7 +12,12 @@ import '../logging/app_logger.dart';
 
 const String _androidWidgetName = 'TasksWidgetProvider';
 
-bool get _isSupportedPlatform {
+/// Проверка платформы для home widget — только Android/iOS.
+///
+/// Вынесена в глобальную функцию, чтобы тесты могли переопределить её
+/// через параметр [HomeWidgetService.initialize]/[HomeWidgetService.syncTasks]
+/// (на macOS/host-тестах [Platform.isAndroid] всегда false).
+bool defaultSupportedPlatform() {
   if (kIsWeb) return false;
   return Platform.isAndroid || Platform.isIOS;
 }
@@ -127,8 +132,8 @@ Future<void> interactiveCallback(Uri? uri) async {
 }
 
 final class HomeWidgetService {
-  static Future<void> initialize() async {
-    if (!_isSupportedPlatform) return;
+  static Future<void> initialize({bool Function()? isSupportedPlatform}) async {
+    if (!(isSupportedPlatform ?? defaultSupportedPlatform)()) return;
 
     try {
       await HomeWidget.registerInteractivityCallback(interactiveCallback);
@@ -141,11 +146,18 @@ final class HomeWidgetService {
       await _saveSession();
 
       // Слушаем обновления сессии
-      Supabase.instance.client.auth.onAuthStateChange.listen((authState) {
-        if (authState.session != null) {
-          _saveSessionFromSession(authState.session!);
-        }
-      });
+      Supabase.instance.client.auth.onAuthStateChange.listen(
+        (authState) {
+          if (authState.session != null) {
+            _saveSessionFromSession(authState.session!);
+          }
+        },
+        // Без onError необработанная ошибка стрима (например, сбой
+        // восстановления сессии в фоновом коллбэке) роняет приложение.
+        onError: (Object e) {
+          AppLogger.warning('widget: ошибка подписки на сессию: $e');
+        },
+      );
     } on MissingPluginException catch (e) {
       AppLogger.warning('HomeWidget плагин недоступен в данной сборке: $e');
     } catch (e) {
@@ -153,8 +165,13 @@ final class HomeWidgetService {
     }
   }
 
-  static Future<void> syncTasks(List<Task> tasks, String currentMemberId, String householdId) async {
-    if (!_isSupportedPlatform) return;
+  static Future<void> syncTasks(
+    List<Task> tasks,
+    String currentMemberId,
+    String householdId, {
+    bool Function()? isSupportedPlatform,
+  }) async {
+    if (!(isSupportedPlatform ?? defaultSupportedPlatform)()) return;
 
     try {
       final myTasks = tasks

@@ -335,5 +335,34 @@ void main() {
       ));
       await first;
     });
+
+    test('dispose() закрывает поток событий', () async {
+      final processor = buildProcessor();
+      final done = <Object?>[];
+      final sub = processor.events.listen(
+        (e) => done.add(e),
+        onDone: () => done.add('done'),
+      );
+
+      processor.dispose();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(done, contains('done'));
+      await sub.cancel();
+    });
+  });
+
+  group('SyncProcessor исключения', () {
+    test('SyncOfflineException.toString содержит описание', () {
+      const e = SyncOfflineException();
+      expect(e.toString(), contains('SyncOfflineException'));
+      expect(e.toString(), contains('нет подключения'));
+    });
+
+    test('SyncConflictException.toString содержит message', () {
+      const e = SyncConflictException('конфликт версий');
+      expect(e.toString(), contains('SyncConflictException'));
+      expect(e.toString(), contains('конфликт версий'));
+    });
   });
 }

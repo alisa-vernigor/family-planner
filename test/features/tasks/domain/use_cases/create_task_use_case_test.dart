@@ -230,6 +230,44 @@ void main() {
       throwsA(isA<TaskRecurrenceWeekdaysInvalidException>()),
     );
   });
+
+  group('сообщения исключений', () {
+    test('TaskTitleEmptyException.toString', () {
+      expect(const TaskTitleEmptyException().toString(), contains('TaskTitleEmptyException'));
+    });
+
+    test('TaskDurationInvalidException.toString', () {
+      expect(const TaskDurationInvalidException().toString(), contains('TaskDurationInvalidException'));
+    });
+
+    test('TaskRecurrenceWeekdaysEmptyException.toString', () {
+      expect(
+        const TaskRecurrenceWeekdaysEmptyException().toString(),
+        contains('TaskRecurrenceWeekdaysEmptyException'),
+      );
+    });
+
+    test('TaskRecurrenceWeekdaysInvalidException.toString', () {
+      expect(
+        const TaskRecurrenceWeekdaysInvalidException().toString(),
+        contains('TaskRecurrenceWeekdaysInvalidException'),
+      );
+    });
+
+    test('TaskRecurrenceIntervalInvalidException.toString', () {
+      expect(
+        const TaskRecurrenceIntervalInvalidException().toString(),
+        contains('TaskRecurrenceIntervalInvalidException'),
+      );
+    });
+
+    test('TaskRecurrenceDatesInvalidException.toString', () {
+      expect(
+        const TaskRecurrenceDatesInvalidException().toString(),
+        contains('TaskRecurrenceDatesInvalidException'),
+      );
+    });
+  });
 }
 
 final class FakeTaskRepository implements TaskRepository {

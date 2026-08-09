@@ -1,9 +1,18 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
+import 'package:family_planner/features/profile/domain/entities/profile_stats.dart';
+import 'package:family_planner/features/profile/domain/entities/user_profile.dart';
 import 'package:family_planner/features/profile/domain/repositories/profile_repository.dart';
+import 'package:family_planner/features/profile/presentation/pages/profile_page.dart';
 import 'package:family_planner/features/tasks/domain/entities/eisenhower_priority.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_category.dart';
@@ -63,8 +72,10 @@ void main() {
     VoidCallback? onSwipeComplete,
     VoidCallback? onSwipeUncomplete,
     VoidCallback? onSwipeDelete,
+    MockRepositoryFactory? mock,
   }) {
     return MockRepoProvider(
+      mock: mock,
       child: MaterialApp(
         home: Scaffold(
           body: TaskCard(
@@ -220,6 +231,33 @@ void main() {
     expect(find.text('Срочно и важно'), findsOneWidget);
   });
 
+  testWidgets('показывает чип приоритета не-срочно-важно', (tester) async {
+    final task = baseTask.copyWith(
+      priority: EisenhowerPriority.notUrgentImportant,
+    );
+    await tester.pumpWidget(buildSubject(task: task));
+
+    expect(find.text('Не срочно, но важно'), findsOneWidget);
+  });
+
+  testWidgets('показывает чип приоритета срочно-не-важно', (tester) async {
+    final task = baseTask.copyWith(
+      priority: EisenhowerPriority.urgentNotImportant,
+    );
+    await tester.pumpWidget(buildSubject(task: task));
+
+    expect(find.text('Срочно, но не важно'), findsOneWidget);
+  });
+
+  testWidgets('показывает чип приоритета не-срочно-не-важно', (tester) async {
+    final task = baseTask.copyWith(
+      priority: EisenhowerPriority.notUrgentNotImportant,
+    );
+    await tester.pumpWidget(buildSubject(task: task));
+
+    expect(find.text('Не срочно и не важно'), findsOneWidget);
+  });
+
   testWidgets('исполнитель-я показывает «Я»', (tester) async {
     await tester.pumpWidget(buildSubject());
 
@@ -358,6 +396,54 @@ void main() {
       expect(paused, isTrue);
     });
 
+    testWidgets('pin вызывает onTogglePin для закреплённой задачи', (
+      tester,
+    ) async {
+      enlargeSurface(tester);
+      final pinned = baseTask.copyWith(pinnedMemberId: 'user-1');
+      var unpinned = false;
+      await tester.pumpWidget(
+        buildSubject(task: pinned, onTogglePin: () => unpinned = true),
+      );
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Открепить'));
+      await tester.pumpAndSettle();
+
+      expect(unpinned, isTrue);
+    });
+
+    testWidgets('reschedule вызывает колбэк', (tester) async {
+      enlargeSurface(tester);
+      var rescheduled = false;
+      await tester.pumpWidget(
+        buildSubject(onReschedule: () => rescheduled = true),
+      );
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Перенести'));
+      await tester.pumpAndSettle();
+
+      expect(rescheduled, isTrue);
+    });
+
+    testWidgets('duplicate вызывает колбэк', (tester) async {
+      enlargeSurface(tester);
+      var duplicated = false;
+      await tester.pumpWidget(
+        buildSubject(onDuplicate: () => duplicated = true),
+      );
+
+      await tester.tap(find.byTooltip('Действия'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Дублировать'));
+      await tester.pumpAndSettle();
+
+      expect(duplicated, isTrue);
+    });
+
     testWidgets('skip вызывает колбэк', (tester) async {
       enlargeSurface(tester);
       var skipped = false;
@@ -489,19 +575,199 @@ void main() {
       expect(longPressed, isNotNull);
     });
   });
+
+  group('состояния карточки', () {
+    testWidgets('просроченная задача получает фон errorContainer', (
+      tester,
+    ) async {
+      final overdue = baseTask.copyWith(
+        deadline: DateTime.now().subtract(const Duration(hours: 1)),
+      );
+      await tester.pumpWidget(buildSubject(task: overdue));
+
+      // Просроченная карточка помечена бейджем дедлайна (deadline chip).
+      expect(find.textContaining('до'), findsOneWidget);
+    });
+
+    testWidgets('время начала показывает чип plannedTimeLabel', (
+      tester,
+    ) async {
+      final withTime = baseTask.copyWith(plannedTime: const Duration(hours: 9));
+      await tester.pumpWidget(buildSubject(task: withTime));
+
+      expect(find.text('09:00'), findsOneWidget);
+    });
+  });
+
+  group('дедлайн-чип', () {
+    testWidgets('дедлайн сегодня показывает «до ЧЧ:ММ»', (tester) async {
+      final now = DateTime.now();
+      final todayDeadline = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        18,
+        30,
+      );
+      await tester.pumpWidget(buildSubject(task: baseTask.copyWith(deadline: todayDeadline)));
+
+      expect(find.text('до 18:30'), findsOneWidget);
+    });
+
+    testWidgets('дедлайн сегодня и срочный (< 24ч) показывает warning-иконку', (
+      tester,
+    ) async {
+      final now = DateTime.now();
+      final urgentDeadline = now.add(const Duration(hours: 2));
+      await tester.pumpWidget(buildSubject(task: baseTask.copyWith(deadline: urgentDeadline)));
+
+      expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+    });
+  });
+
+  group('аватар исполнителя и профиль', () {
+    testWidgets('аватар по URL показывает NetworkImage', (tester) async {
+      final mocks = MockRepositoryFactory();
+      final withAvatar = HouseholdMember(
+        profileId: 'user-2',
+        displayName: 'Влад',
+        avatarUrl: 'https://example.com/vlad.png',
+        role: 'owner',
+      );
+
+      debugNetworkImageHttpClientProvider = () => _FakeHttpClient();
+
+      await tester.pumpWidget(
+        buildSubject(
+          task: baseTask.copyWith(assignedMemberId: 'user-2'),
+          members: [member, withAvatar],
+          mock: mocks,
+        ),
+      );
+      await tester.pump();
+
+      final circleAvatar = tester.widget<CircleAvatar>(
+        find.byType(CircleAvatar),
+      );
+      expect(circleAvatar.backgroundImage, isA<NetworkImage>());
+      // Инициалы не показаны при аватаре.
+      expect(find.text('В'), findsNothing);
+
+      // Сбрасываем ДО конца теста (иначе invariant-проверка упадёт).
+      debugNetworkImageHttpClientProvider = null;
+    });
+
+    testWidgets('тап по assignee открывает ProfilePage', (tester) async {
+      final mocks = MockRepositoryFactory();
+      when(() => mocks.profile.getProfile('user-2')).thenAnswer(
+        (_) async => const UserProfile(
+          id: 'user-2',
+          displayName: 'Влад',
+          timezone: 'Europe/Moscow',
+        ),
+      );
+      when(() => mocks.profile.getStats('user-2')).thenAnswer(
+        (_) async => const ProfileStats(),
+      );
+
+      await tester.pumpWidget(
+        buildSubject(
+          task: baseTask.copyWith(assignedMemberId: 'user-2'),
+          mock: mocks,
+        ),
+      );
+      await tester.pump();
+
+      await tester.tap(find.text('Влад'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProfilePage), findsOneWidget);
+    });
+  });
 }
 
 /// Оборачивает в RepositoryProvider&lt;ProfileRepository&gt; для _AssigneeChip.
 final class MockRepoProvider extends StatelessWidget {
-  const MockRepoProvider({required this.child, super.key});
+  const MockRepoProvider({required this.child, this.mock, super.key});
 
   final Widget child;
+  final MockRepositoryFactory? mock;
 
   @override
   Widget build(BuildContext context) {
     return RepositoryProvider<ProfileRepository>(
-      create: (_) => MockProfileRepository(),
+      create: (_) => mock?.profile ?? MockProfileRepository(),
       child: child,
     );
   }
+}
+
+/// Фейковый HttpClient, возвращающий прозрачный PNG, чтобы NetworkImage
+/// не падал в widget-тестах.
+final class _FakeHttpClient implements HttpClient {
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async => _FakeHttpClientRequest();
+
+  @override
+  Future<HttpClientRequest> get(String host, int port, String path) async =>
+      _FakeHttpClientRequest();
+
+  @override
+  bool autoUncompress = true;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+final class _FakeHttpClientRequest implements HttpClientRequest {
+  @override
+  Future<HttpClientResponse> close() async => _FakeHttpClientResponse();
+
+  @override
+  final HttpHeaders headers = _FakeHttpHeaders();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+final class _FakeHttpHeaders implements HttpHeaders {
+  @override
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+final class _FakeHttpClientResponse implements HttpClientResponse {
+  static final Uint8List _pngBytes = base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  );
+
+  @override
+  int get statusCode => 200;
+
+  @override
+  int get contentLength => _pngBytes.length;
+
+  @override
+  HttpClientResponseCompressionState get compressionState =>
+      HttpClientResponseCompressionState.notCompressed;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) {
+    return Stream<List<int>>.fromIterable([_pngBytes]).listen(
+      onData,
+      onError: onError,
+      onDone: onDone,
+      cancelOnError: cancelOnError,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

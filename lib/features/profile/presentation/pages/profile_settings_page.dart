@@ -18,9 +18,14 @@ final class ProfileSettingsPage extends StatelessWidget {
   const ProfileSettingsPage({
     required this.profileId,
     super.key,
+    this.picker,
   });
 
   final String profileId;
+
+  /// Инжектируемый `ImagePicker` для тестов (без реального камеры/галереи).
+  @visibleForTesting
+  final ImagePicker? picker;
 
   @override
   Widget build(BuildContext context) {
@@ -30,15 +35,16 @@ final class ProfileSettingsPage extends StatelessWidget {
       create: (_) => ProfileCubit(
         profileRepository: repository,
       )..load(profileId),
-      child: _ProfileSettingsView(profileId: profileId),
+      child: _ProfileSettingsView(profileId: profileId, picker: picker),
     );
   }
 }
 
 final class _ProfileSettingsView extends StatefulWidget {
-  const _ProfileSettingsView({required this.profileId});
+  const _ProfileSettingsView({required this.profileId, this.picker});
 
   final String profileId;
+  final ImagePicker? picker;
 
   @override
   State<_ProfileSettingsView> createState() => _ProfileSettingsViewState();
@@ -48,7 +54,7 @@ final class _ProfileSettingsViewState extends State<_ProfileSettingsView> {
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  final _picker = ImagePicker();
+  late final ImagePicker _picker = widget.picker ?? ImagePicker();
 
   Uint8List? _pendingAvatarBytes;
   String? _pendingAvatarContentType;
@@ -124,9 +130,11 @@ final class _ProfileSettingsViewState extends State<_ProfileSettingsView> {
       if (picked == null || !mounted) return;
 
       final bytes = await picked.readAsBytes();
-      final contentType = picked.name.endsWith('.png')
+      // Приоритет — mimeType от платформы (web), иначе по расширению имени файла
+      // (нативные платформы image_picker возвращают XFile с реальным путём).
+      final contentType = picked.mimeType ?? (picked.name.endsWith('.png')
           ? 'image/png'
-          : 'image/jpeg';
+          : 'image/jpeg');
 
       setState(() {
         _pendingAvatarBytes = bytes;
@@ -176,6 +184,14 @@ final class _ProfileSettingsViewState extends State<_ProfileSettingsView> {
         displayName: _nameController.text.trim(),
         bio: _bioController.text.trim(),
       );
+
+      // ProfileCubit ловит ошибки репозитория внутри себя и эмитит
+      // ProfileFailure, не пробрасывая исключение сюда. Если состояние —
+      // failure, значит сохранение не удалось: не показываем ложный
+      // «Профиль сохранён.» и не сбрасываем pending-изменения.
+      if (cubit.state is ProfileFailure) {
+        throw _SaveProfileFailedException();
+      }
 
       if (!mounted) return;
 
@@ -587,3 +603,7 @@ final class _ProfileSettingsViewState extends State<_ProfileSettingsView> {
     );
   }
 }
+
+/// Внутренняя ошибка: cubit завершил сохранение в состоянии `ProfileFailure`.
+/// Используется, чтобы выйти из `try` в `_saveProfile` без ложного успеха.
+final class _SaveProfileFailedException implements Exception {}

@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 
 import 'package:family_planner/core/logging/app_logger.dart';
 
+/// Запись строки в файл. Вынесена в поле, чтобы виджет-тесты могли подменить
+/// реальный `dart:io` (в FakeAsync-зоне `testWidgets` он не завершается).
+typedef JsonFileWriter = Future<void> Function(String path, String content);
+
 /// Работа с файлами/буфером обмена для импорта/экспорта JSON.
 ///
 /// - Импорт: вставка из буфера (все платформы) или выбор `.json`-файла
@@ -13,6 +17,14 @@ import 'package:family_planner/core/logging/app_logger.dart';
 /// - Экспорт: копирование в буфер (все платформы) или сохранение файла
 ///   через [FilePicker] (mobile/desktop; на web кнопка сохранения скрыта).
 final class TaskFileService {
+  /// Замена для `File.writeAsString` в тестах (см. [JsonFileWriter]).
+  @visibleForTesting
+  static JsonFileWriter writeJsonFile = _writeFile;
+
+  static Future<void> _writeFile(String path, String content) {
+    return File(path).writeAsString(content);
+  }
+
   /// Читает JSON-строку из системного буфера обмена.
   static Future<String?> readClipboard() async {
     try {
@@ -82,7 +94,7 @@ final class TaskFileService {
       );
       if (path == null) return false;
 
-      await File(path).writeAsString(content);
+      await writeJsonFile(path, content);
       AppLogger.info('Задачи сохранены в файл: $path');
       return true;
     } catch (e) {

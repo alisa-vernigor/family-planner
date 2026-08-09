@@ -154,5 +154,19 @@ void main() {
         const NotificationsFailure(message: 'Не удалось загрузить уведомления.'),
       ],
     );
+
+    blocTest<AppNotificationsCubit, NotificationsState>(
+      'refresh при ошибке → Failure',
+      build: () {
+        when(
+          () => repository.getActivityFeed(householdId: any(named: 'householdId')),
+        ).thenThrow(Exception('boom'));
+        return createCubit();
+      },
+      act: (cubit) => cubit.refresh(),
+      expect: () => [
+        const NotificationsFailure(message: 'Не удалось обновить уведомления.'),
+      ],
+    );
   });
 }

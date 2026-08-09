@@ -338,23 +338,6 @@ final class _CalendarViewState extends State<CalendarView> {
                                   category:
                                       widget.categoriesById[task.categoryId],
                                   formatDate: _formatDate,
-                                  onEdit: () => widget.onEdit(task),
-                                  onDelete: () => widget.onDelete(task),
-                                  onAssign: () =>
-                                      widget.onAssign(task, widget.members),
-                                  onTogglePin: () => widget.onTogglePin(task),
-                                  onReschedule: () => widget.onReschedule(task),
-                                  onDuplicate: () => widget.onDuplicate(task),
-                                  onTogglePause:
-                                      widget.onTogglePause == null
-                                      ? null
-                                      : () => widget.onTogglePause!(task),
-                                  onSkip:
-                                      widget.onSkip == null
-                                      ? null
-                                      : () => widget.onSkip!(task),
-                                  onComplete: () => widget.onComplete(task),
-                                  onUncomplete: () => widget.onUncomplete(task),
                                 ),
                               ),
                             ),
@@ -367,23 +350,6 @@ final class _CalendarViewState extends State<CalendarView> {
                                 category:
                                     widget.categoriesById[task.categoryId],
                                 formatDate: _formatDate,
-                                onEdit: () => widget.onEdit(task),
-                                onDelete: () => widget.onDelete(task),
-                                onAssign: () =>
-                                    widget.onAssign(task, widget.members),
-                                onTogglePin: () => widget.onTogglePin(task),
-                                onReschedule: () => widget.onReschedule(task),
-                                onDuplicate: () => widget.onDuplicate(task),
-                                onTogglePause:
-                                    widget.onTogglePause == null
-                                    ? null
-                                    : () => widget.onTogglePause!(task),
-                                onSkip:
-                                    widget.onSkip == null
-                                    ? null
-                                    : () => widget.onSkip!(task),
-                                onComplete: () => widget.onComplete(task),
-                                onUncomplete: () => widget.onUncomplete(task),
                               ),
                             ),
                             child: _CalendarDayTaskCard(
@@ -681,14 +647,14 @@ final class _CalendarDayTaskCard extends StatelessWidget {
     required this.members,
     required this.currentMemberId,
     required this.formatDate,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onAssign,
-    required this.onTogglePin,
-    required this.onReschedule,
-    required this.onDuplicate,
-    required this.onComplete,
-    required this.onUncomplete,
+    this.onEdit,
+    this.onDelete,
+    this.onAssign,
+    this.onTogglePin,
+    this.onReschedule,
+    this.onDuplicate,
+    this.onComplete,
+    this.onUncomplete,
     this.onTogglePause,
     this.onSkip,
     this.category,
@@ -698,14 +664,14 @@ final class _CalendarDayTaskCard extends StatelessWidget {
   final List<HouseholdMember> members;
   final String currentMemberId;
   final String Function(DateTime) formatDate;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-  final VoidCallback onAssign;
-  final VoidCallback onTogglePin;
-  final VoidCallback onReschedule;
-  final VoidCallback onDuplicate;
-  final VoidCallback onComplete;
-  final VoidCallback onUncomplete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onAssign;
+  final VoidCallback? onTogglePin;
+  final VoidCallback? onReschedule;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onComplete;
+  final VoidCallback? onUncomplete;
   final VoidCallback? onTogglePause;
   final VoidCallback? onSkip;
   final TaskCategory? category;
@@ -719,7 +685,7 @@ final class _CalendarDayTaskCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: onEdit,
+        onTap: onEdit ?? () {},
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -733,9 +699,9 @@ final class _CalendarDayTaskCard extends StatelessWidget {
                     : 'Вы не назначены исполнителем',
                 child: GestureDetector(
                   onTap: task.isCompleted
-                      ? onUncomplete
+                      ? (onUncomplete ?? () {})
                       : canComplete
-                      ? onComplete
+                      ? (onComplete ?? () {})
                       : () {},
                   child: Icon(
                     task.isCompleted
@@ -825,17 +791,17 @@ final class _CalendarDayTaskCard extends StatelessWidget {
                 onSelected: (value) {
                   switch (value) {
                     case 'edit':
-                      onEdit();
+                      onEdit?.call();
                     case 'assign':
-                      onAssign();
+                      onAssign?.call();
                     case 'pin':
-                      onTogglePin();
+                      onTogglePin?.call();
                     case 'delete':
-                      onDelete();
+                      onDelete?.call();
                     case 'reschedule':
-                      onReschedule();
+                      onReschedule?.call();
                     case 'duplicate':
-                      onDuplicate();
+                      onDuplicate?.call();
                     case 'togglePause':
                       onTogglePause?.call();
                     case 'skip':

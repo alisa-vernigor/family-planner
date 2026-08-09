@@ -207,6 +207,78 @@ void main() {
       // (доказывает, что распределение примерно равномерное)
       expect(maxLoad - minLoad, lessThanOrEqualTo(20));
     });
+
+    test('при пустом списке участников задачи остаются без назначения', () async {
+      final repository = _FakeTaskRepository();
+      final householdRepository = _FakeHouseholdRepository(members: []);
+
+      final useCase = DistributeTasksUseCase(
+        taskRepository: repository,
+        householdRepository: householdRepository,
+      );
+
+      repository.tasksForDay = [
+        _makeTask('t1', 30, day),
+      ];
+
+      final result = await useCase(householdId: 'household-1', day: day);
+
+      expect(result.memberDurations, isEmpty);
+      expect(result.updatedTasks.single.assignedMemberId, isNull);
+      expect(repository.savedTasks, isEmpty);
+    });
+
+    test('при назначении участнику вне allowedMemberIds вызывает addAllowedMember',
+        () async {
+      final repository = _FakeTaskRepository();
+      final householdRepository = _FakeHouseholdRepository(
+        members: [alice, bob],
+      );
+
+      final useCase = DistributeTasksUseCase(
+        taskRepository: repository,
+        householdRepository: householdRepository,
+      );
+
+      // Alice уже загружена (40 мин), новая задача доступна только для alice,
+      // но жадный алгоритм назначит её менее загруженному Bob,
+      // которого нет в allowedMemberIds → addAllowedMember.
+      repository.tasksForDay = [
+        Task(
+          id: 'task-assigned',
+          householdId: 'household-1',
+          title: 'Assigned',
+          estimatedDurationMinutes: 40,
+          plannedFor: day,
+          allowedMemberIds: const ['alice'],
+          assignedMemberId: 'alice',
+          status: TaskStatus.pending,
+          createdAt: DateTime.utc(2026, 7, 25),
+        ),
+        Task(
+          id: 'task-unassigned',
+          householdId: 'household-1',
+          title: 'Restricted',
+          estimatedDurationMinutes: 30,
+          plannedFor: day,
+          allowedMemberIds: const ['alice'],
+          status: TaskStatus.pending,
+          createdAt: DateTime.utc(2026, 7, 25),
+        ),
+      ];
+
+      final result = await useCase(householdId: 'household-1', day: day);
+
+      final newTask = result.updatedTasks.firstWhere(
+        (t) => t.id == 'task-unassigned',
+      );
+      expect(newTask.assignedMemberId, 'bob');
+      expect(repository.addAllowedCalls, [
+        (taskId: 'task-unassigned', memberId: 'bob'),
+      ]);
+      // Сохранены обе изменившиеся задачи? Нет — только переназначенная.
+      expect(repository.savedTasks.map((t) => t.id), contains('task-unassigned'));
+    });
   });
 }
 
@@ -235,6 +307,7 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<void> resumeTemplate({required String templateId}) async {}
 
   final List<Task> savedTasks = [];
+  final List<({String taskId, String memberId})> addAllowedCalls = [];
   List<Task> tasksForDay = [];
 
   @override
@@ -277,7 +350,9 @@ final class _FakeTaskRepository implements TaskRepository {
   Future<void> addAllowedMember({
     required String taskId,
     required String memberId,
-  }) async {}
+  }) async {
+    addAllowedCalls.add((taskId: taskId, memberId: memberId));
+  }
 
   @override
   Future<void> removeAllowedMember({required String taskId, required String memberId}) async {}

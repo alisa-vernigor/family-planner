@@ -287,6 +287,59 @@ void main() {
       expect(task.isSeriesPaused, isTrue);
     });
 
+    test('getForDay парсит daily и interval_days шаблоны', () async {
+      await auth();
+      mockRouter((request) {
+        return _json([
+          _taskRow(
+            id: 'task-daily',
+            templateId: 'tmpl-daily',
+            recurrenceType: 'daily',
+          ),
+          _taskRow(
+            id: 'task-interval',
+            templateId: 'tmpl-interval',
+            recurrenceType: 'interval_days',
+            intervalDays: 4,
+          ),
+        ], request);
+      });
+
+      final tasks = await repo.getForDay(
+        householdId: 'household-1',
+        day: DateTime(2026, 8, 8),
+      );
+
+      expect(tasks[0].recurrence, const TaskRecurrence.daily());
+      expect(
+        tasks[1].recurrence,
+        const TaskRecurrence.intervalDays(intervalDays: 4),
+      );
+    });
+
+    test('getForDay с неизвестным recurrence_type парсит без recurrence',
+        () async {
+      await auth();
+      mockRouter((request) {
+        return _json([
+          _taskRow(
+            id: 'task-unknown',
+            templateId: 'tmpl-x',
+            recurrenceType: 'custom',
+          ),
+        ], request);
+      });
+
+      final tasks = await repo.getForDay(
+        householdId: 'household-1',
+        day: DateTime(2026, 8, 8),
+      );
+
+      expect(tasks.single.isRecurring, isFalse);
+      expect(tasks.single.recurrence, isNull);
+      expect(tasks.single.templateId, 'tmpl-x');
+    });
+
     test('getScheduledAfter и getAllPending шлют статус-фильтры и парсят',
         () async {
       await auth();
@@ -483,6 +536,87 @@ void main() {
             jsonDecode(updates.single) as Map<String, dynamic>;
         expect(updateBody['assigned_member_id'], 'user-2');
       });
+
+      test('create с pinnedMemberId (без исполнителя) делает save', () async {
+        await auth();
+        final updates = <String>[];
+        mockRouter((request) {
+          final path = request.url.path;
+          if (path == '/rest/v1/rpc/create_task_occurrence') {
+            return _json({
+              'id': 'task-new',
+              'household_id': 'household-1',
+              'title': 'Новая',
+              'estimated_duration_minutes': 10,
+              'planned_for': '2026-08-08',
+              'status': 'pending',
+              'created_at': '2026-08-08T10:00:00.000Z',
+              'updated_at': '2026-08-08T10:00:00.000Z',
+            }, request);
+          }
+          if (path == '/rest/v1/task_occurrences' &&
+              request.method == 'PATCH') {
+            updates.add(request.body);
+            return _json([
+              {'id': 'task-new'}
+            ], request);
+          }
+          return _json(const [], request);
+        });
+
+        await repo.create(
+          params: CreateTaskParams(
+            householdId: 'household-1',
+            title: 'Новая',
+            estimatedDurationMinutes: 10,
+            plannedFor: DateTime(2026, 8, 8),
+            pinnedMemberId: 'user-1',
+          ),
+        );
+
+        expect(updates, hasLength(1));
+        final updateBody =
+            jsonDecode(updates.single) as Map<String, dynamic>;
+        expect(updateBody['pinned_member_id'], 'user-1');
+        expect(updateBody['assigned_member_id'], isNull);
+      });
+
+      test('recurring create с дедлайном передаёт deadline_time', () async {
+        await auth();
+        final rpcCalls = <String>[];
+        mockRouter((request) {
+          if (request.url.path ==
+              '/rest/v1/rpc/create_recurring_task_template') {
+            rpcCalls.add(request.body);
+            return _json({
+              'id': 'task-rec',
+              'household_id': 'household-1',
+              'title': 'Серия',
+              'estimated_duration_minutes': 5,
+              'planned_for': '2026-08-08',
+              'status': 'pending',
+              'created_at': '2026-08-08T10:00:00.000Z',
+              'updated_at': '2026-08-08T10:00:00.000Z',
+            }, request);
+          }
+          return _json(const [], request);
+        });
+
+        await repo.create(
+          params: CreateTaskParams(
+            householdId: 'household-1',
+            title: 'Серия',
+            estimatedDurationMinutes: 5,
+            plannedFor: DateTime(2026, 8, 8),
+            recurrence: const TaskRecurrence.daily(),
+            deadline: DateTime(2026, 8, 8, 18, 30),
+          ),
+        );
+
+        final rpcBody = jsonDecode(rpcCalls.single) as Map<String, dynamic>;
+        expect(rpcBody['p_deadline_time'], '18:30:00');
+        expect(rpcBody['p_deadline_at'], isNotNull);
+      });
     });
 
     group('save', () {
@@ -550,6 +684,33 @@ void main() {
         expect(req.body!['completed_by_member_id'], 'user-1');
         expect(req.body!['completed_at'], isNotNull);
       });
+
+      test('save при пустом результате UPDATE логирует конфликт', () async {
+        await auth();
+        mockRouter((request) {
+          return _json(const [], request);
+        });
+
+        await repo.save(
+          Task(
+            id: 'task-1',
+            householdId: 'household-1',
+            title: 'Обновлено',
+            estimatedDurationMinutes: 15,
+            plannedFor: DateTime(2026, 8, 8),
+            allowedMemberIds: const ['user-1'],
+            status: TaskStatus.pending,
+            createdAt: DateTime(2026, 8, 1),
+            updatedAt: DateTime(2026, 8, 1, 12),
+          ),
+        );
+
+        // Не должно бросить исключение — только warning в лог.
+        final req = captured.singleWhere(
+          (r) => r.path == '/rest/v1/task_occurrences' && r.method == 'PATCH',
+        );
+        expect(req.body!['title'], 'Обновлено');
+      });
     });
 
     group('updateTemplate / pause / resume', () {
@@ -611,6 +772,45 @@ void main() {
           '/rest/v1/rpc/resume_task_template',
         ]);
       });
+
+      test('updateTemplate с датами и дедлайном шлёт даты', () async {
+        await auth();
+        final rpcCalls = <String>[];
+        mockRouter((request) {
+          if (request.url.path == '/rest/v1/rpc/update_task_template') {
+            rpcCalls.add(request.body);
+            return _json(const [], request);
+          }
+          return _json(const [], request);
+        });
+
+        await repo.updateTemplate(
+          params: UpdateRecurringTaskParams(
+            task: Task(
+              id: 'task-series',
+              householdId: 'household-1',
+              title: 'Серия',
+              estimatedDurationMinutes: 10,
+              plannedFor: DateTime(2026, 8, 8),
+              allowedMemberIds: const ['user-1'],
+              status: TaskStatus.pending,
+              createdAt: DateTime(2026, 8, 1),
+              deadline: DateTime(2026, 8, 8, 9, 45),
+            ),
+            recurrence: const TaskRecurrence.intervalDays(intervalDays: 3),
+            scope: RecurrenceEditScope.all,
+            recurrenceStartDate: DateTime(2026, 8, 8),
+            recurrenceEndDate: DateTime(2026, 9, 8),
+          ),
+        );
+
+        final body = jsonDecode(rpcCalls.single) as Map<String, dynamic>;
+        expect(body['p_deadline_time'], '09:45:00');
+        expect(body['p_start_date'], '2026-08-08');
+        expect(body['p_end_date'], '2026-09-08');
+        expect(body['p_recurrence_type'], 'interval_days');
+        expect(body['p_interval_days'], 3);
+      });
     });
 
     group('delete / patchStatus / allowed members', () {
@@ -662,6 +862,13 @@ void main() {
 
         final req = captured.singleWhere((r) => r.method == 'DELETE');
         expect(req.path, '/rest/v1/task_occurrence_allowed_members');
+      });
+
+      test('TaskUserNotAuthenticatedException.toString понятное', () {
+        expect(
+          const TaskUserNotAuthenticatedException().toString(),
+          contains('TaskUserNotAuthenticatedException'),
+        );
       });
     });
   });

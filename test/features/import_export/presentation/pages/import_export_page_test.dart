@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/src/platform/file_picker_platform_interface.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -9,6 +12,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:family_planner/core/services/connectivity_service.dart';
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/households/domain/repositories/household_repository.dart';
+import 'package:family_planner/features/import_export/data/task_file_service.dart';
 import 'package:family_planner/features/import_export/presentation/pages/import_export_page.dart';
 import 'package:family_planner/features/tasks/domain/entities/create_task_params.dart';
 import 'package:family_planner/features/tasks/domain/entities/task.dart';
@@ -29,10 +33,53 @@ final class MockTaskCategoryRepository extends Mock
 final class MockTaskSubtaskRepository extends Mock
     implements TaskSubtaskRepository {}
 
+/// Тестовый `FilePickerPlatform` — подменяет статические `FilePicker.*`.
+final class _FakeFilePickerPlatform extends FilePickerPlatform {
+  _FakeFilePickerPlatform({
+    this.result,
+    this.savePath,
+  });
+
+  final FilePickerResult? result;
+  final String? savePath;
+
+  @override
+  Future<FilePickerResult?> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    bool allowMultiple = false,
+    bool withData = false,
+    bool withReadStream = false,
+    bool lockParentWindow = false,
+    bool readSequential = false,
+    bool cancelUploadOnWindowBlur = true,
+  }) async {
+    return result;
+  }
+
+  @override
+  Future<String?> saveFile({
+    String? dialogTitle,
+    String? fileName,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Uint8List? bytes,
+    bool lockParentWindow = false,
+  }) async {
+    return savePath;
+  }
+}
+
 void main() {
   late MockRepositoryFactory mocks;
   late MockTaskCategoryRepository categoryRepo;
   late MockTaskSubtaskRepository subtaskRepo;
+  late FilePickerPlatform originalPicker;
 
   setUpAll(() {
     registerFallbackValue(
@@ -50,6 +97,7 @@ void main() {
     categoryRepo = MockTaskCategoryRepository();
     subtaskRepo = MockTaskSubtaskRepository();
     when(() => mocks.connectivity.currentOnline).thenReturn(true);
+    originalPicker = FilePickerPlatform.instance;
   });
 
   tearDown(() {
@@ -57,6 +105,7 @@ void main() {
         .defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(SystemChannels.platform, null);
     messenger.setMockMethodCallHandler(filePickerChannel, null);
+    FilePickerPlatform.instance = originalPicker;
   });
 
   const householdId = 'household-1';
@@ -298,6 +347,184 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Сохранение отменено или не удалось.'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('экспорт в файл при ошибке пикера показывает snack', (
+    tester,
+  ) async {
+    stubCommon();
+    when(
+      () => mocks.task.getAllPending(householdId: any(named: 'householdId')),
+    ).thenAnswer((_) async => [buildTask()]);
+    when(
+      () => subtaskRepo.getForTask(any()),
+    ).thenAnswer((_) async => const <TaskSubtask>[]);
+    final messenger = TestDefaultBinaryMessengerBinding.instance
+        .defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(filePickerChannel, (call) async {
+      if (call.method == 'save') throw PlatformException(code: 'e');
+      return null;
+    });
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Экспортировать в файл'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Сохранение отменено или не удалось.'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('импорт из файла: пустое содержимое → snack', (tester) async {
+    stubCommon();
+    FilePickerPlatform.instance = _FakeFilePickerPlatform(
+      result: FilePickerResult([
+        PlatformFile(name: 'tasks.json', size: 0),
+      ]),
+    );
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Импортировать из файла'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Файл пуст или выбор отменён.'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('импорт из файла: валидный JSON создаёт задачу', (tester) async {
+    stubCommon();
+    FilePickerPlatform.instance = _FakeFilePickerPlatform(
+      result: FilePickerResult([
+        PlatformFile(
+          name: 'tasks.json',
+          size: 14,
+          bytes: Uint8List.fromList(
+            utf8.encode('{"version":1,"tasks":[{"title":"Из файла"}]}'),
+          ),
+        ),
+      ]),
+    );
+    when(() => mocks.task.create(params: any(named: 'params')))
+        .thenAnswer((_) async => buildTask(title: 'Из файла'));
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Импортировать из файла'));
+    await tester.pumpAndSettle();
+
+    verify(() => mocks.task.create(params: any(named: 'params'))).called(1);
+    expect(find.text('Импортировано: 1'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('непредвиденная ошибка импорта показывает общий snack', (
+    tester,
+  ) async {
+    stubCommon();
+    mockClipboard('{"version":1,"tasks":[{"title":"t","duration_minutes":30}]}');
+    // getMembers бросает — use case падает, ловится общим catch.
+    when(
+      () => mocks.household.getMembers(householdId: any(named: 'householdId')),
+    ).thenThrow(Exception('boom'));
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Импортировать из буфера'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Не удалось импортировать задачи.'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('файл без задач показывает «В файле нет задач»', (tester) async {
+    stubCommon();
+    mockClipboard('{"version":1,"tasks":[]}');
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Импортировать из буфера'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('В файле нет задач.'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('импорт с ошибками задач показывает превью и счётчик', (
+    tester,
+  ) async {
+    stubCommon();
+    mockClipboard('''
+    {
+      "version": 1,
+      "tasks": [
+        {"title": "   "},
+        {"title": "   "},
+        {"title": "   "},
+        {"title": "   "},
+        {"title": "Хорошая"}
+      ]
+    }
+    ''');
+    when(() => mocks.task.create(params: any(named: 'params')))
+        .thenAnswer((_) async => buildTask(title: 'Хорошая'));
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Импортировать из буфера'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Импортировано: 1'), findsOneWidget);
+    expect(find.textContaining('пропущено: 4'), findsOneWidget);
+    expect(find.textContaining('и ещё 1'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('сбой копирования в буфер показывает snack', (tester) async {
+    stubCommon();
+    when(
+      () => mocks.task.getAllPending(householdId: any(named: 'householdId')),
+    ).thenAnswer((_) async => [buildTask()]);
+    when(
+      () => subtaskRepo.getForTask(any()),
+    ).thenAnswer((_) async => const <TaskSubtask>[]);
+    final messenger = TestDefaultBinaryMessengerBinding.instance
+        .defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        throw PlatformException(code: 'e');
+      }
+      return null;
+    });
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Экспортировать в буфер'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Не удалось скопировать в буфер.'), findsOneWidget);
+    await drainSnackBar(tester);
+  });
+
+  testWidgets('экспорт в файл успешно сохраняет JSON', (tester) async {
+    stubCommon();
+    // saveJsonFile пишет реальным dart:io (не завершается в FakeAsync-зоне
+    // testWidgets) — подменяем writer на in-memory запись.
+    final original = TaskFileService.writeJsonFile;
+    addTearDown(() => TaskFileService.writeJsonFile = original);
+    String? written;
+    TaskFileService.writeJsonFile = (path, content) async {
+      written = content;
+    };
+    FilePickerPlatform.instance = _FakeFilePickerPlatform(savePath: '/tmp/tasks.json');
+    when(
+      () => mocks.task.getAllPending(householdId: any(named: 'householdId')),
+    ).thenAnswer((_) async => [buildTask()]);
+    when(
+      () => subtaskRepo.getForTask(any()),
+    ).thenAnswer((_) async => const <TaskSubtask>[]);
+
+    await tester.pumpWidget(buildSubject());
+    await tester.tap(find.text('Экспортировать в файл'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Задачи сохранены в файл.'), findsOneWidget);
+    expect(written, isNotNull);
+    expect(written, contains('Помыть посуду'));
     await drainSnackBar(tester);
   });
 }

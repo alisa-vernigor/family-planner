@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../entities/task.dart';
 
-final class TaskSchedule {
-  const TaskSchedule._();
-
+abstract final class TaskSchedule {
   static List<Task> forDay({required List<Task> tasks, required DateTime day}) {
     return tasks
         .where((task) => DateUtils.isSameDay(task.plannedFor, day))

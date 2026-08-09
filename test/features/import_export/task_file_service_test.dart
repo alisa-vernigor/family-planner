@@ -1,13 +1,68 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/src/platform/file_picker_platform_interface.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:family_planner/features/import_export/data/task_file_service.dart';
 
+/// Тестовый `FilePickerPlatform` — подменяет статические `FilePicker.*`.
+final class _FakeFilePickerPlatform extends FilePickerPlatform {
+  _FakeFilePickerPlatform({
+    this.result,
+    this.savePath,
+  });
+
+  final FilePickerResult? result;
+  final String? savePath;
+
+  @override
+  Future<FilePickerResult?> pickFiles({
+    String? dialogTitle,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Function(FilePickerStatus)? onFileLoading,
+    int compressionQuality = 0,
+    bool allowMultiple = false,
+    bool withData = false,
+    bool withReadStream = false,
+    bool lockParentWindow = false,
+    bool readSequential = false,
+    bool cancelUploadOnWindowBlur = true,
+  }) async {
+    return result;
+  }
+
+  @override
+  Future<String?> saveFile({
+    String? dialogTitle,
+    String? fileName,
+    String? initialDirectory,
+    FileType type = FileType.any,
+    List<String>? allowedExtensions,
+    Uint8List? bytes,
+    bool lockParentWindow = false,
+  }) async {
+    return savePath;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  late FilePickerPlatform originalPicker;
+
+  setUp(() {
+    originalPicker = FilePickerPlatform.instance;
+  });
+
+  tearDown(() {
+    // Восстанавливаем платформенную реализацию FilePicker после фейков.
+    FilePickerPlatform.instance = originalPicker;
+  });
 
   group('TaskFileService.readClipboard', () {
     test('возвращает текст из буфера', () async {
@@ -133,6 +188,21 @@ void main() {
       final result = await TaskFileService.pickJsonFile();
       expect(result, isNull);
     });
+
+    test('пикер вернул файл с bytes (web/mobile) — читает из bytes', () async {
+      FilePickerPlatform.instance = _FakeFilePickerPlatform(
+        result: FilePickerResult([
+          PlatformFile(
+            name: 'tasks.json',
+            size: 14,
+            bytes: Uint8List.fromList(utf8.encode('{"from":"bytes"}')),
+          ),
+        ]),
+      );
+
+      final result = await TaskFileService.pickJsonFile();
+      expect(result, '{"from":"bytes"}');
+    });
   });
 
   group('TaskFileService.saveJsonFile', () {
@@ -142,6 +212,44 @@ void main() {
       // превращает это в false.
       final ok = await TaskFileService.saveJsonFile('{"a":1}');
       expect(ok, isFalse);
+    });
+
+    test('успешное сохранение файла — возвращает true и пишет содержимое',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('fp_save_test');
+      final savePath = '${dir.path}/tasks.json';
+
+      FilePickerPlatform.instance = _FakeFilePickerPlatform(savePath: savePath);
+
+      final ok = await TaskFileService.saveJsonFile('{"a":1}');
+
+      expect(ok, isTrue);
+      final file = File(savePath);
+      expect(await file.exists(), isTrue);
+      expect(await file.readAsString(), '{"a":1}');
+    });
+
+    test('замена writeJsonFile перехватывает запись (для виджет-тестов)',
+        () async {
+      // Сохраняем оригинал, чтобы не сломать другие тесты.
+      final original = TaskFileService.writeJsonFile;
+      addTearDown(() => TaskFileService.writeJsonFile = original);
+
+      String? writtenPath;
+      String? writtenContent;
+      TaskFileService.writeJsonFile = (path, content) async {
+        writtenPath = path;
+        writtenContent = content;
+      };
+
+      FilePickerPlatform.instance =
+          _FakeFilePickerPlatform(savePath: '/tmp/fake_tasks.json');
+
+      final ok = await TaskFileService.saveJsonFile('{"x":1}');
+
+      expect(ok, isTrue);
+      expect(writtenPath, '/tmp/fake_tasks.json');
+      expect(writtenContent, '{"x":1}');
     });
   });
 }

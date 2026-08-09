@@ -56,6 +56,27 @@ void main() {
     expect(result, const Duration(hours: 9, minutes: 0));
   });
 
+  testWidgets('time picker при заданном времени стартует с него и подтверждает', (
+    tester,
+  ) async {
+    Duration? result;
+    await tester.pumpWidget(
+      buildSubject(
+        value: const Duration(hours: 14, minutes: 30),
+        onChanged: (time) => result = time,
+      ),
+    );
+
+    await tester.tap(find.text('Начало: 14:30'));
+    await tester.pumpAndSettle();
+
+    // TimePicker открыт (initial 14:30). Подтверждаем выбор.
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    expect(result, const Duration(hours: 14, minutes: 30));
+  });
+
   testWidgets('кнопка «Убрать время» очищает значение', (tester) async {
     Duration? result = const Duration(hours: 9);
     await tester.pumpWidget(

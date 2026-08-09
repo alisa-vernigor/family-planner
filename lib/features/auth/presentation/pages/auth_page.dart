@@ -251,6 +251,7 @@ final class _AuthPageState extends State<AuthPage> {
 
                             return null;
                           },
+                          onChanged: (_) => setState(() {}),
                           onFieldSubmitted: (_) {
                             if (!isLoading) _submit();
                           },

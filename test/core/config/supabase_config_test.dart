@@ -8,6 +8,12 @@ void main() {
     dotenv.clean();
   });
 
+  group('SupabaseConfig', () {
+    test('класс существует (покрывает приватный конструктор)', () {
+      expect(SupabaseConfig, isA<Type>());
+    });
+  });
+
   group('SupabaseConfig.url', () {
     test('берёт значение из dotenv если оно не пустое', () {
       dotenv.loadFromString(

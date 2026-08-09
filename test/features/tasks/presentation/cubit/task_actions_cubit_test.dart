@@ -109,6 +109,14 @@ void main() {
       expect(result, isNull);
     });
 
+    test('задача с напоминанием: uncomplete перепланирует напоминание '
+        '(ReminderService no-op) и возвращает Task', () async {
+      final withReminder = task.copyWith(reminderMinutesBefore: 30);
+      final result = await cubit.uncompleteTask(task: withReminder);
+      expect(result, isA<Task>());
+      expect(result!.reminderMinutesBefore, 30);
+    });
+
     blocTest<TaskActionsCubit, TaskActionState>(
       'выдаёт Failure при ошибке сохранения в репозитории',
       build: () {

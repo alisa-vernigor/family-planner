@@ -32,7 +32,14 @@ class ConnectivityService {
       _updateState(results);
     });
 
-    _subscription = _connectivity.onConnectivityChanged.listen(_updateState);
+    _subscription = _connectivity.onConnectivityChanged.listen(
+      _updateState,
+      // Обрабатываем реальные ошибки платформы (например, MethodChannel
+      // throw): без обработчика поток ошибки стал бы unhandled exception
+      // в зоне теста/приложения. Состояние при этом не меняем — текущее
+      // значение остаётся актуальным.
+      onError: (_) {},
+    );
   }
 
   void _updateState(List<ConnectivityResult> results) {

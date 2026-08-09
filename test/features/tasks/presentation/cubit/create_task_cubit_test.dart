@@ -95,4 +95,21 @@ void main() {
     act: (cubit) => cubit.reset(),
     expect: () => [const CreateTaskInitial()],
   );
+
+  blocTest<CreateTaskCubit, CreateTaskState>(
+    'create с напоминанием планирует его (ReminderService не инициализирован — '
+    'no-op) и завершается Success',
+    build: () {
+      final taskWithReminder = task.copyWith(reminderMinutesBefore: 15);
+      when(
+        () => repository.create(params: any(named: 'params')),
+      ).thenAnswer((_) async => taskWithReminder);
+      return cubit;
+    },
+    act: (cubit) => cubit.create(params: params),
+    expect: () => [
+      const CreateTaskInProgress(),
+      CreateTaskSuccess(task: task.copyWith(reminderMinutesBefore: 15)),
+    ],
+  );
 }

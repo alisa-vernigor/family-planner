@@ -5,10 +5,10 @@ import 'package:intl/intl.dart';
 
 import 'package:family_planner/features/households/domain/entities/household_member.dart';
 import 'package:family_planner/features/scheduled/presentation/widgets/calendar_view.dart';
-import 'package:family_planner/features/tasks/domain/entities/task.dart';
-import 'package:family_planner/features/tasks/domain/entities/task_category.dart';
+import 'package:family_planner/features/tasks/domain/entities/task.dart';import 'package:family_planner/features/tasks/domain/entities/task_category.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_recurrence.dart';
 import 'package:family_planner/features/tasks/domain/entities/task_status.dart';
+import 'package:table_calendar/table_calendar.dart';
 
 void main() {
   setUpAll(() async {
@@ -35,6 +35,13 @@ void main() {
     void Function(Task)? onTogglePause,
     void Function(Task)? onSkip,
     void Function(Task)? onComplete,
+    void Function(Task)? onEdit,
+    void Function(Task)? onDelete,
+    void Function(Task, List<HouseholdMember>)? onAssign,
+    void Function(Task)? onTogglePin,
+    void Function(Task)? onReschedule,
+    void Function(Task)? onDuplicate,
+    void Function(Task)? onUncomplete,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -43,17 +50,17 @@ void main() {
           members: members,
           currentMemberId: currentMemberId,
           categoriesById: categoriesById,
-          onEdit: (_) {},
-          onDelete: (_) {},
-          onAssign: (_, _) {},
-          onTogglePin: (_) {},
-          onReschedule: (_) {},
+          onEdit: onEdit ?? (_) {},
+          onDelete: onDelete ?? (_) {},
+          onAssign: onAssign ?? (_, _) {},
+          onTogglePin: onTogglePin ?? (_) {},
+          onReschedule: onReschedule ?? (_) {},
           onRescheduleToDay: onRescheduleToDay ?? (_, _) {},
-          onDuplicate: (_) {},
+          onDuplicate: onDuplicate ?? (_) {},
           onTogglePause: onTogglePause,
           onSkip: onSkip,
           onComplete: onComplete ?? (_) {},
-          onUncomplete: (_) {},
+          onUncomplete: onUncomplete ?? (_) {},
           onCreate: () {},
         ),
       ),
@@ -173,6 +180,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('00:00'), findsOneWidget); // подпись часа на шкале
+  });
+
+  testWidgets('вертикальный свайп по сетке месяца вызывает onFormatChanged', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildSubject(tasks: [taskOnToday]));
+
+    // Свайп вверх по TableCalendar. Формат всего один (month), поэтому
+    // onFormatChanged вызывается с month, но сам колбэк исполняется (setState).
+    final table = find.byType(TableCalendar<Task>);
+    expect(table, findsOneWidget);
+
+    await tester.fling(table, const Offset(0, -200), 1000);
+    await tester.pumpAndSettle();
+
+    // Календарь всё ещё в месячном режиме.
+    expect(find.text('Месяц'), findsOneWidget);
   });
 
   testWidgets('перетаскивание задачи вызывает onRescheduleToDay с датой', (
@@ -319,6 +343,45 @@ void main() {
     expect(find.text(nextMonthHeader), findsOneWidget);
   });
 
+  testWidgets('перетаскивание к левому краю листает календарь назад', (
+    tester,
+  ) async {
+    // Увеличиваем окно — задача в списке дня должна быть видима.
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final prevMonth = DateTime(today.year, today.month - 1);
+    final prevMonthHeader = DateFormat.yMMMM('ru_RU').format(prevMonth);
+
+    await tester.pumpWidget(buildSubject(tasks: [taskOnToday]));
+
+    final draggable = find.byKey(Key('draggable_task_task-today'));
+    expect(draggable, findsOneWidget);
+
+    final source = tester.getCenter(draggable);
+    final calendarRect = tester.getRect(find.byType(CalendarView));
+    final edge = Offset(calendarRect.left + 2, source.dy);
+    final center = calendarRect.center;
+
+    final gesture = await tester.startGesture(source);
+    await tester.pump(const Duration(milliseconds: 600)); // long-press
+    await gesture.moveTo(edge);
+    await tester.pump(); // начать перетаскивание
+
+    // Ждём таймер авто-листания (300мс период) → одна страница назад.
+    await tester.pump(const Duration(milliseconds: 350));
+
+    // Возвращаем курсор в центр, чтобы остановить авто-листание.
+    await gesture.moveTo(center);
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    // Заголовок календаря сменился на предыдущий месяц.
+    expect(find.text(prevMonthHeader), findsOneWidget);
+  });
+
   testWidgets('чекбокс выполнения в списке дня активен, если пользователь в allowedMemberIds', (
     tester,
   ) async {
@@ -361,5 +424,267 @@ void main() {
     await tester.pump();
 
     expect(completed, isNull);
+  });
+
+  testWidgets('меню карточки: редактировать/удалить/назначить/перенести/дублировать вызывают колбэки', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final called = <String>[];
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [taskOnToday],
+        onEdit: (_) => called.add('edit'),
+        onDelete: (_) => called.add('delete'),
+        onAssign: (_, _) => called.add('assign'),
+        onReschedule: (_) => called.add('reschedule'),
+        onDuplicate: (_) => called.add('duplicate'),
+      ),
+    );
+
+    Future<void> tapMenuItem(String label) async {
+      await tester.ensureVisible(
+        find.byKey(const Key('calendar_task_menu_task-today')),
+      );
+      await tester.tap(find.byKey(const Key('calendar_task_menu_task-today')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+
+    await tapMenuItem('Редактировать');
+    expect(called, contains('edit'));
+
+    await tapMenuItem('Перенести');
+    expect(called, contains('reschedule'));
+
+    await tapMenuItem('Дублировать');
+    expect(called, contains('duplicate'));
+
+    await tapMenuItem('Назначить');
+    expect(called, contains('assign'));
+
+    await tapMenuItem('Удалить');
+    expect(called, contains('delete'));
+    expect(called, ['edit', 'reschedule', 'duplicate', 'assign', 'delete']);
+  });
+
+  testWidgets('закреплённая задача: чип «Закреплено» и пункт «Открепить»', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final pinned = taskOnToday.copyWith(pinnedMemberId: 'member-1');
+    bool? toggled;
+    await tester.pumpWidget(
+      buildSubject(tasks: [pinned], onTogglePin: (_) => toggled = true),
+    );
+
+    // Чип «Закреплено» в карточке дня.
+    expect(find.text('Закреплено'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const Key('calendar_task_menu_task-today')),
+    );
+    await tester.tap(find.byKey(const Key('calendar_task_menu_task-today')));
+    await tester.pumpAndSettle();
+
+    // Для закреплённой: «Открепить» (вместо «Назначить»).
+    await tester.tap(find.text('Открепить'));
+    await tester.pumpAndSettle();
+    expect(toggled, isTrue);
+  });
+
+  testWidgets('чип времени начала показывается у задачи с plannedTime', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final withTime = taskOnToday.copyWith(
+      plannedTime: const Duration(hours: 9, minutes: 30),
+    );
+    await tester.pumpWidget(buildSubject(tasks: [withTime]));
+
+    // Чип времени начала (HH:MM) в карточке дня.
+    expect(find.text('09:30'), findsOneWidget);
+  });
+
+  testWidgets('чип исполнителя показывает имя назначенного участника', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final assigned = taskOnToday.copyWith(assignedMemberId: 'member-2');
+    final member2 = HouseholdMember(
+      profileId: 'member-2',
+      displayName: 'Влад',
+      role: 'member',
+    );
+    await tester.pumpWidget(
+      buildSubject(tasks: [assigned], members: [member2]),
+    );
+
+    expect(find.text('Влад'), findsOneWidget);
+  });
+
+  testWidgets('назначенный участник с неизвестным id не показывается', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // assignedMemberId не найден в members → имя null → чипа нет.
+    final assigned = taskOnToday.copyWith(assignedMemberId: 'unknown');
+    await tester.pumpWidget(
+      buildSubject(tasks: [assigned], members: const []),
+    );
+
+    // Нет чипа исполнителя; но имя не существует вовсе.
+    expect(find.text('unknown'), findsNothing);
+  });
+
+  testWidgets('выбор дня вызывает setState и обновляет список задач', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final tomorrow = today.add(const Duration(days: 1));
+    final tomorrowTask = taskOnToday.copyWith(
+      id: 'task-tomorrow',
+      title: 'Завтрашняя',
+      plannedFor: tomorrow,
+    );
+    await tester.pumpWidget(
+      buildSubject(tasks: [tomorrowTask]),
+    );
+
+    // Завтрашняя задача сейчас не в списке выбранного дня (сегодня):
+    // карточки дня для неё нет.
+    expect(
+      find.byKey(const Key('calendar_task_menu_task-tomorrow')),
+      findsNothing,
+    );
+
+    // Выбираем завтрашний день в сетке.
+    final target = find.byKey(
+      Key('calendar_day_${tomorrow.year}_${tomorrow.month}_${tomorrow.day}'),
+    );
+    await tester.ensureVisible(target);
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+
+    // После выбора дня его карточка появляется в списке под сеткой.
+    expect(
+      find.byKey(const Key('calendar_task_menu_task-tomorrow')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('навигация в недельном режиме листает календарь', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(buildSubject());
+
+    // Переключаемся в недельный режим (TimeScaleView с навигацией).
+    await tester.tap(find.text('Неделя'));
+    await tester.pumpAndSettle();
+
+    // Запоминаем заголовок недели до навигации.
+    final before = tester
+        .widget<Text>(
+          find.byWidgetPredicate(
+            (w) => w is Text && w.style?.fontWeight == FontWeight.w700,
+          ).first,
+        )
+        .data;
+
+    // Кнопка «Вперёд» в шапке TimeScaleView.
+    await tester.tap(find.byTooltip('Вперёд'));
+    await tester.pumpAndSettle();
+
+    final after = tester
+        .widget<Text>(
+          find.byWidgetPredicate(
+            (w) => w is Text && w.style?.fontWeight == FontWeight.w700,
+          ).first,
+        )
+        .data;
+
+    expect(after, isNot(before));
+  });
+
+  testWidgets('меню: «Поставить на паузу» и «Пропустить» для повторяющейся задачи', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final recurring = taskOnToday.copyWith(
+      templateId: 'template-1',
+      recurrence: const TaskRecurrence.daily(),
+    );
+    final called = <String>[];
+    await tester.pumpWidget(
+      buildSubject(
+        tasks: [recurring],
+        onTogglePause: (_) => called.add('pause'),
+        onSkip: (_) => called.add('skip'),
+      ),
+    );
+
+    await tester.ensureVisible(
+      find.byKey(const Key('calendar_task_menu_task-today')),
+    );
+    await tester.tap(find.byKey(const Key('calendar_task_menu_task-today')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Поставить на паузу'));
+    await tester.pumpAndSettle();
+    expect(called, contains('pause'));
+
+    await tester.tap(find.byKey(const Key('calendar_task_menu_task-today')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Пропустить'));
+    await tester.pumpAndSettle();
+    expect(called, contains('skip'));
+  });
+
+  testWidgets('меню: «Отменить выполнение» для выполненной задачи', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final completed = taskOnToday.copyWith(
+      status: TaskStatus.completed,
+      completedAt: today,
+    );
+    Task? uncompleted;
+    await tester.pumpWidget(
+      buildSubject(tasks: [completed], onUncomplete: (t) => uncompleted = t),
+    );
+
+    // Выполненная задача: чекбокс check_circle → тап → onUncomplete.
+    await tester.tap(find.byIcon(Icons.check_circle));
+    await tester.pump();
+
+    expect(uncompleted?.id, 'task-today');
   });
 }

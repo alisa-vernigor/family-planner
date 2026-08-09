@@ -123,6 +123,23 @@ void main() {
     expect(find.byIcon(Icons.cloud_off), findsOneWidget);
   });
 
+  testWidgets('онлайн + SyncPending → показывает число операций', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap());
+
+    cubit.emit(
+      cubit.state.copyWith(
+        status: const SyncPending(3),
+        pendingCount: 3,
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Ожидает синхронизации: 3 операций'), findsOneWidget);
+    expect(find.byIcon(Icons.sync), findsOneWidget);
+  });
+
   testWidgets('офлайн → sync завершился без ошибок → баннер исчезает',
       (tester) async {
     fakeConnectivity.checkResult = [ConnectivityResult.none];

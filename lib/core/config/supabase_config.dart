@@ -1,8 +1,6 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-final class SupabaseConfig {
-  SupabaseConfig._();
-
+abstract final class SupabaseConfig {
   static String get url {
     final value = dotenv.isInitialized
         ? dotenv.maybeGet('SUPABASE_URL')

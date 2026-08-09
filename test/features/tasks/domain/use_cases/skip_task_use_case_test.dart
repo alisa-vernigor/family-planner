@@ -52,6 +52,14 @@ void main() {
         throwsA(isA<TaskAlreadySkippedException>()),
       );
     });
+
+    test('сообщение исключения понятное', () {
+      const exception = TaskAlreadySkippedException();
+      expect(
+        exception.toString(),
+        contains('TaskAlreadySkippedException'),
+      );
+    });
   });
 }
 

@@ -93,6 +93,7 @@ void main() {
     build: () {
       final repository = _FakeTaskRepository(
         tasksToReturn: [task],
+        exceptionToThrow: Exception('Нет подключения'),
         exceptionOnSecondCall: true,
       );
       return TodayTasksCubit(
@@ -108,6 +109,26 @@ void main() {
     },
     verify: (cubit) {
       expect(cubit.state, isA<TodayTasksLoaded>());
+    },
+  );
+
+  blocTest<TodayTasksCubit, TodayTasksState>(
+    'refresh из не-Loaded стейта при ошибке не эмитит Failure (остаётся как был)',
+    build: () {
+      final repository = _FakeTaskRepository(
+        exceptionToThrow: Exception('Нет подключения'),
+      );
+      return TodayTasksCubit(
+        taskRepository: repository,
+        householdRepository: _FakeHouseholdRepository(),
+        currentMemberId: 'member-1',
+        householdId: 'household-1',
+      );
+    },
+    act: (cubit) => cubit.refresh(householdId: 'household-1', day: day),
+    expect: () => const [],
+    verify: (cubit) {
+      expect(cubit.state, isA<TodayTasksInitial>());
     },
   );
 

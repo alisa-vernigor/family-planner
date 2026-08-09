@@ -265,5 +265,65 @@ void main() {
       expect(events, contains(AuthStateEvent.signedOut));
       await sub.cancel();
     });
+
+    test('authStateEvents эмитит tokenRefreshed при обновлении токена', () async {
+      await client.auth.setSession(
+        'refresh-token',
+        accessToken: _fakeAccessToken(),
+      );
+      final events = <AuthStateEvent>[];
+      final sub = repo.authStateEvents.listen(events.add);
+
+      // Прямой вызов внутреннего уведомления GoTrueClient: именно так
+      // поток получает событие tokenRefreshed.
+      // ignore: invalid_use_of_internal_member
+      client.auth.notifyAllSubscribers(AuthChangeEvent.tokenRefreshed);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, contains(AuthStateEvent.tokenRefreshed));
+      await sub.cancel();
+    });
+
+    test('authStateEvents эмитит passwordRecovery при восстановлении пароля',
+        () async {
+      final events = <AuthStateEvent>[];
+      final sub = repo.authStateEvents.listen(events.add);
+
+      // ignore: invalid_use_of_internal_member
+      client.auth.notifyAllSubscribers(AuthChangeEvent.passwordRecovery);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, contains(AuthStateEvent.passwordRecovery));
+      await sub.cancel();
+    });
+
+    test('ошибка в потоке auth передаётся в onError без падения', () async {
+      // GoTrueClient шлёт ошибки через notifyException (например, при сбое
+      // сети во время token refresh). Репозиторий логирует их через
+      // AppLogger — главное, чтобы не было unhandled exception.
+      // ignore: invalid_use_of_internal_member
+      client.auth.notifyException(AuthRetryableFetchException(message: 'net'));
+      await Future<void>.delayed(Duration.zero);
+
+      // После ошибки слушатель продолжает работать: подписка жива,
+      // последующие события доставляются.
+      final events = <AuthStateEvent>[];
+      final sub = repo.authStateEvents.listen(events.add);
+      await client.auth.setSession(
+        'refresh-token',
+        accessToken: _fakeAccessToken(),
+      );
+      await repo.signOut();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, contains(AuthStateEvent.signedOut));
+      await sub.cancel();
+    });
+
+    test('AuthUserNotReturnedException.toString содержит описание', () {
+      const e = AuthUserNotReturnedException();
+      expect(e.toString(), contains('AuthUserNotReturnedException'));
+      expect(e.toString(), contains('Supabase не вернул пользователя'));
+    });
   });
 }

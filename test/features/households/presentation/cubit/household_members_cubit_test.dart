@@ -212,5 +212,48 @@ void main() {
         const HouseholdMembersFailure(message: 'Не удалось удалить участника.'),
       );
     });
+
+    test('removeMember() из InvitationSending берёт текущих участников', () async {
+      when(
+        () => mocks.household.removeMember(
+          householdId: any(named: 'householdId'),
+          profileId: any(named: 'profileId'),
+        ),
+      ).thenAnswer((_) async {});
+      // Устанавливаем состояние InvitationSending напрямую.
+      cubit.emit(const HouseholdInvitationSending(members: members));
+
+      final result = await cubit.removeMember(
+        householdId: householdId,
+        profileId: 'member-1',
+      );
+
+      expect(result, isTrue);
+      expect(
+        cubit.state,
+        const HouseholdMembersLoaded(members: [member2]),
+      );
+    });
+
+    test('removeMember() из InvitationSent берёт текущих участников', () async {
+      when(
+        () => mocks.household.removeMember(
+          householdId: any(named: 'householdId'),
+          profileId: any(named: 'profileId'),
+        ),
+      ).thenAnswer((_) async {});
+      cubit.emit(const HouseholdInvitationSent(members: members));
+
+      final result = await cubit.removeMember(
+        householdId: householdId,
+        profileId: 'member-2',
+      );
+
+      expect(result, isTrue);
+      expect(
+        cubit.state,
+        const HouseholdMembersLoaded(members: [member1]),
+      );
+    });
   });
 }

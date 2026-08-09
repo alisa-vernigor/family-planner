@@ -225,4 +225,92 @@ void main() {
     expect(find.text('Запланированные'), findsWidgets);
     expect(find.text('Уведомления'), findsWidgets);
   });
+
+  testWidgets('переключение таба сохраняет выбранный таб в SharedPreferences', (
+    tester,
+  ) async {
+    stubGateState(
+      const HouseholdLoaded(households: [Household(id: 'h-1', name: 'Семья')]),
+    );
+    stubShellDependencies();
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Переключаемся на таб «Уведомления» (индекс 2).
+    await tester.tap(find.text('Уведомления'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('selected_tab'), 2);
+  });
+
+  testWidgets('восстановление состояния: сохранённый таб и семья применяются', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'selected_tab': 1,
+      'selected_household_id': 'h-1',
+    });
+    stubGateState(
+      const HouseholdLoaded(
+        households: [Household(id: 'h-1', name: 'Семья')],
+      ),
+    );
+    stubShellDependencies();
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Таб «Запланированные» активен (сохранён индекс 1).
+    final navBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
+    expect(navBar.selectedIndex, 1);
+  });
+
+  testWidgets('восстановление: несуществующий household id фолбэчится на первый', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'selected_tab': 0,
+      'selected_household_id': 'stale-id',
+    });
+    stubGateState(
+      const HouseholdLoaded(
+        households: [Household(id: 'h-1', name: 'Семья')],
+      ),
+    );
+    stubShellDependencies();
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Dropdown показывает первую семью (id не найден → fallback).
+    expect(find.text('Семья'), findsOneWidget);
+  });
+
+  testWidgets('переключение семьи сохраняет выбор в SharedPreferences', (
+    tester,
+  ) async {
+    stubGateState(
+      const HouseholdLoaded(
+        households: [
+          Household(id: 'h-1', name: 'Семья'),
+          Household(id: 'h-2', name: 'Работа'),
+        ],
+      ),
+    );
+    stubShellDependencies();
+
+    await tester.pumpWidget(buildSubject());
+    await tester.pumpAndSettle();
+
+    // Открываем dropdown и выбираем «Работа».
+    await tester.tap(find.byType(DropdownButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Работа').last);
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('selected_household_id'), 'h-2');
+  });
 }

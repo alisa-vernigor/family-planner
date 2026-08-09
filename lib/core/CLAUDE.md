@@ -13,15 +13,16 @@
   - **ВАЖНО:** проверка «инициализирован ли Supabase» — через try/catch вокруг `Supabase.instance.isInitialized`, потому что сам геттер `Supabase.instance` в debug бросает AssertionError, если экземпляр не инициализирован (assert внутри геттера). Раньше guard `if (!Supabase.instance.isInitialized) return;` сам падал в тестах/без бэкенда.
   - `reattachTaskSubscription` — пересоздание канала при смене household; `unsubscribeFromTaskChanges` — отписка.
 - **services/home_widget_service.dart** — `HomeWidgetService`: интеграция с Android Home Widget через `home_widget` package.
-  - `initialize()` — регистрация `interactiveCallback` для фоновых коллбэков.
-  - `syncTasks(tasks, currentMemberId, householdId)` — обновление данных виджета.
+  - `initialize({bool Function()? isSupportedPlatform})` — регистрация `interactiveCallback` для фоновых коллбэков. Параметр позволяет тестам на хосте (macOS) пройти платформенный guard.
+  - `syncTasks(tasks, currentMemberId, householdId, {bool Function()? isSupportedPlatform})` — обновление данных виджета.
   - Сохранение Supabase-конфигурации и сессии в SharedPreferences (через `HomeWidget.saveWidgetData`).
+  - Подписка на `onAuthStateChange` — обязательно с `onError`: ошибка стрима (например, сбой `recoverSession` в фоновом коллбэке) без него роняет приложение (в `gotrue` она прилетает как ошибка стрима, а не исключение).
   - `interactiveCallback` — фоновый изолят: обрабатывает нажатие на задачу в виджете (toggle complete/uncomplete). Восстанавливает Supabase-сессию из сохранённого JSON.
+  - Платформенный guard вынесен в глобальную `defaultSupportedPlatform()` (Android/iOS; web — false) — тесты переопределяют через параметр.
 - **services/reminder_service.dart** — `ReminderService`: локальные push-напоминания о задачах (`flutter_local_notifications` v22 + `timezone`).
-  - Singleton: `ReminderService.instance`.
-  - `initialize()` — инициализация плагина (вызывается в `main.dart`).
+  - Singleton: `ReminderService.instance`. Для тестов: `ReminderService.forTesting(plugin: ...)` — подмена плагина.
+  - `initialize({bool Function()? isSupportedPlatform})` — инициализация плагина (вызывается в `main.dart`). Параметр переопределяет платформенный guard для тестов на хосте.
   - `scheduleReminder(task)` / `cancelReminder(taskId)` — планирование/отмена по `task.reminderMinutesBefore`.
-  - `_isSupportedPlatform` — только Android/iOS (не web).
   - v22 API: `initialize(settings:)`, `zonedSchedule(id:, title:, body:, scheduledDate:, notificationDetails:, androidScheduleMode:)`, `cancel(id:)`.
 - **database/** — Drift/SQLite (offline-first):
   - Таблицы: `TaskOccurrences` (включая nullable-колонки `category_id`, `reminder_minutes_before`, `planned_time`, **`template_active`** — кэш `task_templates.is_active` для паузы серии), `TaskTemplates`, `TaskCategories`, `TaskSubtasks`, `SyncQueue`, а также household/профильные.

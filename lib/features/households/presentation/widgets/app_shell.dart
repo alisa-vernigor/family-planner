@@ -154,41 +154,12 @@ final class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _showRenameDialog(Household household) async {
-    final controller = TextEditingController(text: household.name);
     final cubit = context.read<HouseholdCubit>();
 
     final name = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Переименовать семью'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            labelText: 'Название семьи',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Отмена'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final trimmed = controller.text.trim();
-              if (trimmed.isNotEmpty) {
-                Navigator.of(ctx).pop(trimmed);
-              }
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
+      builder: (ctx) => _RenameHouseholdDialog(initialName: household.name),
     );
-
-    controller.dispose();
 
     if (name == null || !context.mounted) return;
 
@@ -238,7 +209,10 @@ final class _AppShellState extends State<AppShell> {
         appBar: AppBar(
         title: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            value: widget.selectedHouseholdId,
+            // Используем _selectedHousehold.id (с fallback на первую семью),
+            // а не widget.selectedHouseholdId напрямую: если id семьи не найден
+            // в списке, DropdownButton упал бы на assertion «exactly one item».
+            value: _selectedHousehold.id,
             isDense: true,
             items: widget.households
                 .map(
@@ -465,6 +439,69 @@ final class _AppShellState extends State<AppShell> {
         ],
       ),
       ),
+    );
+  }
+}
+
+/// Диалог переименования семьи.
+///
+/// Владеет собственным [TextEditingController], который живёт в [State]
+/// и корректно диспозится при удалении роута — в отличие от варианта, где
+/// контроллер создавался в `_showRenameDialog` и диспозился сразу после
+/// `showDialog` (падало «TextEditingController was used after being disposed»
+/// во время exit-анимации диалога).
+final class _RenameHouseholdDialog extends StatefulWidget {
+  const _RenameHouseholdDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_RenameHouseholdDialog> createState() => _RenameHouseholdDialogState();
+}
+
+final class _RenameHouseholdDialogState extends State<_RenameHouseholdDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Переименовать семью'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Название семьи',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final trimmed = _controller.text.trim();
+            if (trimmed.isNotEmpty) {
+              Navigator.of(context).pop(trimmed);
+            }
+          },
+          child: const Text('Сохранить'),
+        ),
+      ],
     );
   }
 }

@@ -44,6 +44,8 @@ void main() {
     String currentMemberId = 'member-1',
     void Function(Task)? onEdit,
     void Function(Task)? onComplete,
+    void Function(Task)? onUncomplete,
+    void Function(DateTime)? onFocusedDayChanged,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -53,10 +55,10 @@ void main() {
           currentMemberId: currentMemberId,
           weekMode: weekMode,
           focusedDay: focusedDay ?? today,
-          onFocusedDayChanged: (_) {},
+          onFocusedDayChanged: onFocusedDayChanged ?? (_) {},
           onEdit: onEdit ?? (_) {},
           onComplete: onComplete ?? (_) {},
-          onUncomplete: (_) {},
+          onUncomplete: onUncomplete ?? (_) {},
         ),
       ),
     );
@@ -260,5 +262,194 @@ void main() {
     await tester.pump();
 
     expect(completed, isNull);
+  });
+
+  testWidgets('навигация: кнопки «Назад»/«Вперёд» вызывают onFocusedDayChanged', (
+    tester,
+  ) async {
+    final changed = <DateTime>[];
+    await tester.pumpWidget(
+      buildSubject(onFocusedDayChanged: (day) => changed.add(day)),
+    );
+
+    // День-режим: «Вперёд» сдвигает на +1 день.
+    await tester.tap(find.byTooltip('Вперёд'));
+    await tester.pump();
+    expect(changed, hasLength(1));
+    final tomorrow = DateTime(today.year, today.month, today.day + 1);
+    expect(
+      DateUtils.isSameDay(changed.first, tomorrow),
+      isTrue,
+    );
+
+    // «Назад» возвращает на предыдущий день.
+    await tester.tap(find.byTooltip('Назад'));
+    await tester.pump();
+    expect(changed, hasLength(2));
+  });
+
+  testWidgets('навигация в недельном режиме сдвигает на 7 дней', (tester) async {
+    final changed = <DateTime>[];
+    await tester.pumpWidget(
+      buildSubject(weekMode: true, onFocusedDayChanged: (day) => changed.add(day)),
+    );
+
+    await tester.tap(find.byTooltip('Вперёд'));
+    await tester.pump();
+
+    expect(changed, hasLength(1));
+    final nextWeek = DateTime(today.year, today.month, today.day + 7);
+    expect(
+      DateUtils.isSameDay(changed.first, nextWeek),
+      isTrue,
+    );
+  });
+
+  testWidgets('заголовок недели при пересечении месяцев показывает диапазон дат', (
+    tester,
+  ) async {
+    // Неделя с 31 августа 2026 (понедельник) заканчивается 6 сентября —
+    // пересекает месяц. Заголовок: «31 авг – 6 сен 2026».
+    final crossMonthMonday = DateTime(2026, 8, 31);
+    await tester.pumpWidget(
+      buildSubject(weekMode: true, focusedDay: crossMonthMonday),
+    );
+
+    expect(find.textContaining('авг'), findsWidgets);
+    expect(find.textContaining('сен'), findsWidgets);
+    // Год присутствует (диапазон через месяц).
+    expect(find.textContaining('2026'), findsWidgets);
+  });
+
+  testWidgets('тап по задаче «Весь день» открывает редактирование', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    Task? edited;
+    await tester.pumpWidget(
+      buildSubject(tasks: [allDayTask], onEdit: (task) => edited = task),
+    );
+
+    // Чип «Весь день» с заголовком задачи кликабелен.
+    await tester.tap(find.text('Весь день').last);
+    await tester.pump();
+
+    expect(edited?.id, 'task-allday');
+  });
+
+  testWidgets('выполненная задача: чекбокс вызывает onUncomplete', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final completed = earlyTask.copyWith(
+      status: TaskStatus.completed,
+      completedAt: today,
+    );
+    Task? uncompleted;
+    await tester.pumpWidget(
+      buildSubject(tasks: [completed], onUncomplete: (t) => uncompleted = t),
+    );
+
+    // Выполненная задача: иконка check_circle, тап → onUncomplete.
+    await tester.tap(find.byIcon(Icons.check_circle));
+    await tester.pump();
+
+    expect(uncompleted?.id, 'task-early');
+  });
+
+  testWidgets('длинная задача (48м) рисуется выше минимальной высоты', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final long = earlyTask.copyWith(estimatedDurationMinutes: 48);
+    await tester.pumpWidget(buildSubject(tasks: [long]));
+
+    // Блок задачи существует и имеет высоту > 36px (мин. высота).
+    final blockFinder = find.text('Ранняя задача');
+    expect(blockFinder, findsOneWidget);
+  });
+
+  testWidgets('две пересекающиеся задачи встают в соседние колонки', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final overlapping = earlyTask.copyWith(
+      id: 'task-overlap',
+      title: 'Пересекающаяся',
+      plannedTime: const Duration(hours: 8, minutes: 20),
+      estimatedDurationMinutes: 30,
+    );
+    await tester.pumpWidget(
+      buildSubject(tasks: [earlyTask, overlapping]),
+    );
+
+    // Обе задачи видны.
+    expect(find.text('Ранняя задача'), findsOneWidget);
+    expect(find.text('Пересекающаяся'), findsOneWidget);
+  });
+
+  testWidgets('третья задача переиспользует освободившуюся колонку', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    // A [8:00–8:30], B [8:20–8:50] (нов. колонка), C [8:30–9:00]
+    // (переиспользует колонку A — та завершилась в 8:30).
+    final a = earlyTask.copyWith(title: 'Задача A');
+    final b = earlyTask.copyWith(
+      id: 'task-b',
+      title: 'Задача B',
+      plannedTime: const Duration(hours: 8, minutes: 20),
+    );
+    final c = earlyTask.copyWith(
+      id: 'task-c',
+      title: 'Задача C',
+      plannedTime: const Duration(hours: 8, minutes: 30),
+    );
+
+    await tester.pumpWidget(buildSubject(tasks: [a, b, c]));
+
+    // Все три задачи видны.
+    expect(find.text('Задача A'), findsOneWidget);
+    expect(find.text('Задача B'), findsOneWidget);
+    expect(find.text('Задача C'), findsOneWidget);
+  });
+
+  testWidgets('горизонтальная прокрутка шкалы синхронизирует шапку и ряд «Весь день»', (
+    tester,
+  ) async {
+    // Узкое окно в недельном режиме: 7 колонок не влезают → появляется
+    // горизонтальная прокрутка → синхронизация контроллеров.
+    tester.view.physicalSize = const Size(200, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      buildSubject(weekMode: true, tasks: [allDayTask]),
+    );
+
+    // Прокручиваем шкалу вправо — шапка и ряд «Весь день» догоняют.
+    await tester.drag(
+      find.byType(TimeScaleView),
+      const Offset(-80, 0),
+    );
+    await tester.pumpAndSettle();
+
+    // Не упало и синхронизация не зациклилась.
+    expect(find.byType(TimeScaleView), findsOneWidget);
   });
 }

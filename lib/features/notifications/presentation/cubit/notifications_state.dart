@@ -28,8 +28,6 @@ final class NotificationsLoaded extends NotificationsState {
   int get unreadCount =>
       items.where((item) => !readIds.contains(item.id)).length;
 
-  bool isRead(NotificationItem item) => readIds.contains(item.id);
-
   @override
   List<Object?> get props => [items, readIds];
 }

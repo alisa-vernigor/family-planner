@@ -12,6 +12,10 @@ class _MockConnectivity extends Mock implements Connectivity {
 
   void emit(List<ConnectivityResult> results) => _controller.add(results);
 
+  void addError(Object error) => _controller.addError(error);
+
+  void closeStream() => _controller.close();
+
   @override
   Future<List<ConnectivityResult>> checkConnectivity() async => checkResult;
 
@@ -92,5 +96,16 @@ void main() {
     expect(values, [false, true]);
 
     await sub.cancel();
+  });
+
+  test('ошибка в потоке платформы не роняет сервис', () async {
+    await Future<void>.delayed(Duration.zero);
+    expect(service.currentOnline, isTrue);
+
+    // Добавляем ошибку в поток — onError не должен бросать исключение.
+    fakeConnectivity.addError(Exception('channel closed'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(service.currentOnline, isTrue);
   });
 }
